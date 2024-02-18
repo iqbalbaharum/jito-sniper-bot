@@ -1,0 +1,32 @@
+{
+  "name": "sniping_bot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "bot:v2": "ts-node src/v2.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^20.11.19",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "@raydium-io/raydium-sdk": "^1.3.1-beta.48",
+    "@solana/spl-token": "^0.4.0",
+    "@solana/web3.js": "^1.90.0",
+    "@types/atomic-sleep": "^1.0.1",
+    "@types/bn.js": "^5.1.5",
+    "@types/convict": "^6.1.6",
+    "atomic-sleep": "^1.0.0",
+    "bs58": "^5.0.0",
+    "convict": "^6.2.4",
+    "decimal.js": "^10.4.3",
+    "dotenv": "^16.4.4",
+    "jito-ts": "^3.0.1"
+  }
+}
