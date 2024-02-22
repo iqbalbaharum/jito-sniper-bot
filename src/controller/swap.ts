@@ -82,8 +82,8 @@ const swap = async (
 		payerKey: payer.publicKey,
 		recentBlockhash: blockhash as string,
 		instructions: [
-			ComputeBudgetProgram.setComputeUnitLimit({ units: 101010 }),
-			ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 100000 }),
+			ComputeBudgetProgram.setComputeUnitLimit({ units: 171337 }),
+			ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 291820 }),
 			...startInstructions,
 			...innerTransaction.instructions,
 		],

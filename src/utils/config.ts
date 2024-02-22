@@ -33,6 +33,31 @@ const config = convict({
         format: String,
         default: 'processed',
         env: 'DEFAULT_COMMITMENT'
+    },
+    helius_api_key: {
+        format: String,
+        default: '',
+        env: 'HELIUS_API_KEY'
+    },
+    token_purchase_in_sol: {
+        format: Number,
+        default: 0.0001,
+        env: 'TOKEN_PURCHASE_IN_SOL'
+    },
+    min_sol_trigger: {
+        format: Number,
+        default: 0.01,
+        env: 'MIN_SOL_TRIGGER'
+    },
+    log_level: {
+        format: String,
+        default: 'info',
+        env: 'LOG_LEVEL'
+    },
+    bot_name: {
+        format: String,
+        default: '',
+        env: 'BOT_NAME'
     }
 })
 

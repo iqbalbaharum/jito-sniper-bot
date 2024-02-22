@@ -11,8 +11,8 @@ import { onBundleResult, submitBundle } from "./controller/bundle";
 import { fastTrackSearcherClient } from "./adapter/jito";
 
 const onExecute = async (accountId: PublicKey, accountData: LiquidityStateV4) => {
-	onBundleResult(fastTrackSearcherClient)
-	
+	onBundleResult()
+
 	try {
     let { ata } = await getWSOLTokenAccount(true);
 
@@ -37,7 +37,7 @@ const onExecute = async (accountId: PublicKey, accountData: LiquidityStateV4) =>
       latestBlockhash.blockhash
     );
 
-		await submitBundle(fastTrackSearcherClient, inTx)
+		await submitBundle(inTx)
 
     // await sleep(5000);
 
@@ -61,7 +61,7 @@ const onExecute = async (accountId: PublicKey, accountData: LiquidityStateV4) =>
 
     const { transaction: outTx } = await swap(poolKeys, 'out', ata, amount);
 
-		await submitBundle(fastTrackSearcherClient, outTx)
+		await submitBundle(outTx)
   } catch (e) {
     console.log(e);
   }
@@ -88,12 +88,6 @@ const runListener = () => {
     config.get('default_commitment') as Commitment,
     [
       { dataSize: LIQUIDITY_STATE_LAYOUT_V4.span },
-      {
-        memcmp: {
-          offset: LIQUIDITY_STATE_LAYOUT_V4.offsetOf('quoteMint'),
-          bytes: WSOL_ADDRESS,
-        },
-      },
       {
         memcmp: {
           offset: LIQUIDITY_STATE_LAYOUT_V4.offsetOf('marketProgramId'),
