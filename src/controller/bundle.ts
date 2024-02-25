@@ -7,61 +7,56 @@ import { config } from "../utils/config";
 import { fastTrackSearcherClient } from "../adapter/jito";
 import { SearcherClient } from "jito-ts/dist/sdk/block-engine/searcher";
 import { logger } from "../utils/logger";
+import { ArbIdea } from "../types";
+import { BN } from "bn.js";
+import { BundleInTransit } from "../types/bundleInTransit";
 
-const submitBundle = async (transaction: VersionedTransaction) => {
-    const tipAddress = await getJitoTipAccount()
-    const tipAccount = new PublicKey(tipAddress)
-    
-    const resp = await connection.getLatestBlockhash(config.get('default_commitment') as Commitment);
+const submitBundle = async (arb: ArbIdea) => {
+  const tipAddress = await getJitoTipAccount()
+  const tipAccount = new PublicKey(tipAddress)
+  
+  const resp = await connection.getLatestBlockhash(config.get('default_commitment') as Commitment);
 
-    const bundle = new Bundle([transaction], 5)
+  const bundle = new Bundle([arb.vtransaction], 5)
 
-    bundle.addTipTx(
-        payer,
-        0.001 * LAMPORTS_PER_SOL,
-        tipAccount,
-        resp.blockhash
-    )
+  const TIP_PERCENT = config.get('tip_percent')
+  let expectedProfitLamport = config.get('default_tip_in_sol') * LAMPORTS_PER_SOL
+  
+  // if(!arb.expectedProfit.isZero() && arb.expectedProfit.toNumber() > config.get('min_sol_trigger')) {
+  //   expectedProfitLamport = arb.expectedProfit.mul(new BN(TIP_PERCENT)).div(new BN(100)).toNumber()
+  // }
 
-    const bundleId = 
-    await fastTrackSearcherClient.sendBundle(bundle)
-    console.log(bundleId)
+  bundle.addTipTx(
+      payer,
+      expectedProfitLamport,
+      tipAccount,
+      resp.blockhash
+  )
+  
+  const bundleId = await fastTrackSearcherClient.sendBundle(bundle)
+  logger.info(`Sending bundle ${bundleId}`)
+  return bundleId
 }
 
-const onBundleResult = () => {
-    fastTrackSearcherClient.onBundleResult(
-        (bundleResult) => {
-          const bundleId = bundleResult.bundleId;
-          const isAccepted = bundleResult.accepted;
-          const isRejected = bundleResult.rejected;
-          if (isAccepted) {
-            logger.info(
-              `Bundle ${bundleId} accepted in slot ${bundleResult.accepted?.slot}`,
-            );
-            // if (bundlesInTransit.has(bundleId)) {
-            //   bundlesInTransit.get(bundleId).accepted += 1;
-            // }
-          }
-          if (isRejected) {
-            logger.info(bundleResult.rejected, `Bundle ${bundleId} rejected:`);
-            // if (bundlesInTransit.has(bundleId)) {
-            //   const trade: Trade = bundlesInTransit.get(bundleId);
-            //   trade.rejected = true;
-            //   const rejectedEntry = Object.entries(bundleResult.rejected).find(
-            //     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            //     ([_, value]) => value !== undefined,
-            //   );
-            //   const [errorType, errorContent] = rejectedEntry;
-            //   trade.errorType = errorType;
-            //   trade.errorContent = JSON.stringify(errorContent);
-            // }
-          }
-        },
-        (error) => {
-          logger.error(error);
-          throw error;
-        },
-      );
-  };
+const onDefaultBundleResult = () => {
+  fastTrackSearcherClient.onBundleResult(
+    (bundleResult) => {
+      const bundleId = bundleResult.bundleId;
+      const isAccepted = bundleResult.accepted;
+      const isRejected = bundleResult.rejected;
+      if (isAccepted) {
+        logger.info(
+          `Bundle ${bundleId} accepted in slot ${bundleResult.accepted?.slot}`,
+        );
+      }
+      if (isRejected) {
+        logger.info(bundleResult.rejected, `Bundle ${bundleId} rejected:`);
+      }
+    },
+    (error) => {
+      logger.error(error);
+    },
+  );
+};
 
-export { submitBundle, onBundleResult }
+export { submitBundle, onDefaultBundleResult }

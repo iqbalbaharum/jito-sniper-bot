@@ -4,17 +4,16 @@ import { LIQUIDITY_STATE_LAYOUT_V4, Liquidity, LiquidityStateV4, parseBigNumberi
 import BN from "bn.js";
 import { OPENBOOK_V1_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, WSOL_ADDRESS } from "./utils/const";
 import { config } from "./utils/config";
-import { getWSOLTokenAccount } from "./controller/tokenaccount";
-import { getAccountPoolKeysFromAccountDataV4, getTokenInWallet, swap } from "./controller";
+import { setupWSOLTokenAccount } from "./controller/tokenaccount";
+import { getAccountPoolKeysFromAccountDataV4, getTokenInWallet, swap, swapExactIn } from "./controller";
 import sleep from "atomic-sleep";
-import { onBundleResult, submitBundle } from "./controller/bundle";
+import { onDefaultBundleResult, submitBundle } from "./controller/bundle";
 import { fastTrackSearcherClient } from "./adapter/jito";
+import { ArbIdea } from "./types";
 
 const onExecute = async (accountId: PublicKey, accountData: LiquidityStateV4) => {
-	onBundleResult()
-
 	try {
-    let { ata } = await getWSOLTokenAccount(true);
+    let { ata } = await setupWSOLTokenAccount(true, 0.1);
 
     const [poolKeys, latestBlockhash] = await Promise.all([
       getAccountPoolKeysFromAccountDataV4(accountId, accountData),
@@ -29,15 +28,18 @@ const onExecute = async (accountId: PublicKey, accountData: LiquidityStateV4) =>
       return;
     }
     // Buy
-    const { transaction: inTx } = await swap(
+    // TODO
+    const { transaction: inTx, minAmountOut, amountOut } = await swapExactIn(
       poolKeys,
-      'in',
 			ata,
       0.001 * LAMPORTS_PER_SOL,
       latestBlockhash.blockhash
     );
 
-		await submitBundle(inTx)
+		await submitBundle({
+      vtransaction: inTx,
+      expectedProfit: new BN(0)
+    })
 
     // await sleep(5000);
 
@@ -61,7 +63,10 @@ const onExecute = async (accountId: PublicKey, accountData: LiquidityStateV4) =>
 
     const { transaction: outTx } = await swap(poolKeys, 'out', ata, amount);
 
-		await submitBundle(outTx)
+		await submitBundle({
+      vtransaction: outTx,
+      expectedProfit: new BN(0)
+    })
   } catch (e) {
     console.log(e);
   }
@@ -101,3 +106,4 @@ const runListener = () => {
 }
 
 runListener()
+onDefaultBundleResult()

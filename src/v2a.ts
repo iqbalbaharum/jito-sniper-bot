@@ -4,14 +4,15 @@ import { BigNumberish, LIQUIDITY_STATE_LAYOUT_V4, Liquidity, LiquidityPoolKeys, 
 import BN from "bn.js";
 import { OPENBOOK_V1_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, WSOL_ADDRESS } from "./utils/const";
 import { config } from "./utils/config";
-import { getWSOLTokenAccount } from "./controller/tokenaccount";
+import { setupWSOLTokenAccount } from "./controller/tokenaccount";
 import { getAccountPoolKeysFromAccountDataV4, getLiquidityMintState, getTokenInWallet, swap } from "./controller";
 import sleep from "atomic-sleep";
-import { onBundleResult, submitBundle } from "./controller/bundle";
+import { submitBundle } from "./controller/bundle";
 import { fastTrackSearcherClient } from "./adapter/jito";
-import { BotLiquidityState } from "./types";
+import { ArbIdea, BotLiquidityState } from "./types";
 import { getTokenMintFromSignature } from "./controller/transaction";
 import { logger } from "./utils/logger";
+import { BundleInTransit } from "./types/bundleInTransit";
 
 let trackedLiquidityPool: Set<string> = new Set<string>()
 let removedLiquidityPool: Set<string> = new Set<string>()
@@ -23,6 +24,7 @@ let mints: Map<string, BotLiquidityState> = new Map<
   BotLiquidityState
 >();
 let tokenBalances: Map<string, BN> = new Map<string, BN>()
+let bundleInTransit: Map<string, BundleInTransit> = new Map<string, BundleInTransit>()
 
 const getBalance = async (mint: PublicKey, poolKeys: LiquidityPoolKeysV4): Promise<BN> => {
   let balance = tokenBalances.get(mint.toBase58())
@@ -40,6 +42,27 @@ const getBalance = async (mint: PublicKey, poolKeys: LiquidityPoolKeysV4): Promi
 
   return balance!
 }
+
+const onBundleResult = () => {
+  fastTrackSearcherClient.onBundleResult(
+    (bundleResult) => {
+      const bundleId = bundleResult.bundleId;
+      const isAccepted = bundleResult.accepted;
+      const isRejected = bundleResult.rejected;
+      if (isAccepted) {
+        if(bundleInTransit.has(bundleId)) {
+          const bundle = bundleInTransit.get(bundleId)
+          logger.info(`Listening for token ${bundle!.mint.toBase58()} activities`)
+          trackedPoolKeys.set(bundle!.mint.toBase58(), bundle!.poolKeys)
+          mints.set(bundle!.mint.toBase58(), bundle!.state)
+        }
+      }
+    },
+    (error) => {
+      logger.error(error);
+    },
+  );
+};
 
 const listenToLPRemoved = () => {
   const subscriptionId = connection.onLogs(
@@ -71,31 +94,51 @@ const listenToLPRemoved = () => {
   );
 }
 
-const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BigNumberish) => {
-  const { transaction: inTx } = await swap(
+const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BigNumberish, expectedProfit: BN): Promise<string> => {
+  const { transaction } = await swap(
     keys,
     'in',
     ata,
     amount
   );
+  
+  let expected = new BN(0)
+  if(!expectedProfit.isZero()) {
+    expected = expectedProfit
+  }
 
-  await submitBundle(inTx)
+  const arb: ArbIdea = {
+    vtransaction: transaction,
+    expectedProfit: expected
+  }
+
+  return await submitBundle(arb)
 }
 
-const sellToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BigNumberish) => {
-  const { transaction: inTx } = await swap(
+const sellToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BigNumberish, expectedProfit: BN) => {
+  const { transaction } = await swap(
     keys,
     'out',
     ata,
     amount
   );
+  
+  let expected = new BN(0)
+  if(!expectedProfit.isZero()) {
+    expected = expectedProfit
+  }
 
-  await submitBundle(inTx)
+  const arb: ArbIdea = {
+    vtransaction: transaction,
+    expectedProfit: expected
+  }
+
+  return await submitBundle(arb)
 }
 
 const runListener = async () => {
-  const { ata } = await getWSOLTokenAccount(true)
-
+  const { ata } = await setupWSOLTokenAccount(true, 0.1)
+  
   const subscriptionId = connection.onProgramAccountChange(
     new PublicKey(RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS),
     async (updatedAccountInfo: KeyedAccountInfo) => {
@@ -134,7 +177,7 @@ const runListener = async () => {
           return
         }
         
-        if(SOLIn.isZero()) {
+        if(SOLIn.isZero() || SOLOut.isZero()) {
           if(!trackedLiquidityPool.has(state.mint.toBase58())) {
             trackedLiquidityPool.add(state.mint.toBase58())
             const poolKeys = await getAccountPoolKeysFromAccountDataV4(
@@ -143,10 +186,15 @@ const runListener = async () => {
             )
             
             logger.info(new Date(), `BUY ${state.mint.toBase58()}`)
-            await buyToken(poolKeys, ata, config.get('token_purchase_in_sol') * LAMPORTS_PER_SOL)
-            
             trackedPoolKeys.set(state.mint.toBase58(), poolKeys)
             mints.set(state.mint.toBase58(), state)
+            let bundleId = await buyToken(poolKeys, ata, config.get('token_purchase_in_sol') * LAMPORTS_PER_SOL, new BN(0 * LAMPORTS_PER_SOL))
+            bundleInTransit.set(bundleId, {
+              mint: state.mint,
+              timestamp: new Date().getTime(),
+              poolKeys,
+              state
+            })
           }
         } else {
           let tokenMint = state.isMintBase ? accountData.baseMint : accountData.quoteMint
@@ -160,12 +208,17 @@ const runListener = async () => {
               
               const key = trackedPoolKeys.get(tokenMint.toBase58())
               const balance = await getBalance(tokenMint, key!)
-              if(solInDiff > config.get('min_sol_trigger')) {
+              if(
+                  !botState.lastWSOLInAmount.isZero() && 
+                  !SOLIn.sub(botState.lastWSOLInAmount).isZero() && 
+                  solInDiff > config.get('min_sol_trigger')
+                ) {
+                logger.info(`Someone purchase ${state.mint.toBase58()} with ${solInDiff} | min: ${config.get('min_sol_trigger')}`)
                 logger.info(new Date(), `SELL ${state.mint.toBase58()}`)
-                await sellToken(key as LiquidityPoolKeysV4, ata, balance.mul(new BN(10 ** state.mintDecimal))) 
+                await sellToken(key as LiquidityPoolKeysV4, ata, balance.mul(new BN(10 ** state.mintDecimal)), new BN(solInDiff * LAMPORTS_PER_SOL)) 
               }
 
-              botState.lastWSOLInAmount = new BN(SOLIn.toString());
+              botState.lastWSOLInAmount = SOLIn;
               botState.lastWSOLOutAmount = new BN(SOLOut.toString());
               botState.lastTokenInAmount = new BN(tokenIn.toString());
               botState.lastTokenOutAmount = new BN(tokenOut.toString());

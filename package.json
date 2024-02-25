@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "bot:v2": "ts-node src/v2.ts",
-    "bot:v2a": "ts-node src/v2a.ts"
+    "bot:v2a": "ts-node src/v2a.ts",
+    "bot:v2a2": "ts-node src/v2a2.ts",
+    "build": "tsc -p tsconfig.json"
   },
   "keywords": [],
   "author": "",
@@ -30,6 +32,7 @@
     "dotenv": "^16.4.4",
     "jito-ts": "^3.0.1",
     "pino": "^8.19.0",
-    "pino-pretty": "^10.3.1"
+    "pino-pretty": "^10.3.1",
+    "tslib": "^2.6.2"
   }
 }

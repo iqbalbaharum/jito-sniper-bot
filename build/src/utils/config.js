@@ -1,8 +1,11 @@
-import convict from 'convict'
-import * as dotenv from 'dotenv'
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.config = void 0;
+const tslib_1 = require("tslib");
+const convict_1 = tslib_1.__importDefault(require("convict"));
+const dotenv = tslib_1.__importStar(require("dotenv"));
 dotenv.config();
-
-const config = convict({
+const config = (0, convict_1.default)({
     http_rpc_url: {
         format: String,
         default: 'https://api.mainnet-beta.solana.com',
@@ -69,8 +72,7 @@ const config = convict({
         default: '',
         env: 'BOT_NAME'
     }
-})
-
-config.validate({ allowed: 'strict' })
-
-export {config}
+});
+exports.config = config;
+config.validate({ allowed: 'strict' });
+//# sourceMappingURL=config.js.map

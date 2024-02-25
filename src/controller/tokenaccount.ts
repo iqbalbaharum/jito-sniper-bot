@@ -1,6 +1,6 @@
-import Spl, { getAssociatedTokenAddress, ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID, createAssociatedTokenAccountInstruction, NATIVE_MINT } from '@solana/spl-token'
+import Spl, { getAssociatedTokenAddress, ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID, createAssociatedTokenAccountInstruction, NATIVE_MINT, createSyncNativeInstruction } from '@solana/spl-token'
 import { connection } from '../adapter/rpc';
-import { Commitment, PublicKey, TransactionInstruction } from '@solana/web3.js';
+import { Commitment, LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction, TransactionInstruction, sendAndConfirmTransaction } from '@solana/web3.js';
 import { payer } from '../adapter/payer';
 import { SPL_ACCOUNT_LAYOUT } from '@raydium-io/raydium-sdk';
 import { config } from '../utils/config';
@@ -40,7 +40,7 @@ const getOrCreateTokenAccount = async (
       };
   };
 
-  const getWSOLTokenAccount = async (check = true) : Promise<{ ata: PublicKey }> => {
+  const setupWSOLTokenAccount = async (check = true, amount: number) : Promise<{ ata: PublicKey }> => {
     let ata = await getAssociatedTokenAddress(
         NATIVE_MINT,
         payer.publicKey,
@@ -53,8 +53,35 @@ const getOrCreateTokenAccount = async (
       const ataInfo = await connection.getAccountInfo(ata);
   
       if (ataInfo === null) {
-        throw new Error(`Please run 'node open-wsol-token-account.js' before executing this`)
+        let ataTx = new Transaction();
+        ataTx.add(
+          createAssociatedTokenAccountInstruction(
+            payer.publicKey,
+            ata,
+            payer.publicKey,
+            NATIVE_MINT,
+            TOKEN_PROGRAM_ID,
+            ASSOCIATED_TOKEN_PROGRAM_ID
+          )
+        );
+        ataTx.feePayer = payer.publicKey;
+    
+        await sendAndConfirmTransaction(connection, ataTx, [payer]);
       }
+    }
+
+    let balance = await connection.getBalance(ata);
+    if (balance < amount * LAMPORTS_PER_SOL) {
+      let solTx = new Transaction().add(
+        SystemProgram.transfer({
+          fromPubkey: payer.publicKey,
+          toPubkey: ata,
+          lamports: (amount - balance / LAMPORTS_PER_SOL) * LAMPORTS_PER_SOL,
+        }),
+        createSyncNativeInstruction(ata)
+      );
+  
+      await sendAndConfirmTransaction(connection, solTx, [payer]);
     }
   
     return { ata };
@@ -81,4 +108,4 @@ const getOrCreateTokenAccount = async (
     return accounts;
   };
 
-  export { getOrCreateTokenAccount, getWSOLTokenAccount, getTokenAccountsByOwner }
+  export { getOrCreateTokenAccount, setupWSOLTokenAccount, getTokenAccountsByOwner }
