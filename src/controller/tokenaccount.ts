@@ -108,4 +108,8 @@ const getOrCreateTokenAccount = async (
     return accounts;
   };
 
-  export { getOrCreateTokenAccount, setupWSOLTokenAccount, getTokenAccountsByOwner }
+  export { 
+    getOrCreateTokenAccount,
+    setupWSOLTokenAccount,
+    getTokenAccountsByOwner 
+  }

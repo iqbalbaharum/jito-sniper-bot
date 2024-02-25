@@ -115,12 +115,12 @@ const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BigNu
   return await submitBundle(arb)
 }
 
-const sellToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BigNumberish, expectedProfit: BN) => {
+const sellToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BN, expectedProfit: BN) => {
   const { transaction } = await swap(
     keys,
     'out',
     ata,
-    amount
+    amount.div(new BN(2))
   );
   
   let expected = new BN(0)
@@ -189,6 +189,8 @@ const runListener = async () => {
             trackedPoolKeys.set(state.mint.toBase58(), poolKeys)
             mints.set(state.mint.toBase58(), state)
             let bundleId = await buyToken(poolKeys, ata, config.get('token_purchase_in_sol') * LAMPORTS_PER_SOL, new BN(0 * LAMPORTS_PER_SOL))
+            // transfer the amount back
+            // checkAndConvertWSOL(config.get('token_purchase_in_sol'))
             bundleInTransit.set(bundleId, {
               mint: state.mint,
               timestamp: new Date().getTime(),
@@ -215,7 +217,7 @@ const runListener = async () => {
                 ) {
                 logger.info(`Someone purchase ${state.mint.toBase58()} with ${solInDiff} | min: ${config.get('min_sol_trigger')}`)
                 logger.info(new Date(), `SELL ${state.mint.toBase58()}`)
-                await sellToken(key as LiquidityPoolKeysV4, ata, balance.mul(new BN(10 ** state.mintDecimal)), new BN(solInDiff * LAMPORTS_PER_SOL)) 
+                await sellToken(key as LiquidityPoolKeysV4, ata, balance.mul(new BN(10 ** state.mintDecimal)), new BN(solInDiff * LAMPORTS_PER_SOL))
               }
 
               botState.lastWSOLInAmount = SOLIn;
