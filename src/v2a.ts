@@ -137,7 +137,7 @@ const sellToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BN, 
 }
 
 const runListener = async () => {
-  const { ata } = await setupWSOLTokenAccount(true, 0.1)
+  const { ata } = await setupWSOLTokenAccount(true, 0.01)
   
   const subscriptionId = connection.onProgramAccountChange(
     new PublicKey(RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS),
