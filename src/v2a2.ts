@@ -147,7 +147,7 @@ const checkNewLP = (tx: VersionedTransaction, ins: MessageCompiledInstruction) =
   if (ins.data[0] == 1 && ins.data[1] == 254) {
     const now = new Date().toISOString();
     logger.info(`tx sig: ${bs58.encode(tx.signatures[0])}`)
-    logger.info("tx ins new lp: ", ins, ins.data)
+    console.log("tx ins new lp: ", ins, ins.data)
   }
 }
 
@@ -159,13 +159,13 @@ const checkRemoveLP = (tx: VersionedTransaction, ins: MessageCompiledInstruction
   if (ins.data[0] == 4 && foundAcc != undefined && foundAcc.toString() == TOKEN_PROGRAM_ID.toBase58()) {
     const now = new Date().toISOString();
     logger.info(`tx sig: ${bs58.encode(tx.signatures[0])}`)
-    logger.info("tx ins remove lp: ", tx.message.staticAccountKeys, ins, ins.data)
+    console.log("tx ins remove lp: ", tx.message.staticAccountKeys, ins, ins.data)
     logger.info("tx ins found: ", accKeyIdx, foundAcc)
   }
 }
 
 const runListener = async () => {
-  const { ata } = await setupWSOLTokenAccount(true, 0.1)
+  // const { ata } = await setupWSOLTokenAccount(true, 0.1)
   
   fastTrackSearcherClient.onProgramUpdate(
     [new PublicKey(RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS)],

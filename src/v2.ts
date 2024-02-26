@@ -17,7 +17,7 @@ const onExecute = async (accountId: PublicKey, accountData: LiquidityStateV4) =>
 
     const [poolKeys, latestBlockhash] = await Promise.all([
       getAccountPoolKeysFromAccountDataV4(accountId, accountData),
-      connection.getLatestBlockhash({ commitment: config.get('default_commitment') as Commitment }),
+      connection.getLatestBlockhash({ commitment: 'confirmed' }),
     ]);
 
     const poolInfo = await Liquidity.fetchInfo({ connection, poolKeys });

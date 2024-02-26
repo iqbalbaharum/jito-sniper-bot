@@ -25,7 +25,7 @@ const swap = async (
 
 	if(!blockhash) {
 		const block = await connection.getLatestBlockhash({
-				commitment: config.get('default_commitment') as Commitment
+				commitment: 'confirmed'
 		})
 		blockhash = block.blockhash
 	}
@@ -126,7 +126,7 @@ const swapExactIn = async (
 	
 		if(!blockhash) {
 			const block = await connection.getLatestBlockhash({
-					commitment: config.get('default_commitment') as Commitment
+					commitment: 'confirmed'
 			})
 			blockhash = block.blockhash
 		}

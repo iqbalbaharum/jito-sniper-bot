@@ -19,15 +19,12 @@ const getTokenInWallet = async (poolKeys: LiquidityPoolKeys) : Promise<TokenAcco
 	const balanceArray = await accs
 		.filter((acc) => acc.accountInfo.mint.toBase58() === mint.toBase58())
 		.map(async (acc) => {
-			console.log(acc.pubkey)
 			const accBalance = await connection.getTokenAccountBalance(acc.pubkey);
-			console.log(accBalance)
 			const balance = accBalance.value.uiAmount || 0;
 			return { mint: acc.accountInfo.mint, balance };
 		});
 
 	const resolvedBalances = await Promise.all(balanceArray);
-	console.log(resolvedBalances)
 	return resolvedBalances;
 }
 

@@ -15,7 +15,7 @@ const submitBundle = async (arb: ArbIdea) => {
   const tipAddress = await getJitoTipAccount()
   const tipAccount = new PublicKey(tipAddress)
   
-  const resp = await connection.getLatestBlockhash(config.get('default_commitment') as Commitment);
+  const resp = await connection.getLatestBlockhash('confirmed');
 
   const bundle = new Bundle([arb.vtransaction], 5)
 
