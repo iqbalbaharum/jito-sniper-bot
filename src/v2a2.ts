@@ -14,7 +14,11 @@ import { getTokenMintFromSignature } from "./controller/transaction";
 import { logger } from "./utils/logger";
 import { BundleInTransit } from "./types/bundleInTransit";
 import bs58 from 'bs58'
-import { TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
+import { TOKEN_2022_PROGRAM_ID, TokenInstruction } from "@solana/spl-token";
+import { BorshCoder, Idl } from "@coral-xyz/anchor";
+import raydiumIDL from './idl/raydiumAmm.json'
+import { RaydiumAmmCoder } from "./utils/coder";
+import { IxSwapBaseIn } from "./utils/coder/layout";
 
 let trackedLiquidityPool: Set<string> = new Set<string>()
 let removedLiquidityPool: Set<string> = new Set<string>()
@@ -143,11 +147,19 @@ const sellToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BigN
   return await submitBundle(arb)
 }
 
-const checkNewLP = (tx: VersionedTransaction, ins: MessageCompiledInstruction) => {
-  if (ins.data[0] == 1 && ins.data[1] == 254) {
+const swapBaseIn = (data: IxSwapBaseIn) => {
+  const { amountIn, minimumAmountOut } = data;
+  // logger.info(`ammId: ${tx.message.staticAccountKeys[9].toBase58()}`)
+
+  logger.info(`amountIn: ${new BN(amountIn).toNumber() / LAMPORTS_PER_SOL} SOL`)
+  logger.info(`minAmountOut: ${new BN(minimumAmountOut).toString()}`)
+}
+
+const checkSwap = (tx: VersionedTransaction, ins: MessageCompiledInstruction) => {
+  if (ins.accountKeyIndexes.length === 20) {
     const now = new Date().toISOString();
     logger.info(`tx sig: ${bs58.encode(tx.signatures[0])}`)
-    console.log("tx ins new lp: ", ins, ins.data)
+    console.log("tx ins new lp: ", ins, ins.data) 
   }
 }
 
@@ -167,21 +179,39 @@ const checkRemoveLP = (tx: VersionedTransaction, ins: MessageCompiledInstruction
 const runListener = async () => {
   // const { ata } = await setupWSOLTokenAccount(true, 0.1)
   
-  fastTrackSearcherClient.onProgramUpdate(
-    [new PublicKey(RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS)],
-    [],
-    (transactions: VersionedTransaction[]) => {
-      transactions.map(tx => {
-        for (let ins of tx.message.compiledInstructions) {
-          checkNewLP(tx, ins)
-          checkRemoveLP(tx, ins)
-        }
-      })
-    },
-    (e: any) => {
-      console.log(e)
-    }
-  )
+  const coder = new RaydiumAmmCoder(raydiumIDL as Idl)
+  
+  try {
+    fastTrackSearcherClient.onProgramUpdate(
+      [new PublicKey(RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS)],
+      [],
+      (transactions: VersionedTransaction[]) => {
+        transactions.map(tx => {
+          for (let ins of tx.message.compiledInstructions) {
+            if(ins.data.length > 0 && tx.message.staticAccountKeys[ins.programIdIndex].toBase58() === RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS) {
+              const decodedIx = coder.instruction.decode(Buffer.from(ins.data))
+              if(decodedIx.hasOwnProperty('swapBaseIn')) {
+                logger.info(`tx sig: ${bs58.encode(tx.signatures[0])}`)
+                const effectiveAddresses = ins.accountKeyIndexes.map(index => {
+                  return tx.message.staticAccountKeys[index];
+                });
+            
+                // Use effectiveAddresses as needed
+                console.log("Effective Addresses:", tx.message.staticAccountKeys[1]);
+                swapBaseIn((decodedIx as any).swapBaseIn)
+              }
+            }
+          }
+        })
+      },
+      (e: any) => {
+        console.log(e)
+      }
+    )
+  } catch(e) {
+    console.log(e)
+  }
+
   // const subscriptionId = connection.onProgramAccountChange(
   //   new PublicKey(RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS),
   //   async (updatedAccountInfo: KeyedAccountInfo) => {
