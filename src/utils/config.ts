@@ -68,7 +68,17 @@ const config = convict({
         format: String,
         default: '',
         env: 'BOT_NAME'
-    }
+    },
+    triton_one_url: {
+        format: String,
+        default: '',
+        env: 'TRITON_ONE_URL'
+    },
+    triton_one_api_key: {
+        format: String,
+        default: '',
+        env: 'TRITON_ONE_API_KEY'
+    },
 })
 
 config.validate({ allowed: 'strict' })

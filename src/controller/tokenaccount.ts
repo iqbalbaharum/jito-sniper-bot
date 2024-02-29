@@ -5,6 +5,55 @@ import { payer } from '../adapter/payer';
 import { SPL_ACCOUNT_LAYOUT } from '@raydium-io/raydium-sdk';
 import { config } from '../utils/config';
 
+export type BotTA = {
+  ata: PublicKey,
+  instructions: TransactionInstruction[]
+}
+
+export class BotTokenAccount {
+
+  /**
+   * Get associated token account under TOKEN_PROGRAM_ID
+   * Optionally able to create new token account if it does not existed
+   * @param mint 
+   * @param create 
+   * @returns 
+   */
+  static getOrCreateTokenAccountInstruction = async (
+    mint: PublicKey,
+    create = false
+  ) : Promise<BotTA> => {
+    let instructions: TransactionInstruction[] = [];
+    let ata = await getAssociatedTokenAddress(
+        mint,
+        payer.publicKey,
+        false,
+        TOKEN_PROGRAM_ID,
+        ASSOCIATED_TOKEN_PROGRAM_ID
+      );
+  
+      const ataInfo = await connection.getAccountInfo(ata);
+  
+      if (create && !ataInfo) {
+        instructions.push(
+          createAssociatedTokenAccountInstruction(
+            payer.publicKey,
+            ata,
+            payer.publicKey,
+            mint,
+            TOKEN_PROGRAM_ID,
+            ASSOCIATED_TOKEN_PROGRAM_ID
+          )
+        );
+      }
+  
+      return {
+        ata,
+        instructions
+      };
+  };
+}
+
 const getOrCreateTokenAccount = async (
     mint: PublicKey,
     create = false
