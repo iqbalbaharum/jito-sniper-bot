@@ -4,13 +4,13 @@ import { BigNumberish, LIQUIDITY_STATE_LAYOUT_V4, Liquidity, LiquidityPoolKeys, 
 import BN from "bn.js";
 import { OPENBOOK_V1_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, WSOL_ADDRESS } from "./utils/const";
 import { config } from "./utils/config";
-import { setupWSOLTokenAccount } from "./controller/tokenaccount";
-import { getAccountPoolKeysFromAccountDataV4, getLiquidityMintState, getTokenInWallet, swap } from "./controller";
+import { setupWSOLTokenAccount } from "./services/tokenaccount";
+import { getAccountPoolKeysFromAccountDataV4, getLiquidityMintState, getTokenInWallet, swap } from "./services";
 import sleep from "atomic-sleep";
-import { submitBundle } from "./controller/bundle";
+import { submitBundle } from "./services/bundle";
 import { fastTrackSearcherClient } from "./adapter/jito";
 import { ArbIdea, BotLiquidityState } from "./types";
-import { getTokenMintFromSignature } from "./controller/transaction";
+import { getTokenMintFromSignature } from "./services/transaction";
 import { logger } from "./utils/logger";
 import { BundleInTransit } from "./types/bundleInTransit";
 import Client, { CommitmentLevel, SubscribeRequest } from "@triton-one/yellowstone-grpc";
@@ -248,22 +248,22 @@ const runListener = async () => {
 		});
 
 		const request = {
-			"slots": {
-				"slots": {}
+			slots: {
+				slots: {}
 			},
-			"accounts": {
-				"raydium": {
-					"owner": ["675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8"],
-					"account": [],
-					"filters": []
+			accounts: {
+				raydium: {
+					owner: ["675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8"],
+					account: [],
+					filters: []
 				}
 			},
-			"transactions": {},
-			"blocks": {},
-			"blocksMeta": {},
-			"accountsDataSlice": [],
-			"entry": {},
-			"commitment": CommitmentLevel.PROCESSED
+			transactions: {},
+			blocks: {},
+			blocksMeta: {},
+			accountsDataSlice: [],
+			entry: {},
+			commitment: CommitmentLevel.PROCESSED
 		};
 
 		const streamClosed = new Promise<void>((resolve, reject) => {

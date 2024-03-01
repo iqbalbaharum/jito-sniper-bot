@@ -52,6 +52,25 @@ export class BotTokenAccount {
         instructions
       };
   };
+
+  static getAssociatedTokenAccount = async (mint: PublicKey, address: PublicKey) : Promise<PublicKey> => {
+    return await getAssociatedTokenAddress(
+      mint,
+      address,
+      false,
+      TOKEN_PROGRAM_ID,
+      ASSOCIATED_TOKEN_PROGRAM_ID
+    );
+  }
+
+  static getTokenAccountInfo = async (ata: PublicKey) => {
+    const info = connection.getParsedAccountInfo(ata)
+    if(!info) {
+      return 
+    }
+    
+    return info
+  }
 }
 
 const getOrCreateTokenAccount = async (

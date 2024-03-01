@@ -12,6 +12,7 @@ import { payer } from "../adapter/payer";
 import { BotTokenAccount } from "./tokenaccount";
 import { TransactionCompute } from "../types";
 import { BotError } from "../types/error";
+import sleep from "atomic-sleep";
 
 const getAccountPoolKeysFromAccountDataV4 = async (
     id: PublicKey,
@@ -124,7 +125,7 @@ export class BotLiquidity {
         length: 32 * 3,
       },
     });
-    console.log(marketInfo)
+    sleep(10000)
 
     if(!marketInfo) { throw new Error(BotError.MARKET_FETCH_ERROR)}
 

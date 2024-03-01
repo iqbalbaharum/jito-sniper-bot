@@ -4,13 +4,13 @@ import { BigNumberish, LIQUIDITY_STATE_LAYOUT_V4, Liquidity, LiquidityPoolKeys, 
 import BN from "bn.js";
 import { OPENBOOK_V1_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, WSOL_ADDRESS } from "./utils/const";
 import { config } from "./utils/config";
-import { setupWSOLTokenAccount } from "./controller/tokenaccount";
-import { getAccountPoolKeysFromAccountDataV4, getLiquidityMintState, getTokenInWallet, swap } from "./controller";
+import { setupWSOLTokenAccount } from "./services/tokenaccount";
+import { getAccountPoolKeysFromAccountDataV4, getLiquidityMintState, getTokenInWallet, swap } from "./services";
 import sleep from "atomic-sleep";
-import { submitBundle } from "./controller/bundle";
+import { submitBundle } from "./services/bundle";
 import { fastTrackSearcherClient } from "./adapter/jito";
 import { ArbIdea, BotLiquidityState } from "./types";
-import { getAmmIdFromSignature, getTokenMintFromSignature } from "./controller/transaction";
+import { getAmmIdFromSignature, getTokenMintFromSignature } from "./services/transaction";
 import { logger } from "./utils/logger";
 import { BundleInTransit } from "./types/bundleInTransit";
 import { RaydiumAmmCoder } from "./utils/coder";

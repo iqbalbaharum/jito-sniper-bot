@@ -4,10 +4,10 @@ import { LIQUIDITY_STATE_LAYOUT_V4, Liquidity, LiquidityStateV4, parseBigNumberi
 import BN from "bn.js";
 import { OPENBOOK_V1_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, WSOL_ADDRESS } from "./utils/const";
 import { config } from "./utils/config";
-import { setupWSOLTokenAccount } from "./controller/tokenaccount";
-import { getAccountPoolKeysFromAccountDataV4, getTokenInWallet, swap, swapExactIn } from "./controller";
+import { setupWSOLTokenAccount } from "./services/tokenaccount";
+import { getAccountPoolKeysFromAccountDataV4, getTokenInWallet, swap, swapExactIn } from "./services";
 import sleep from "atomic-sleep";
-import { onDefaultBundleResult, submitBundle } from "./controller/bundle";
+import { onDefaultBundleResult, submitBundle } from "./services/bundle";
 import { fastTrackSearcherClient } from "./adapter/jito";
 import { ArbIdea } from "./types";
 

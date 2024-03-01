@@ -91,7 +91,7 @@ export class BotTransaction {
   
     if(!response) { return undefined }
 
-    const ammId = getAmmIdFromTransaction(response.transaction.message)
+    const ammId = this.getAmmIdFromTransaction(response.transaction.message)
 
     if(!ammId) { return undefined }
 
@@ -101,19 +101,22 @@ export class BotTransaction {
   static getAmmIdFromTransaction = (message: VersionedMessage) : PublicKey | undefined => {
     for (let ins of message.compiledInstructions) {
       if(ins.data.length > 0 && message.staticAccountKeys[ins.programIdIndex].toBase58() === RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS) {
+        console.log(ins.accountKeyIndexes)
+        // console.log(ins.accountKeyIndexes.forEach(i => console.log(message.staticAccountKeys[i])))
         return message.staticAccountKeys[ins.accountKeyIndexes[1]]
       }
     }
   }
 
   static getAmmIdFromSignature = async (signature: string) : Promise<PublicKey | undefined> => {
-    const response = await connection.getTransaction(signature, {
+    const response = await connection.getParsedTransaction(signature, {
       maxSupportedTransactionVersion: 0,
       commitment: 'confirmed'
     })
-  
+    
+    console.log(response)
     if(!response) { return undefined }
   
-    return getAmmIdFromTransaction(response.transaction.message)
+    // return this.getAmmIdFromTransaction(response.transaction.message)
   }
 }

@@ -87,7 +87,8 @@ LAYOUT.addVariant(8, struct([u64("amount"),]), "withdrawSrm");
 LAYOUT.addVariant(9, IX_SWAP_BASE_IN_LAYOUT, "swapBaseIn");
 LAYOUT.addVariant(10, struct([u8("nonce"),]), "preInitialize");
 LAYOUT.addVariant(11, IX_SWAP_BASE_OUT_LAYOUT, "swapBaseOut");
-LAYOUT.addVariant(12, struct([u8("param"),option(struct([u64("amountIn"),u64("minimumAmountOut"),], ), "swapBaseInValue"),option(struct([u64("maxAmountIn"),u64("amountOut"),], ), "swapBaseOutValue"),]), "simulateInfo");LAYOUT.addVariant(13, struct([u16("limit"),]), "adminCancelOrders");
+LAYOUT.addVariant(12, struct([u8("param"),option(struct([u64("amountIn"),u64("minimumAmountOut"),], ), "swapBaseInValue"),option(struct([u64("maxAmountIn"),u64("amountOut"),], ), "swapBaseOutValue"),]), "simulateInfo");
+LAYOUT.addVariant(13, struct([u16("limit"),]), "adminCancelOrders");
 LAYOUT.addVariant(14, struct([]), "createConfigAccount");
 LAYOUT.addVariant(15, struct([u8("param"),publicKey("owner"),]), "updateConfigAccount");
 

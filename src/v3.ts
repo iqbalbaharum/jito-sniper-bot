@@ -1,16 +1,16 @@
 import { Commitment, LAMPORTS_PER_SOL, PublicKey, VersionedTransaction } from "@solana/web3.js";
 import { connection } from "./adapter/rpc";
-import { BigNumberish, LiquidityPoolKeys, LiquidityPoolKeysV4, LiquidityState, LiquidityStateV4, MARKET_STATE_LAYOUT_V3, parseBigNumberish } from "@raydium-io/raydium-sdk";
+import { BigNumberish, LiquidityPoolKeys, LiquidityPoolKeysV4, LiquidityState, LiquidityStateV4, MARKET_STATE_LAYOUT_V3, getMultipleAccountsInfo, parseBigNumberish } from "@raydium-io/raydium-sdk";
 import BN from "bn.js";
 import { RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, WSOL_ADDRESS } from "./utils/const";
 import { config } from "./utils/config";
-import { setupWSOLTokenAccount } from "./controller/tokenaccount";
-import { BotLiquidity, getTokenInWallet } from "./controller";
+import { BotTokenAccount, setupWSOLTokenAccount } from "./services/tokenaccount";
+import { BotLiquidity, getTokenInWallet } from "./services";
 import sleep from "atomic-sleep";
-import { submitBundle } from "./controller/bundle";
+import { submitBundle } from "./services/bundle";
 import { fastTrackSearcherClient } from "./adapter/jito";
 import { ArbIdea, BotLiquidityState } from "./types";
-import { BotTransaction, getAmmIdFromSignature } from "./controller/transaction";
+import { BotTransaction, getAmmIdFromSignature } from "./services/transaction";
 import { logger } from "./utils/logger";
 import { RaydiumAmmCoder } from "./utils/coder";
 import raydiumIDL from './idl/raydiumAmm.json'
@@ -157,6 +157,7 @@ const runJitoMempoolListener = (ata: PublicKey) => {
           let ammId: PublicKey | undefined = undefined
           let poolKeys: LiquidityPoolKeysV4 | undefined
           let state: BotLiquidityState | undefined
+          let sourceTA: PublicKey | undefined
           let transactionValue = 0
 
           for (let ins of transaction.message.compiledInstructions) {
@@ -164,28 +165,22 @@ const runJitoMempoolListener = (ata: PublicKey) => {
             
             const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn) => {
               const { amountIn } = swapBaseIn
-              transactionValue = amountIn.toNumber() / LAMPORTS_PER_SOL
-              // if(transactionValue > config.get('min_sol_trigger')) {
-              //   poolKeys = trackedPoolKeys.get(ammId!.toBase58())
-              //   state = mints.get(ammId!.toBase58())
-              // }
+              transactionValue = Number.parseFloat(amountIn.toString()) / LAMPORTS_PER_SOL
               poolKeys = trackedPoolKeys.get(ammId!.toBase58())
               state = mints.get(ammId!.toBase58())
             }
 
-            // Token
-            if(programId && programId?.equals(ASSOCIATED_TOKEN_PROGRAM_ID) && ins.accountKeyIndexes.length > 6) {
-              const m = transaction.message.staticAccountKeys[ins.accountKeyIndexes[3]]
-              if(m) {
-                mint = m
-              }
-            }
-
             // Raydium
             if(programId && ins.data.length > 0 && programId?.toBase58() === RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS) {
+              sourceTA = transaction.message.staticAccountKeys[ins.accountKeyIndexes[15]]
+              // destTA = transaction.message.staticAccountKeys[ins.accountKeyIndexes[16]]
+              // requesterAddress = transaction.message.staticAccountKeys[ins.accountKeyIndexes[17]]
+              
               const decodedIx = coder.instruction.decode(Buffer.from(ins.data))
               ammId = transaction.message.staticAccountKeys[ins.accountKeyIndexes[1]]
+
               if(!ammId) { return }
+
               if(trackedLiquidityPool.has(ammId.toBase58()) && decodedIx.hasOwnProperty('swapBaseIn')) {
                 processSwapBaseIn((decodedIx as any).swapBaseIn)
               }
@@ -194,31 +189,29 @@ const runJitoMempoolListener = (ata: PublicKey) => {
 
           // Only proceed after we got all the information
           // To confirm the transaction is not a swap out (selling)
-          // if(mint && ammId) {
-          //   console.log(`${bs58.encode(transaction.signatures[0])}`)
-          //   console.log('--> ', mint, ammId, poolKeys, state)
-          // }
-          if(poolKeys || state) {
-            console.log('-- ', mint, ammId, poolKeys, state, transactionValue)
-          }
-          
-          if(mint && ammId && poolKeys && state) {
-            
-            if(mint.toBase58() === WSOL_ADDRESS) {
-              console.log(`sell`, mint, ammId, `${transactionValue} SOL`)
-            } else {
-              console.log(`buy`, mint, ammId, `${transactionValue} SOL`)
+          if(state && state.mint && ammId && poolKeys && sourceTA) {
+            const info = await BotTokenAccount.getTokenAccountInfo(sourceTA)
+            if(!info?.value?.data) { return }
+            const parsedInfo = (info?.value?.data as any).parsed
+            if(parsedInfo.info.mint === WSOL_ADDRESS) {
+              // if(transactionValue > 0.0001) {
+                
+              // }
+              logger.warn(`${bs58.encode(transaction.signatures[0])}`)
+                logger.info(new Date(), `SELL ${state.mint.toBase58()} ${transactionValue}`)
+                poolKeys = trackedPoolKeys.get(ammId!.toBase58())
+                state = mints.get(ammId!.toBase58())
             }
             
-            const balance = await getBalance(state?.mint, poolKeys!)
-            logger.info(new Date(), `SELL ${state.mint.toBase58()}`)
-            await sellToken(
-              poolKeys as LiquidityPoolKeysV4, 
-              ata, 
-              balance.mul(new BN(10 ** state.mintDecimal)), 
-              new BN(transactionValue * LAMPORTS_PER_SOL),
-              transaction.message.recentBlockhash
-            )
+            // const balance = await getBalance(state?.mint, poolKeys!)
+            // logger.info(new Date(), `SELL ${state.mint.toBase58()} ${transactionValue}`)
+            // await sellToken(
+            //   poolKeys as LiquidityPoolKeysV4, 
+            //   ata, 
+            //   balance.mul(new BN(10 ** state.mintDecimal)), 
+            //   new BN(transactionValue * LAMPORTS_PER_SOL),
+            //   transaction.message.recentBlockhash
+            // )
           }
 
         })
