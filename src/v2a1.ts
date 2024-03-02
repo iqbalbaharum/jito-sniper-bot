@@ -196,33 +196,33 @@ const execution = async (accountData: LiquidityStateV4, accountId: PublicKey, at
         })
       }
     } else {
-      let tokenMint = state.isMintBase ? accountData.baseMint : accountData.quoteMint
-      if(removedLiquidityPool.has(tokenMint.toBase58())) {
+      // let tokenMint = state.isMintBase ? accountData.baseMint : accountData.quoteMint
+      // if(removedLiquidityPool.has(tokenMint.toBase58())) {
 
-        let botState = mints.get(tokenMint.toBase58())
-        if(botState?.mint) {
-          let solInDiff =
-            parseFloat(SOLIn.sub(botState.lastWSOLInAmount).toString()) /
-            parseFloat(SOLDenominator.toString());
+      //   let botState = mints.get(tokenMint.toBase58())
+      //   if(botState?.mint) {
+      //     let solInDiff =
+      //       parseFloat(SOLIn.sub(botState.lastWSOLInAmount).toString()) /
+      //       parseFloat(SOLDenominator.toString());
           
-          const key = trackedPoolKeys.get(tokenMint.toBase58())
-          const balance = await getBalance(tokenMint, key!)
-          if(
-              !botState.lastWSOLInAmount.isZero() && 
-              !SOLIn.sub(botState.lastWSOLInAmount).isZero() && 
-              solInDiff > config.get('min_sol_trigger')
-            ) {
-            logger.info(`Someone purchase ${state.mint.toBase58()} with ${solInDiff} | min: ${config.get('min_sol_trigger')}`)
-            logger.info(new Date(), `SELL ${state.mint.toBase58()}`)
-            await sellToken(key as LiquidityPoolKeysV4, ata, balance.mul(new BN(10 ** state.mintDecimal)), new BN(solInDiff * LAMPORTS_PER_SOL))
-          }
+      //     const key = trackedPoolKeys.get(tokenMint.toBase58())
+      //     const balance = await getBalance(tokenMint, key!)
+      //     if(
+      //         !botState.lastWSOLInAmount.isZero() && 
+      //         !SOLIn.sub(botState.lastWSOLInAmount).isZero() && 
+      //         solInDiff > config.get('min_sol_trigger')
+      //       ) {
+      //       logger.info(`Someone purchase ${state.mint.toBase58()} with ${solInDiff} | min: ${config.get('min_sol_trigger')}`)
+      //       logger.info(new Date(), `SELL ${state.mint.toBase58()}`)
+      //       await sellToken(key as LiquidityPoolKeysV4, ata, balance.mul(new BN(10 ** state.mintDecimal)), new BN(solInDiff * LAMPORTS_PER_SOL))
+      //     }
 
-          botState.lastWSOLInAmount = new BN(SOLIn.toString());
-          botState.lastWSOLOutAmount = new BN(SOLOut.toString());
-          botState.lastTokenInAmount = new BN(tokenIn.toString());
-          botState.lastTokenOutAmount = new BN(tokenOut.toString());
-        }
-      }
+      //     botState.lastWSOLInAmount = new BN(SOLIn.toString());
+      //     botState.lastWSOLOutAmount = new BN(SOLOut.toString());
+      //     botState.lastTokenInAmount = new BN(tokenIn.toString());
+      //     botState.lastTokenOutAmount = new BN(tokenOut.toString());
+      //   }
+      // }
     }
   } catch(e: any) {
     // console.log(e.toString())
