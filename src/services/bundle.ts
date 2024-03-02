@@ -20,13 +20,14 @@ const submitBundle = async (arb: ArbIdea) => {
   const bundle = new Bundle([arb.vtransaction], 5)
 
   const TIP_PERCENT = config.get('tip_percent')
-  let expectedProfitLamport = config.get('default_tip_in_sol') * LAMPORTS_PER_SOL
+  let expectedProfitLamport: number = config.get('default_tip_in_sol') * LAMPORTS_PER_SOL
   
-  // if(!arb.expectedProfit.isZero() && arb.expectedProfit.toNumber() > config.get('min_sol_trigger')) {
-  //   expectedProfitLamport = arb.expectedProfit.mul(new BN(TIP_PERCENT)).div(new BN(100)).toNumber()
-  // }
-
-  // console.log(expectedProfitLamport)
+  if(!arb.expectedProfit.isZero() && arb.expectedProfit.toNumber() > config.get('min_sol_trigger')) {
+    expectedProfitLamport = parseInt(arb.expectedProfit.mul(new BN(TIP_PERCENT)).div(new BN(100)).toString())
+    if(expectedProfitLamport > config.get('max_tip_in_sol')) {
+      expectedProfitLamport = config.get('max_tip_in_sol') * LAMPORTS_PER_SOL
+    }
+  }
 
   bundle.addTipTx(
       payer,
@@ -36,7 +37,7 @@ const submitBundle = async (arb: ArbIdea) => {
   )
   
   const bundleId = await fastTrackSearcherClient.sendBundle(bundle)
-  logger.info(`Sending bundle ${bundleId}`)
+  // logger.info(`Sending bundle ${bundleId}`)
   return bundleId
 }
 

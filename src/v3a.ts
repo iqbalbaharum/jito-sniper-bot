@@ -44,8 +44,13 @@ let botTokenAccount: BotTokenAccount
 
 const coder = new RaydiumAmmCoder(raydiumIDL as Idl)
 
-const getBalance = async (mint: PublicKey, poolKeys: LiquidityPoolKeysV4): Promise<BN> => {
-  let balance = tokenBalances.get(mint.toBase58())
+const getBalance = async (mint: PublicKey, poolKeys: LiquidityPoolKeysV4, reset: boolean = false): Promise<BN> => {
+  let balance: BN | undefined = new BN(0)
+
+  if(!reset) {
+    balance = tokenBalances.get(mint.toBase58())
+  }
+
   if(!balance) {
     const taBalance = await getTokenInWallet(poolKeys)
     if(taBalance && taBalance.length > 0) {
@@ -72,7 +77,7 @@ const onBundleResult = () => {
           const bundle = bundleInTransit.get(bundleId)
           if(!bundle) { return }
           // to make the request faster, initialize token balance after purchase confirm
-          getBalance(bundle.state.mint, bundle.poolKeys)
+          getBalance(bundle.state.mint, bundle.poolKeys, true)
         }
       }
 
@@ -285,7 +290,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: GeyserIn
       commitment: 'confirmed'
     })
 
-    if(!balance.isZero()) {
+    if(balance && !balance.isZero()) {
       await sellToken(
         poolKeys as LiquidityPoolKeysV4, 
         ata, 

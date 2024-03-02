@@ -59,6 +59,11 @@ const config = convict({
         default: 0.001,
         env: 'DEFAULT_TIP_IN_SOL'
     },
+    max_tip_in_sol: {
+        format: Number,
+        default: 0.01,
+        env: 'MAX_TIP_IN_SOL'
+    },
     log_level: {
         format: String,
         default: 'info',
