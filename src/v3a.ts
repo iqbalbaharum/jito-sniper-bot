@@ -73,6 +73,9 @@ const onBundleResult = () => {
       const isAccepted = bundleResult.accepted;
       const isRejected = bundleResult.rejected;
       if (isAccepted) {
+        logger.info(
+          `Bundle ${bundleId} accepted in slot ${bundleResult.accepted?.slot}`,
+        );
         if(bundleInTransit.has(bundleId)) {
           const bundle = bundleInTransit.get(bundleId)
           if(!bundle) { return }
@@ -81,9 +84,9 @@ const onBundleResult = () => {
         }
       }
 
-      // if (isRejected) {
-      //   logger.info(bundleResult.rejected, `Bundle ${bundleId} rejected:`);
-      // }
+      if (isRejected) {
+        logger.info(bundleResult.rejected, `Bundle ${bundleId} rejected:`);
+      }
     },
     (error) => {
       logger.error(error);
@@ -279,6 +282,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: GeyserIn
   if(!account) { return }
 
   let amount = parseFloat(swapBaseIn.amountIn.toString()) / LAMPORTS_PER_SOL
+  
   if(account?.mint.toBase58() === WSOL_ADDRESS && amount >= config.get('min_sol_trigger')) {
     const state = mints.get(ammId!.toBase58())
     if(!state) { return }
