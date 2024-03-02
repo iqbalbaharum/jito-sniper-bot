@@ -4,7 +4,7 @@ import { BigNumberish, LiquidityPoolKeys, LiquidityPoolKeysV4, LiquidityState, L
 import BN from "bn.js";
 import { RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, WSOL_ADDRESS } from "./utils/const";
 import { config } from "./utils/config";
-import { BotTokenAccount, setupWSOLTokenAccount } from "./services/tokenaccount";
+import { BotTokenAccount, setupWSOLTokenAccount } from "./services/token-account";
 import { BotLiquidity, getTokenInWallet } from "./services";
 import sleep from "atomic-sleep";
 import { submitBundle } from "./services/bundle";

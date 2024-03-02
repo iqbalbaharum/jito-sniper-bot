@@ -35,7 +35,11 @@ export class BotgRPC {
 	}
 
 	private async connect() {
-		this.stream = await this.client.subscribe();
+		try {
+			this.stream = await this.client.subscribe();
+		} catch(e) {
+			this.connect()
+		}
 	}
 
 	addProgram = (request: RequestAccounts) => {

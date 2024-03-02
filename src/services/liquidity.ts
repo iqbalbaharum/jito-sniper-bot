@@ -9,7 +9,7 @@ import { BN } from "bn.js";
 import { resolve } from "path";
 import { rejects } from "assert";
 import { payer } from "../adapter/payer";
-import { BotTokenAccount } from "./tokenaccount";
+import { BotTokenAccount } from "./token-account";
 import { TransactionCompute } from "../types";
 import { BotError } from "../types/error";
 import sleep from "atomic-sleep";

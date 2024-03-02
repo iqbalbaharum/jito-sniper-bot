@@ -26,6 +26,8 @@ const submitBundle = async (arb: ArbIdea) => {
   //   expectedProfitLamport = arb.expectedProfit.mul(new BN(TIP_PERCENT)).div(new BN(100)).toNumber()
   // }
 
+  // console.log(expectedProfitLamport)
+
   bundle.addTipTx(
       payer,
       expectedProfitLamport,
