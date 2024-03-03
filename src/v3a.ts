@@ -169,12 +169,7 @@ const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BigNu
       vtransaction: transaction,
       expectedProfit: expected
     }
-  
-    // const serialiseMsg = arb.vtransaction.serialize()
 
-    // await connection.sendRawTransaction(serialiseMsg, {
-    //   skipPreflight: true
-    // })
     return await submitBundle(arb)
   } catch(e: any) {
     logger.error(e.toString())
@@ -207,12 +202,6 @@ const sellToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BN, 
       vtransaction: transaction,
       expectedProfit: expected
     }
-  
-    // const serialiseMsg = arb.vtransaction.serialize()
-
-    // await connection.sendRawTransaction(serialiseMsg, {
-    //   skipPreflight: true
-    // })
 
     return await submitBundle(arb)
 
@@ -322,9 +311,9 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: GeyserIn
     const balance = await getBalance(state?.mint, poolKeys!)
     logger.info(new Date(), `SELL ${state.mint.toBase58()} ${amount}`)
 
-    // const block = await connection.getLatestBlockhash({
-    //   commitment: 'confirmed'
-    // })
+    const block = await connection.getLatestBlockhash({
+      commitment: 'confirmed'
+    })
 
     if(balance && !balance.isZero()) {
       await sellToken(
@@ -332,7 +321,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: GeyserIn
         ata, 
         balance.mul(new BN(10 ** state.mintDecimal)), 
         new BN(amount * LAMPORTS_PER_SOL),
-        blockhash
+        block.blockhash
       )
     } else {
       // Since there's no check for tracking, the bundle might failed,
