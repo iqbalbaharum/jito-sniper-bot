@@ -177,7 +177,7 @@ const getOrCreateTokenAccount = async (
         SystemProgram.transfer({
           fromPubkey: payer.publicKey,
           toPubkey: ata,
-          lamports: (amount - (balance / LAMPORTS_PER_SOL)) * LAMPORTS_PER_SOL,
+          lamports: Math.floor((amount - (balance / LAMPORTS_PER_SOL)) * LAMPORTS_PER_SOL),
         }),
         createSyncNativeInstruction(ata)
       );

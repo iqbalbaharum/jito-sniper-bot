@@ -21,6 +21,8 @@ import { ASSOCIATED_TOKEN_PROGRAM_ID, AccountLayout } from "@solana/spl-token";
 import { IxSwapBaseIn } from "./utils/coder/layout";
 import Client, { CommitmentLevel, SubscribeRequest } from "@triton-one/yellowstone-grpc";
 import { BotgRPC } from "./services/grpc";
+import { payer } from "./adapter/payer";
+import { ExistingRaydiumMarketStorage } from "./storage";
 
 type V3BundleInTransit = {
   timestamp: number,
@@ -41,6 +43,7 @@ let bundleInTransit: Map<string, V3BundleInTransit> = new Map<string, V3BundleIn
 let botgRPC: BotgRPC
 let lookupTable: BotLookupTable
 let botTokenAccount: BotTokenAccount
+let existingMarkets: ExistingRaydiumMarketStorage
 
 const coder = new RaydiumAmmCoder(raydiumIDL as Idl)
 
@@ -116,6 +119,8 @@ const processBuy = async (ammId: PublicKey, ata: PublicKey) => {
     block.blockhash
   )
 
+  if(!bundleId) { return }
+
   trackedPoolKeys.set(ammId.toBase58(), poolKeys)
   mints.set(ammId.toBase58(), {
     ammId,
@@ -123,6 +128,9 @@ const processBuy = async (ammId: PublicKey, ata: PublicKey) => {
     mintDecimal: info.decimal,
     isMintBase: info.isMintBase
   })
+
+  // add into the record
+  existingMarkets.add(ammId)
 
   bundleInTransit.set(bundleId, {
     timestamp: new Date().getTime(),
@@ -136,60 +144,81 @@ const processBuy = async (ammId: PublicKey, ata: PublicKey) => {
   })
 }
 
-const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BigNumberish, expectedProfit: BN, blockhash?: string): Promise<string> => {
-  const transaction = await BotLiquidity.makeSimpleSwapInstruction(
-    keys,
-    'in',
-    ata,
-    amount,
-    blockhash,
-    {
-      compute: {
-        microLamports: 100000,
-        units: 101337
+const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BigNumberish, expectedProfit: BN, blockhash?: string) => {
+  try {
+    const transaction = await BotLiquidity.makeSimpleSwapInstruction(
+      keys,
+      'in',
+      ata,
+      amount,
+      blockhash,
+      {
+        compute: {
+          microLamports: 100000,
+          units: 101337
+        }
       }
+    );
+    
+    let expected = new BN(0)
+    if(!expectedProfit.isZero()) {
+      expected = expectedProfit
     }
-  );
   
-  let expected = new BN(0)
-  if(!expectedProfit.isZero()) {
-    expected = expectedProfit
-  }
+    const arb: ArbIdea = {
+      vtransaction: transaction,
+      expectedProfit: expected
+    }
+  
+    // const serialiseMsg = arb.vtransaction.serialize()
 
-  const arb: ArbIdea = {
-    vtransaction: transaction,
-    expectedProfit: expected
+    // await connection.sendRawTransaction(serialiseMsg, {
+    //   skipPreflight: true
+    // })
+    return await submitBundle(arb)
+  } catch(e: any) {
+    logger.error(e.toString())
+    return ''
   }
-
-  return await submitBundle(arb)
 }
 
 const sellToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BN, expectedProfit: BN, blockhash: string) => {
-  const transaction = await BotLiquidity.makeSimpleSwapInstruction(
-    keys,
-    'out',
-    ata,
-    amount.div(new BN(2)),
-    blockhash,
-    {
-      compute: {
-        microLamports: 1000000,
-        units: 101337
+  try {
+    const transaction = await BotLiquidity.makeSimpleSwapInstruction(
+      keys,
+      'out',
+      ata,
+      amount.div(new BN(2)),
+      blockhash,
+      {
+        compute: {
+          microLamports: 8000000,
+          units: 101337
+        }
       }
+    );
+    
+    let expected = new BN(0)
+    if(!expectedProfit.isZero()) {
+      expected = expectedProfit
     }
-  );
   
-  let expected = new BN(0)
-  if(!expectedProfit.isZero()) {
-    expected = expectedProfit
-  }
+    const arb: ArbIdea = {
+      vtransaction: transaction,
+      expectedProfit: expected
+    }
+  
+    // const serialiseMsg = arb.vtransaction.serialize()
 
-  const arb: ArbIdea = {
-    vtransaction: transaction,
-    expectedProfit: expected
-  }
+    // await connection.sendRawTransaction(serialiseMsg, {
+    //   skipPreflight: true
+    // })
 
-  return await submitBundle(arb)
+    return await submitBundle(arb)
+
+  } catch(e) {
+    console.log(e)
+  }
 }
 
 // What we care about is only ammId from the Raydium instruction
@@ -212,14 +241,17 @@ const processWithdraw = async (instruction: GeyserInstruction, message: GeyserMe
 
   if(!ammId) { return }
   
-  processBuy(ammId, ata)
+  // Check if we this market has already been bought
+  if(!existingMarkets.isExisted(ammId)) {
+    processBuy(ammId, ata)
+  }
 }
 
 // Most Raydium transaction is using swapBaseIn, so the bot need to figure out if this transaction
 // is "in" @ "out" direction. This can be achieved by checking UserSourceTokenAccount and check if it's similar
 // as the signer ATA account. If it's a WSOL, then it's a "in" process, and vice versa
 // For swapBaseIn instruction, the position of "UserSourceTokenAccount" is at position #16
-const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: GeyserInstruction, message: GeyserMessage, ata: PublicKey, signature: string) => {
+const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: GeyserInstruction, message: GeyserMessage, ata: PublicKey, blockhash: string) => {
   
   // Find the transaction is buy or sell by checking 
   const accountIndexes: number[] = Array.from(instruction.accounts)
@@ -290,9 +322,9 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: GeyserIn
     const balance = await getBalance(state?.mint, poolKeys!)
     logger.info(new Date(), `SELL ${state.mint.toBase58()} ${amount}`)
 
-    const block = await connection.getLatestBlockhash({
-      commitment: 'confirmed'
-    })
+    // const block = await connection.getLatestBlockhash({
+    //   commitment: 'confirmed'
+    // })
 
     if(balance && !balance.isZero()) {
       await sellToken(
@@ -300,7 +332,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: GeyserIn
         ata, 
         balance.mul(new BN(10 ** state.mintDecimal)), 
         new BN(amount * LAMPORTS_PER_SOL),
-        block.blockhash
+        blockhash
       )
     } else {
       // Since there's no check for tracking, the bundle might failed,
@@ -325,11 +357,11 @@ const runGeyserListener = async (ata: PublicKey) => {
           const programId = message.accountKeys[ins.programIdIndex]
           if(raydiumAddressBuffer.equals(programId)) {
             const decodedIx = coder.instruction.decode(Buffer.from(ins.data))
-
+            
             if(decodedIx.hasOwnProperty('withdraw')) { // remove liquidity
               processWithdraw(ins, message, ata)
             } else if(decodedIx.hasOwnProperty('swapBaseIn')) {
-              processSwapBaseIn((decodedIx as any).swapBaseIn, ins, message, ata, bs58.encode(d.transaction.transaction.signatures[0]))
+              processSwapBaseIn((decodedIx as any).swapBaseIn, ins, message, ata, d.transaction.transaction.recentBlockhash)
             }
           }
         }
@@ -341,7 +373,7 @@ const runGeyserListener = async (ata: PublicKey) => {
 }
 
 (async () => {
-  const { ata } = await setupWSOLTokenAccount(true, 0.01)
+  const { ata } = await setupWSOLTokenAccount(true, 0.07)
   
   if(!ata) { 
     logger.error('No WSOL Account initialize')
@@ -351,6 +383,7 @@ const runGeyserListener = async (ata: PublicKey) => {
   botgRPC = new BotgRPC()
   lookupTable = new BotLookupTable()
   botTokenAccount = new BotTokenAccount()
+  existingMarkets = new ExistingRaydiumMarketStorage()
 
   // Only read from Raydium pool for now
   // Exclude: 

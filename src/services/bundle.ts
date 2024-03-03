@@ -37,7 +37,7 @@ const submitBundle = async (arb: ArbIdea) => {
   )
   
   const bundleId = await fastTrackSearcherClient.sendBundle(bundle)
-  // logger.info(`Sending bundle ${bundleId}`)
+  logger.info(`Sending bundle ${bundleId}`)
   return bundleId
 }
 
