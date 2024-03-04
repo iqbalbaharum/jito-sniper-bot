@@ -75,6 +75,7 @@ const onBundleResult = () => {
       const bundleId = bundleResult.bundleId;
       const isAccepted = bundleResult.accepted;
       const isRejected = bundleResult.rejected;
+      
       if (isAccepted) {
         logger.info(
           `Bundle ${bundleId} accepted in slot ${bundleResult.accepted?.slot}`,
@@ -88,7 +89,7 @@ const onBundleResult = () => {
       }
 
       if (isRejected) {
-        logger.info(bundleResult.rejected, `Bundle ${bundleId} rejected:`);
+        logger.warn(bundleResult.rejected, `Bundle ${bundleId} rejected:`);
       }
     },
     (error) => {
@@ -106,7 +107,7 @@ const processBuy = async (ammId: PublicKey, ata: PublicKey) => {
   
   logger.info(new Date(), `BUY ${info.mint.toBase58()}`)
   const block = await connection.getLatestBlockhash({
-    commitment: 'confirmed'
+    commitment: 'finalized'
   })
 
   if(!poolKeys) { return }
@@ -232,7 +233,7 @@ const processWithdraw = async (instruction: GeyserInstruction, message: GeyserMe
   
   // Check if we this market has already been bought
   if(!existingMarkets.isExisted(ammId)) {
-    processBuy(ammId, ata)
+    await processBuy(ammId, ata)
   }
 }
 
@@ -348,9 +349,9 @@ const runGeyserListener = async (ata: PublicKey) => {
             const decodedIx = coder.instruction.decode(Buffer.from(ins.data))
             
             if(decodedIx.hasOwnProperty('withdraw')) { // remove liquidity
-              processWithdraw(ins, message, ata)
+              await processWithdraw(ins, message, ata)
             } else if(decodedIx.hasOwnProperty('swapBaseIn')) {
-              processSwapBaseIn((decodedIx as any).swapBaseIn, ins, message, ata, d.transaction.transaction.recentBlockhash)
+              await processSwapBaseIn((decodedIx as any).swapBaseIn, ins, message, ata, d.transaction.transaction.recentBlockhash)
             }
           }
         }
