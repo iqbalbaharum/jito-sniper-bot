@@ -155,7 +155,7 @@ const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BigNu
       blockhash,
       {
         compute: {
-          microLamports: 100000,
+          microLamports: 10000,
           units: 101337
         }
       }
