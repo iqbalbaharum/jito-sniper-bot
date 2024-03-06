@@ -4,7 +4,7 @@ import { Bundle } from "jito-ts/dist/sdk/block-engine/types";
 import { payer } from "../adapter/payer";
 import { connection } from "../adapter/rpc";
 import { config } from "../utils/config";
-import { fastTrackSearcherClient } from "../adapter/jito";
+import { mainSearcherClient } from "../adapter/jito";
 import { SearcherClient } from "jito-ts/dist/sdk/block-engine/searcher";
 import { logger } from "../utils/logger";
 import { ArbIdea } from "../types";
@@ -39,13 +39,13 @@ const submitBundle = async (arb: ArbIdea) => {
       resp.blockhash
   )
   
-  const bundleId = await fastTrackSearcherClient.sendBundle(bundle)
+  const bundleId = await mainSearcherClient.sendBundle(bundle)
   logger.info(`Sending bundle ${bundleId}`)
   return bundleId
 }
 
 const onDefaultBundleResult = () => {
-  fastTrackSearcherClient.onBundleResult(
+  mainSearcherClient.onBundleResult(
     (bundleResult) => {
       const bundleId = bundleResult.bundleId;
       const isAccepted = bundleResult.accepted;

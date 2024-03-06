@@ -1,28 +1,28 @@
 import { AddressLookupTableAccount, Commitment, LAMPORTS_PER_SOL, Logs, MessageAccountKeys, PublicKey, VersionedTransaction } from "@solana/web3.js";
-import { connection } from "./adapter/rpc";
+import { connection } from "../adapter/rpc";
 import { BigNumberish, LIQUIDITY_STATE_LAYOUT_V4, LiquidityPoolKeys, LiquidityPoolKeysV4, LiquidityState, LiquidityStateV4, MARKET_STATE_LAYOUT_V3, getMultipleAccountsInfo, parseBigNumberish } from "@raydium-io/raydium-sdk";
 import BN from "bn.js";
-import { JUPITER_ADDRESS, OPENBOOK_V1_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, WSOL_ADDRESS } from "./utils/const";
-import { config } from "./utils/config";
-import { BotTokenAccount, setupWSOLTokenAccount } from "./services/token-account";
-import { BotLiquidity, BotLookupTable, getAccountPoolKeysFromAccountDataV4, getLiquidityMintState, getTokenInWallet } from "./services";
+import { JUPITER_ADDRESS, OPENBOOK_V1_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, WSOL_ADDRESS } from "../utils/const";
+import { config } from "../utils/config";
+import { BotTokenAccount, setupWSOLTokenAccount } from "../services/token-account";
+import { BotLiquidity, BotLookupTable, getAccountPoolKeysFromAccountDataV4, getLiquidityMintState, getTokenInWallet } from "../services";
 import sleep from "atomic-sleep";
-import { submitBundle } from "./services/bundle";
-import { fastTrackSearcherClient } from "./adapter/jito";
-import { ArbIdea, BotLiquidityState, GeyserAddressTableLookup, GeyserInstruction, GeyserMessage, LookupIndex } from "./types";
-import { BotTransaction, getAmmIdFromSignature } from "./services/transaction";
-import { logger } from "./utils/logger";
-import { RaydiumAmmCoder } from "./utils/coder";
-import raydiumIDL from './idl/raydiumAmm.json'
+import { submitBundle } from "../services/bundle";
+import { mainSearcherClient } from "../adapter/jito";
+import { ArbIdea, BotLiquidityState, LookupIndex, TxInstruction, TxPool } from "../types";
+import { BotTransaction, getAmmIdFromSignature } from "../services/transaction";
+import { logger } from "../utils/logger";
+import { RaydiumAmmCoder } from "../utils/coder";
+import raydiumIDL from '../idl/raydiumAmm.json'
 import { Idl } from "@coral-xyz/anchor";
-import { BotError } from "./types/error";
+import { BotError } from "../types/error";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import { ASSOCIATED_TOKEN_PROGRAM_ID, AccountLayout } from "@solana/spl-token";
-import { IxSwapBaseIn } from "./utils/coder/layout";
+import { IxSwapBaseIn } from "../utils/coder/layout";
 import Client, { CommitmentLevel, SubscribeRequest } from "@triton-one/yellowstone-grpc";
-import { BotgRPC } from "./services/grpc";
-import { payer } from "./adapter/payer";
-import { ExistingRaydiumMarketStorage } from "./storage";
+import { payer } from "../adapter/payer";
+import { ExistingRaydiumMarketStorage } from "../storage";
+import { mempool } from "../generators";
 
 type V3BundleInTransit = {
   timestamp: number,
@@ -40,7 +40,6 @@ let mints: Map<string, BotLiquidityState> = new Map<
 >();
 let tokenBalances: Map<string, BN> = new Map<string, BN>()
 let bundleInTransit: Map<string, V3BundleInTransit> = new Map<string, V3BundleInTransit>()
-let botgRPC: BotgRPC
 let lookupTable: BotLookupTable
 let botTokenAccount: BotTokenAccount
 let existingMarkets: ExistingRaydiumMarketStorage
@@ -70,7 +69,7 @@ const getBalance = async (mint: PublicKey, poolKeys: LiquidityPoolKeysV4, reset:
 }
 
 const onBundleResult = () => {
-  fastTrackSearcherClient.onBundleResult(
+  mainSearcherClient.onBundleResult(
     (bundleResult) => {
       const bundleId = bundleResult.bundleId;
       const isAccepted = bundleResult.accepted;
@@ -213,20 +212,23 @@ const sellToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BN, 
 
 // What we care about is only ammId from the Raydium instruction
 // For LP withdrawal instruction, the location of "ammId" is at position #1
-const processWithdraw = async (instruction: GeyserInstruction, message: GeyserMessage, ata: PublicKey) => {
+const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: PublicKey) => {
+  
+  const tx = txPool.mempoolTxns
+
   const accountIndexes: number[] = Array.from(instruction.accounts)
-  const lookupsForAccountKeyIndex: LookupIndex[] = BotLookupTable.generateTableLookup(message.addressTableLookups)
+  const lookupsForAccountKeyIndex: LookupIndex[] = BotLookupTable.generateTableLookup(tx.addressTableLookups)
   
   let ammId: PublicKey | undefined
 
   const accountIndex = accountIndexes[1]
-  if(accountIndex >= message.accountKeys.length) {
-    const lookupIndex = accountIndex - message.accountKeys.length
+  if(accountIndex >= tx.accountKeys.length) {
+    const lookupIndex = accountIndex - tx.accountKeys.length
     const lookup = lookupsForAccountKeyIndex[lookupIndex]
     const table = await lookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
     ammId = table?.state.addresses[lookup?.lookupTableIndex]
   } else {
-    ammId = new PublicKey(message.accountKeys[accountIndex])
+    ammId = new PublicKey(tx.accountKeys[accountIndex])
   }
 
   if(!ammId) { return }
@@ -241,24 +243,26 @@ const processWithdraw = async (instruction: GeyserInstruction, message: GeyserMe
 // is "in" @ "out" direction. This can be achieved by checking UserSourceTokenAccount and check if it's similar
 // as the signer ATA account. If it's a WSOL, then it's a "in" process, and vice versa
 // For swapBaseIn instruction, the position of "UserSourceTokenAccount" is at position #16
-const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: GeyserInstruction, message: GeyserMessage, ata: PublicKey, blockhash: string) => {
+const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstruction, txPool: TxPool, ata: PublicKey, blockhash: string) => {
   
+  const tx = txPool.mempoolTxns
+
   // Find the transaction is buy or sell by checking 
   const accountIndexes: number[] = Array.from(instruction.accounts)
-  const lookupsForAccountKeyIndex: LookupIndex[] = BotLookupTable.generateTableLookup(message.addressTableLookups)
+  const lookupsForAccountKeyIndex: LookupIndex[] = BotLookupTable.generateTableLookup(tx.addressTableLookups)
   let sourceTA: PublicKey | undefined
   let ammId: PublicKey | undefined
   let serumProgramId: PublicKey | undefined
 
   // ammId
   const ammIdAccountIndex = accountIndexes[1]
-  if(ammIdAccountIndex >= message.accountKeys.length) {
-    const lookupIndex = ammIdAccountIndex - message.accountKeys.length
+  if(ammIdAccountIndex >= tx.accountKeys.length) {
+    const lookupIndex = ammIdAccountIndex - tx.accountKeys.length
     const lookup = lookupsForAccountKeyIndex[lookupIndex]
     const table = await lookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
     ammId = table?.state.addresses[lookup?.lookupTableIndex]
   } else {
-    ammId = new PublicKey(message.accountKeys[ammIdAccountIndex])
+    ammId = new PublicKey(tx.accountKeys[ammIdAccountIndex])
   }
 
   if(!ammId) { return }
@@ -269,13 +273,13 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: GeyserIn
   // BUG: There's another method for Raydium swap which move the array positions
   // to differentiate which position, check the position of OPENBOOK program Id in accountKeys
   const serumAccountIndex = accountIndexes[7]
-  if(serumAccountIndex >= message.accountKeys.length) {
-    const lookupIndex = serumAccountIndex - message.accountKeys.length
+  if(serumAccountIndex >= tx.accountKeys.length) {
+    const lookupIndex = serumAccountIndex - tx.accountKeys.length
     const lookup = lookupsForAccountKeyIndex[lookupIndex]
     const table = await lookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
     serumProgramId = table?.state.addresses[lookup?.lookupTableIndex]
   } else {
-    serumProgramId = new PublicKey(message.accountKeys[serumAccountIndex])
+    serumProgramId = new PublicKey(tx.accountKeys[serumAccountIndex])
   }
 
   let sourceAccountIndex
@@ -286,13 +290,13 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: GeyserIn
   }
 
   // source 
-  if(sourceAccountIndex >= message.accountKeys.length) {
-    const lookupIndex = sourceAccountIndex - message.accountKeys.length
+  if(sourceAccountIndex >= tx.accountKeys.length) {
+    const lookupIndex = sourceAccountIndex - tx.accountKeys.length
     const lookup = lookupsForAccountKeyIndex[lookupIndex]
     const table = await lookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
     sourceTA = table?.state.addresses[lookup?.lookupTableIndex]
   } else {
-    sourceTA = new PublicKey(message.accountKeys[sourceAccountIndex])
+    sourceTA = new PublicKey(tx.accountKeys[sourceAccountIndex])
   }
 
   if(!sourceTA || !ammId) { return }
@@ -331,35 +335,24 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: GeyserIn
     }
   }
 }
-/**
- * 
- * @param ata 
- */
-const runGeyserListener = async (ata: PublicKey) => {
-  botgRPC.listen(
-    (d) => { // account
-    },
-    async (d) => { // transaction
-      try {
-        const message = d.transaction.transaction.message
-        const raydiumAddressBuffer = bs58.decode(RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS)
-        for(const ins of message.instructions) {
-          const programId = message.accountKeys[ins.programIdIndex]
-          if(raydiumAddressBuffer.equals(programId)) {
-            const decodedIx = coder.instruction.decode(Buffer.from(ins.data))
-            
-            if(decodedIx.hasOwnProperty('withdraw')) { // remove liquidity
-              await processWithdraw(ins, message, ata)
-            } else if(decodedIx.hasOwnProperty('swapBaseIn')) {
-              await processSwapBaseIn((decodedIx as any).swapBaseIn, ins, message, ata, d.transaction.transaction.recentBlockhash)
-            }
-          }
+
+const processTx = async (tx: TxPool, ata: PublicKey) => {
+  try {
+    for(const ins of tx.mempoolTxns.instructions) {
+      const programId = tx.mempoolTxns.accountKeys[ins.programIdIndex]
+      if(programId === RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS) {
+        const decodedIx = coder.instruction.decode(Buffer.from(ins.data))
+        
+        if(decodedIx.hasOwnProperty('withdraw')) { // remove liquidity
+          await processWithdraw(ins, tx, ata)
+        } else if(decodedIx.hasOwnProperty('swapBaseIn')) {
+          await processSwapBaseIn((decodedIx as any).swapBaseIn, ins, tx, ata, tx.mempoolTxns.recentBlockhash)
         }
-      } catch(e:any) {
-        console.log(e.toString())
       }
-      
-    })
+    }
+  } catch(e) {
+    console.log(e)
+  }
 }
 
 (async () => {
@@ -370,22 +363,15 @@ const runGeyserListener = async (ata: PublicKey) => {
     return 
   }
 
-  botgRPC = new BotgRPC()
   lookupTable = new BotLookupTable()
   botTokenAccount = new BotTokenAccount()
   existingMarkets = new ExistingRaydiumMarketStorage()
 
-  // Only read from Raydium pool for now
-  // Exclude: 
-  //  - Jupiter, Raydium AMM Routing
-  botgRPC.addTransaction('raydium_tx', {
-    vote: false,
-    failed: false,
-    accountInclude: [RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS],
-    accountExclude: [JUPITER_ADDRESS, 'routeUGWgWzqBWFcrCfv8tritsqukccJPu3q5GPP3xS'],
-    accountRequired: [],
-  })
+  for await (const update of mempool()) {
+    processTx(update, ata) // You can process the updates as needed
+  }
 
-  runGeyserListener(ata)
+  console.log('listening')
+  // runGeyserListener(ata)
   onBundleResult()
 })();

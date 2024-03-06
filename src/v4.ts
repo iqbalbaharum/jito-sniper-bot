@@ -8,7 +8,7 @@ import { setupWSOLTokenAccount } from "./services/token-account";
 import { getAccountPoolKeysFromAccountDataV4, getLiquidityMintState, getTokenInWallet, swap } from "./services";
 import sleep from "atomic-sleep";
 import { submitBundle } from "./services/bundle";
-import { fastTrackSearcherClient } from "./adapter/jito";
+import { mainSearcherClient } from "./adapter/jito";
 import { ArbIdea, BotLiquidityState } from "./types";
 import { getAmmIdFromSignature, getTokenMintFromSignature } from "./services/transaction";
 import { logger } from "./utils/logger";
@@ -52,7 +52,7 @@ const getBalance = async (mint: PublicKey, poolKeys: LiquidityPoolKeysV4): Promi
 }
 
 const onBundleResult = () => {
-  fastTrackSearcherClient.onBundleResult(
+  mainSearcherClient.onBundleResult(
     (bundleResult) => {
       const bundleId = bundleResult.bundleId;
       const isAccepted = bundleResult.accepted;
@@ -187,7 +187,7 @@ const runListener = async () => {
   // const { ata } = await setupWSOLTokenAccount(true, 0.1)
   
   try {
-    fastTrackSearcherClient.onProgramUpdate(
+    mainSearcherClient.onProgramUpdate(
       [new PublicKey(RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS)],
       [],
       (transactions: VersionedTransaction[]) => {

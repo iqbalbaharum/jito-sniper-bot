@@ -8,7 +8,7 @@ import { setupWSOLTokenAccount } from "./services/token-account";
 import { getAccountPoolKeysFromAccountDataV4, getTokenInWallet, swap, swapExactIn } from "./services";
 import sleep from "atomic-sleep";
 import { onDefaultBundleResult, submitBundle } from "./services/bundle";
-import { fastTrackSearcherClient } from "./adapter/jito";
+import { mainSearcherClient } from "./adapter/jito";
 import { ArbIdea } from "./types";
 
 const onExecute = async (accountId: PublicKey, accountData: LiquidityStateV4) => {

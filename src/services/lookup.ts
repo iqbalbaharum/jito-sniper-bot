@@ -1,6 +1,6 @@
 import { AddressLookupTableAccount, PublicKey } from "@solana/web3.js";
 import { LookupTableStorage } from "../storage";
-import { GeyserAddressTableLookup, LookupIndex } from "../types";
+import { LookupIndex, TxAddressLookupTable } from "../types";
 import { connection } from "../adapter/rpc";
 
 export class BotLookupTable {
@@ -28,18 +28,16 @@ export class BotLookupTable {
     return res.value;
   }
 
-  static generateTableLookup(addressTableLookups: GeyserAddressTableLookup[]) : LookupIndex[] {
+  static generateTableLookup(addressTableLookups: TxAddressLookupTable[]) : LookupIndex[] {
     return [
-      ...addressTableLookups.flatMap((lookup: GeyserAddressTableLookup) => {
-        const writeIndexes = Array.from(lookup.writableIndexes)
-        return writeIndexes.map(index => ({
+      ...addressTableLookups.flatMap((lookup: TxAddressLookupTable) => {
+        return lookup.writableIndexes.map(index => ({
           lookupTableIndex: index,
           lookupTableKey: lookup.accountKey
         }))
       }),
-      ...addressTableLookups.flatMap((lookup: GeyserAddressTableLookup) => {
-        const readIndexes = Array.from(lookup.readonlyIndexes)
-        return readIndexes.map(index => ({
+      ...addressTableLookups.flatMap((lookup: TxAddressLookupTable) => {
+        return lookup.readonlyIndexes.map(index => ({
           lookupTableIndex: index,
           lookupTableKey: lookup.accountKey
         }))

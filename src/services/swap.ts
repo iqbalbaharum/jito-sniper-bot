@@ -5,7 +5,7 @@ import { BigNumberish, Liquidity, LiquidityPoolInfo, LiquidityPoolKeys, Percent,
 import { WSOL_ADDRESS } from "../utils/const"
 import { getOrCreateTokenAccount } from "./token-account"
 import { payer } from "../adapter/payer"
-import { fastTrackSearcherClient, searcherClients } from "../adapter/jito"
+import { mainSearcherClient, searcherClients } from "../adapter/jito"
 import BN from "bn.js"
 import { SwapInstruction } from "../types/swapInstruction"
 

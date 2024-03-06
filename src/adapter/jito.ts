@@ -20,6 +20,6 @@ for (const url of BLOCK_ENGINE_URLS) {
   
 // all bundles sent get automatically forwarded to the other regions.
 // assuming the first block engine in the array is the closest one
-const fastTrackSearcherClient = searcherClients[0]
+const mainSearcherClient = searcherClients[0]
 
-export { fastTrackSearcherClient, searcherClients }
+export { mainSearcherClient, searcherClients }

@@ -1,6 +1,4 @@
 import { AddressLookupTableAccount, PublicKey } from "@solana/web3.js";
-import { connection } from "../adapter/rpc";
-import { GeyserAddressTableLookup, LookupIndex } from "../types";
 
 export class LookupTableStorage {
 	lookupTables: Map<string, AddressLookupTableAccount>;
