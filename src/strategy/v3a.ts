@@ -2,7 +2,7 @@ import { AddressLookupTableAccount, Commitment, LAMPORTS_PER_SOL, Logs, MessageA
 import { connection } from "../adapter/rpc";
 import { BigNumberish, LIQUIDITY_STATE_LAYOUT_V4, LiquidityPoolKeys, LiquidityPoolKeysV4, LiquidityState, LiquidityStateV4, MARKET_STATE_LAYOUT_V3, getMultipleAccountsInfo, parseBigNumberish } from "@raydium-io/raydium-sdk";
 import BN from "bn.js";
-import { JUPITER_ADDRESS, OPENBOOK_V1_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, WSOL_ADDRESS } from "../utils/const";
+import { JUPITER_ADDRESS, OPENBOOK_V1_ADDRESS, RAYDIUM_AUTHORITY_V4_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, WSOL_ADDRESS } from "../utils/const";
 import { config } from "../utils/config";
 import { BotTokenAccount, setupWSOLTokenAccount } from "../services/token-account";
 import { BotLiquidity, BotLookupTable, getAccountPoolKeysFromAccountDataV4, getLiquidityMintState, getTokenInWallet } from "../services";
@@ -243,7 +243,7 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
 // is "in" @ "out" direction. This can be achieved by checking UserSourceTokenAccount and check if it's similar
 // as the signer ATA account. If it's a WSOL, then it's a "in" process, and vice versa
 // For swapBaseIn instruction, the position of "UserSourceTokenAccount" is at position #16
-const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstruction, txPool: TxPool, ata: PublicKey, blockhash: string) => {
+const processSwapBaseIn = async (signature: string, swapBaseIn: IxSwapBaseIn, instruction: TxInstruction, txPool: TxPool, ata: PublicKey, blockhash: string) => {
   
   const tx = txPool.mempoolTxns
 
@@ -251,6 +251,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   const accountIndexes: number[] = Array.from(instruction.accounts)
   const lookupsForAccountKeyIndex: LookupIndex[] = BotLookupTable.generateTableLookup(tx.addressTableLookups)
   let sourceTA: PublicKey | undefined
+  let destTA: PublicKey | undefined
   let ammId: PublicKey | undefined
   let serumProgramId: PublicKey | undefined
 
@@ -283,10 +284,13 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   }
 
   let sourceAccountIndex
+  let destinationAccountIndex
   if(serumProgramId?.toBase58() === OPENBOOK_V1_ADDRESS) {
     sourceAccountIndex = accountIndexes[15]
+    destinationAccountIndex = accountIndexes[16]
   } else {
     sourceAccountIndex = accountIndexes[14]
+    destinationAccountIndex = accountIndexes[15]
   }
 
   // source 
@@ -299,17 +303,41 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
     sourceTA = new PublicKey(tx.accountKeys[sourceAccountIndex])
   }
 
-  if(!sourceTA || !ammId) { return }
-  // BUG: The bot tracked the ammId before tx is finalize, so it appear in request
-  // To counter the bug, check if sourceTA is similar with user WSOL address
+  // destination 
+  if(destinationAccountIndex >= tx.accountKeys.length) {
+    const lookupIndex = destinationAccountIndex - tx.accountKeys.length
+    const lookup = lookupsForAccountKeyIndex[lookupIndex]
+    const table = await lookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
+    destTA = table?.state.addresses[lookup?.lookupTableIndex]
+  } else {
+    destTA = new PublicKey(tx.accountKeys[destinationAccountIndex])
+  }
+
+  if(!sourceTA || !destTA || !ammId) { return }
+  // BUG: The bot tracked the ammId before tx is finalize, so the buy tx appear in request
+  // To counter the bug, skip any tx if sourceTA is similar with user WSOL address
   if(sourceTA.equals(ata)) { return }
 
   let account = await botTokenAccount.getTokenAccountInfo(sourceTA)
-  if(!account) { return }
-
-  let amount = parseFloat(swapBaseIn.amountIn.toString()) / LAMPORTS_PER_SOL
   
-  if(account?.mint.toBase58() === WSOL_ADDRESS && amount >= config.get('min_sol_trigger')) {
+  let isBuyTradeAction = false
+  let amount = parseFloat(swapBaseIn.amountIn.toString()) / LAMPORTS_PER_SOL
+
+  // Bug, onAccountInfo call return null in the transaction if there is Close Account instruction 
+  // attached to the call. To proceed, it is assume, the null is a BUY event.
+  // There is condition, source & dest is null. This happen when user have sold their token.
+  if(!account){
+    let destAccount = await botTokenAccount.getTokenAccountInfo(destTA)
+    if(destAccount) {
+      isBuyTradeAction = true
+    }
+  } else {
+    if(account?.mint.toBase58() === WSOL_ADDRESS) {
+      isBuyTradeAction = true
+    }
+  }
+
+  if(isBuyTradeAction && amount >= config.get('min_sol_trigger')) {
     const state = mints.get(ammId!.toBase58())
     if(!state) { return }
 
@@ -346,7 +374,7 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
         if(decodedIx.hasOwnProperty('withdraw')) { // remove liquidity
           await processWithdraw(ins, tx, ata)
         } else if(decodedIx.hasOwnProperty('swapBaseIn')) {
-          await processSwapBaseIn((decodedIx as any).swapBaseIn, ins, tx, ata, tx.mempoolTxns.recentBlockhash)
+          await processSwapBaseIn(tx.mempoolTxns.signature, (decodedIx as any).swapBaseIn, ins, tx, ata, tx.mempoolTxns.recentBlockhash)
         }
       }
     }
@@ -367,7 +395,9 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
   botTokenAccount = new BotTokenAccount()
   existingMarkets = new ExistingRaydiumMarketStorage()
 
-  for await (const update of mempool()) {
+  for await (const update of mempool(
+    [RAYDIUM_AUTHORITY_V4_ADDRESS]
+  )) {
     processTx(update, ata) // You can process the updates as needed
   }
 

@@ -3,6 +3,7 @@ import { config } from "../utils";
 import { ClientDuplexStream } from "@grpc/grpc-js";
 import { BotError } from "../types/error";
 import { LIQUIDITY_STATE_LAYOUT_V4, MAINNET_PROGRAM_ID } from "@raydium-io/raydium-sdk";
+import { TxPool } from "../types";
 
 export type RequestAccounts = {
 	name: string,
@@ -109,5 +110,9 @@ export class BotgRPC {
 				}
 			});
 		});
+	}
+
+	private async* generate(): AsyncGenerator<TxPool> {
+		
 	}
 }

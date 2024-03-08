@@ -82,17 +82,20 @@ export class BotTokenAccount {
   /**
    * Get copy of the token account info from the cache memory.
    * If there's no cache data - request from the node and store it 
+   * Store null (closed account) value
    * @param ata 
    * @returns 
    */
   public getTokenAccountInfo = async (ata: PublicKey) : Promise<RawAccount | undefined> => {
     let buffer = this.storage.get(ata)
     if(!buffer) {
+    
       const info = await connection.getAccountInfo(ata, {
         commitment: config.get('default_commitment') as Commitment
       })
 
       if (!info) {
+        this.storage.set(ata, Buffer.alloc(0));
         return undefined;
       }
 
@@ -103,6 +106,10 @@ export class BotTokenAccount {
     if(!buffer || buffer.length === 0) { return undefined }
 
     return AccountLayout.decode(buffer)
+  }
+
+  public isAtaExist = (ata: PublicKey) : Boolean => {
+    return this.storage.exist(ata)
   }
 }
 

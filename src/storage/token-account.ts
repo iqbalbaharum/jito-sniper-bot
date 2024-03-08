@@ -14,4 +14,8 @@ export class TokenAccountStorage {
     get(ta: PublicKey) : Buffer | undefined {
        return this.tokenAccounts.get(ta.toBase58())
     }
+
+    exist(ta: PublicKey) : Boolean {
+			return this.tokenAccounts.has(ta.toBase58())
+    }
 }

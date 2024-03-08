@@ -1,16 +1,16 @@
 
 import { TxPool } from "../types";
-import { JUPITER_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, config } from "../utils";
+import { JUPITER_ADDRESS, config } from "../utils";
 import { GeyserPool } from "./geyser";
 
-async function* mempool(): AsyncGenerator<TxPool> {
+async function* mempool(accounts: string[]): AsyncGenerator<TxPool> {
 	const generators: AsyncGenerator<TxPool>[] = [];
 	
 	const geyserPool: GeyserPool = new GeyserPool(config.get('triton_one_url'), config.get('triton_one_api_key'))
 	geyserPool.addTransaction('raydium_tx', {
     vote: false,
     failed: false,
-    accountInclude: [RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS],
+    accountInclude: accounts,
     accountExclude: [JUPITER_ADDRESS, 'routeUGWgWzqBWFcrCfv8tritsqukccJPu3q5GPP3xS'],
     accountRequired: [],
   })
