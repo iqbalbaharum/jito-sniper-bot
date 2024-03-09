@@ -23,6 +23,7 @@ import Client, { CommitmentLevel, SubscribeRequest } from "@triton-one/yellowsto
 import { payer } from "../adapter/payer";
 import { ExistingRaydiumMarketStorage } from "../storage";
 import { mempool } from "../generators";
+import { preSimulationFilter } from "../generators/pre-simulation-filter";
 
 type V3BundleInTransit = {
   timestamp: number,
@@ -395,9 +396,9 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
   botTokenAccount = new BotTokenAccount()
   existingMarkets = new ExistingRaydiumMarketStorage()
 
-  for await (const update of mempool(
-    [RAYDIUM_AUTHORITY_V4_ADDRESS]
-  )) {
+  const mempoolUpdates = mempool([RAYDIUM_AUTHORITY_V4_ADDRESS])
+  const validUpdates = preSimulationFilter(mempoolUpdates)
+  for await (const update of validUpdates) {
     processTx(update, ata) // You can process the updates as needed
   }
 

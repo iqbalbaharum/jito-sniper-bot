@@ -1,11 +1,15 @@
 
 import { TxPool } from "../types";
 import { JUPITER_ADDRESS, config } from "../utils";
+import { ConcurrentSet } from "../utils/concurrent-set";
 import { GeyserPool } from "./geyser";
+import { JitoMempoolPool } from "./mempool";
 
 async function* mempool(accounts: string[]): AsyncGenerator<TxPool> {
 	const generators: AsyncGenerator<TxPool>[] = [];
-	
+	const pools: ConcurrentSet<string> = new ConcurrentSet<string>(5 * 60000)
+
+	// geyser
 	const geyserPool: GeyserPool = new GeyserPool(config.get('triton_one_url'), config.get('triton_one_api_key'))
 	geyserPool.addTransaction('raydium_tx', {
     vote: false,
@@ -20,7 +24,10 @@ async function* mempool(accounts: string[]): AsyncGenerator<TxPool> {
 	const updates = fuseGenerators(generators)
 
 	for await (const update of updates) {
-		yield update
+		if(!pools.has(update.mempoolTxns.signature)) {
+			pools.add(update.mempoolTxns.signature)
+			yield update
+		}
 	}
 }
 
@@ -42,4 +49,4 @@ async function* fuseGenerators<T>(
 	}
 }
 
-export { mempool }
+export { mempool, fuseGenerators }
