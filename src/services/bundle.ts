@@ -44,6 +44,28 @@ const submitBundle = async (arb: ArbIdea) => {
   return bundleId
 }
 
+const submitBundleDefaultTip = async (arbIdeas: ArbIdea[]) => {
+  const tipAddress = await getJitoTipAccount()
+  const tipAccount = new PublicKey(tipAddress)
+  
+  const resp = await connection.getLatestBlockhash('confirmed');
+
+  const bundle = new Bundle(arbIdeas.map(idea => idea.vtransaction), 5)
+
+  let tip: number = config.get('default_tip_in_sol') * LAMPORTS_PER_SOL
+
+  bundle.addTipTx(
+      payer,
+      tip,
+      tipAccount,
+      resp.blockhash
+  )
+  
+  const bundleId = await mainSearcherClient.sendBundle(bundle)
+  logger.info(`Sending bundle ${bundleId}`)
+  return bundleId
+}
+
 const onDefaultBundleResult = () => {
   mainSearcherClient.onBundleResult(
     (bundleResult) => {
@@ -65,4 +87,4 @@ const onDefaultBundleResult = () => {
   );
 };
 
-export { submitBundle, onDefaultBundleResult }
+export { submitBundle, submitBundleDefaultTip, onDefaultBundleResult }

@@ -152,12 +152,14 @@ const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BigNu
       'in',
       ata,
       amount,
-      blockhash,
+      0,
+      'in',
       {
         compute: {
           microLamports: 10000,
           units: 101337
-        }
+        },
+        blockhash
       }
     );
     
@@ -185,12 +187,14 @@ const sellToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BN, 
       'out',
       ata,
       amount.div(new BN(2)),
-      blockhash,
+      0,
+      'in',
       {
         compute: {
           microLamports: 8000000,
           units: 101337
-        }
+        },
+        blockhash
       }
     );
     
@@ -397,12 +401,9 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
   existingMarkets = new ExistingRaydiumMarketStorage()
 
   const mempoolUpdates = mempool([RAYDIUM_AUTHORITY_V4_ADDRESS])
-  const validUpdates = preSimulationFilter(mempoolUpdates)
-  for await (const update of validUpdates) {
+  for await (const update of mempoolUpdates) {
     processTx(update, ata) // You can process the updates as needed
   }
 
-  console.log('listening')
-  // runGeyserListener(ata)
   onBundleResult()
 })();

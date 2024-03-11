@@ -1,8 +1,8 @@
-import { BigNumberish, LIQUIDITY_STATE_LAYOUT_V4, Liquidity, LiquidityPoolKeys, LiquidityPoolKeysV4, LiquidityStateV4, MAINNET_PROGRAM_ID, Market, parseBigNumberish } from "@raydium-io/raydium-sdk";
+import { BigNumberish, Currency, LIQUIDITY_STATE_LAYOUT_V4, Liquidity, LiquidityPoolInfo, LiquidityPoolKeys, LiquidityPoolKeysV4, LiquidityStateV4, MAINNET_PROGRAM_ID, Market, Price, parseBigNumberish } from "@raydium-io/raydium-sdk";
 import { connection } from "../adapter/rpc";
 import { MINIMAL_MARKET_STATE_LAYOUT_V3 } from "../types/market";
 import { config } from "../utils/config";
-import { Commitment, ComputeBudgetProgram, PublicKey, TransactionInstruction, TransactionMessage, VersionedTransaction } from "@solana/web3.js";
+import { Commitment, ComputeBudgetProgram, LAMPORTS_PER_SOL, PublicKey, TransactionInstruction, TransactionMessage, VersionedTransaction } from "@solana/web3.js";
 import { WSOL_ADDRESS } from "../utils/const";
 import { BotLiquidityState, MintInfo } from "../types";
 import { BN } from "bn.js";
@@ -125,7 +125,6 @@ export class BotLiquidity {
         length: 32 * 3,
       },
     });
-    sleep(10000)
 
     if(!marketInfo) { throw new Error(BotError.MARKET_FETCH_ERROR)}
 
@@ -213,16 +212,18 @@ export class BotLiquidity {
     poolKeys: LiquidityPoolKeys,
     direction: 'in' | 'out',
     wsolTokenAccount: PublicKey,
-    amount: BigNumberish,
-    latestBlockHash?: String,
+    amountIn: BigNumberish,
+    amountOut: BigNumberish,
+    fixedSide: 'in' | 'out',
     config?: {
+      blockhash?: String,
       compute?: TransactionCompute
     }
   ): Promise<VersionedTransaction> => {
     let tokenAccountIn;
     let tokenAccountOut;
     let accountInDecimal;
-    let blockhash = latestBlockHash
+    let blockhash = config?.blockhash
   
     let startInstructions: TransactionInstruction[] = [];
   
@@ -269,7 +270,7 @@ export class BotLiquidity {
       tokenAccountOut = wsolTokenAccount;	
     }
   
-    const { innerTransaction } = Liquidity.makeSwapFixedInInstruction(
+    const { innerTransaction } = Liquidity.makeSwapInstruction(
       {
         poolKeys,
         userKeys: {
@@ -277,10 +278,10 @@ export class BotLiquidity {
           tokenAccountOut,
           owner: payer.publicKey,
         },
-        amountIn: amount,
-        minAmountOut: 0,
+        amountIn: amountIn,
+        amountOut: amountOut,
+        fixedSide: fixedSide ? fixedSide : 'in'
       },
-      poolKeys.version
     );
     
     let computeInstructions: TransactionInstruction[] = []
@@ -307,5 +308,23 @@ export class BotLiquidity {
     transaction.sign([payer, ...innerTransaction.signers]);
     
     return transaction
+  }
+
+  static getTokenPrice(mint: PublicKey, poolKeys: LiquidityPoolKeysV4, poolInfo: LiquidityPoolInfo) {
+    const { baseReserve, quoteReserve, baseDecimals, quoteDecimals } = poolInfo
+    
+    const reserves = [baseReserve, quoteReserve]
+    const decimals = [baseDecimals, quoteDecimals]
+
+    if(mint.equals(poolKeys.quoteMint)) {
+      reserves.reverse()
+      decimals.reverse()
+    }
+
+    const [reserveIn, reserveOut] = reserves
+    const [decimalIn, decimalOut] = decimals
+    
+    const price = new Price(new Currency(decimalIn), reserveIn, new Currency(decimalOut), reserveOut)
+    return parseFloat(price.toSignificant(decimalIn))
   }
 }

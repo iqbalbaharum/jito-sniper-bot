@@ -54,6 +54,12 @@ export class JitoMempoolPool extends BaseGenerator {
 							}
 						})
 					},
+					timing: {
+						listened: new Date().getTime(),
+						preprocessed: 0,
+						processed: 0,
+						send: 0
+					}
 				}
 			}
 		}

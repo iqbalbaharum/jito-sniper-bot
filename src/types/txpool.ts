@@ -1,5 +1,8 @@
 export type PoolTiming = {
-
+	listened: number,
+	preprocessed: number,
+	processed: number
+	send: number
 }
 
 export type TxAddressLookupTable = {
@@ -29,5 +32,5 @@ export type LookupIndex = {
 
 export type TxPool = {
 	mempoolTxns: MempoolTransaction,
-	// timing: PoolTiming
+	timing: PoolTiming
 }

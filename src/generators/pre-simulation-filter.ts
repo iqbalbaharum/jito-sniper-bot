@@ -10,7 +10,13 @@ async function* preSimulationFilter(poolIterator: AsyncGenerator<TxPool>): Async
 			const status = await connection.getSignatureStatus(item.mempoolTxns.signature)
 			if(status.value && !status.value.err) {
 				yield {
-					mempoolTxns: item.mempoolTxns
+					mempoolTxns: item.mempoolTxns,
+					timing: {
+						listened: item.timing.listened,
+						preprocessed: new Date().getTime(),
+						processed: 0,
+						send: 0
+					}
 				}
 			}
 		} catch(e) {

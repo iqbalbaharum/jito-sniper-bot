@@ -110,6 +110,12 @@ export class GeyserPool extends BaseGenerator {
 							}
 						})
 					},
+					timing: {
+						listened: new Date().getTime(),
+						preprocessed: 0,
+						processed: 0,
+						send: 0
+					}
 				}
       }
     } finally {
