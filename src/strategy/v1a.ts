@@ -37,7 +37,6 @@ import { connection } from '../adapter/rpc'
 import { config } from '../utils/config'
 import { payer } from '../adapter/payer'
 import { Bundle } from 'jito-ts/dist/sdk/block-engine/types'
-import { computeAmountIn } from '../utils/raydium-fx/compute-in'
 
 let lookupTable: BotLookupTable
 let botTokenAccount: BotTokenAccount
@@ -192,12 +191,7 @@ async function* buildSingleBlockTradeBundle(
 		// Cancel process if pair is not WSOL
 		if (info.mint === undefined) continue
 
-		const currentTokenPrice = BotLiquidity.getTokenPrice(
-			info.mint,
-			poolKeys,
-			poolInfo
-		)
-		const tradeSize = (0.0001 / currentTokenPrice).toFixed(0)
+		const tradeSize = 1_000_000
 
 		const slippage = new Percent(1, 100)
 
@@ -212,7 +206,7 @@ async function* buildSingleBlockTradeBundle(
 		let amountOutBN = new TokenAmount(currencyOut, tradeSize)
 
 		// Liquidity.computeAmountIn gave '[DecimalError] Division by zero' for some Token
-		const { maxAmountIn } = computeAmountIn({
+		const { maxAmountIn } = BotLiquidity.computeAmountIn({
 			poolKeys,
 			poolInfo,
 			amountOut: amountOutBN,
