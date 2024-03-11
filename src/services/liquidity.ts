@@ -1,4 +1,5 @@
 import {
+	BNDivCeil,
 	BigNumberish,
 	Currency,
 	CurrencyAmount,
@@ -7,6 +8,7 @@ import {
 	LIQUIDITY_STATE_LAYOUT_V4,
 	Liquidity,
 	LiquidityComputeAmountInParams,
+	LiquidityComputeAmountOutParams,
 	LiquidityPoolInfo,
 	LiquidityPoolKeys,
 	LiquidityPoolKeysV4,
@@ -16,9 +18,13 @@ import {
 	ONE,
 	Percent,
 	Price,
+	StableModelLayout,
 	Token,
 	TokenAmount,
 	ZERO,
+	getDxByDyBaseIn,
+	getDyByDxBaseIn,
+	getStablePrice,
 	parseBigNumberish,
 } from '@raydium-io/raydium-sdk'
 import { connection } from '../adapter/rpc'
@@ -130,6 +136,14 @@ export const getLiquidityMintState = async (
 }
 
 export { getAccountPoolKeysFromAccountDataV4 }
+
+let modelData: StableModelLayout = {
+	accountType: 0,
+	status: 0,
+	multiplier: 0,
+	validDataCount: 0,
+	DataElement: [],
+}
 
 export class BotLiquidity {
 	/**
@@ -472,6 +486,165 @@ export class BotLiquidity {
 			currentPrice,
 			executionPrice,
 			priceImpact,
+		}
+	}
+
+	static computeAmountOut = ({
+		poolKeys,
+		poolInfo,
+		amountIn,
+		currencyOut,
+		slippage,
+	}: LiquidityComputeAmountOutParams):
+		| {
+				amountOut: CurrencyAmount
+				minAmountOut: CurrencyAmount
+				currentPrice: Price
+				executionPrice: Price | null
+				priceImpact: Percent
+				fee: CurrencyAmount
+		  }
+		| {
+				amountOut: TokenAmount
+				minAmountOut: TokenAmount
+				currentPrice: Price
+				executionPrice: Price | null
+				priceImpact: Percent
+				fee: CurrencyAmount
+		  } => {
+		const tokenIn =
+			amountIn instanceof TokenAmount ? amountIn.token : Token.WSOL
+		const tokenOut = currencyOut instanceof Token ? currencyOut : Token.WSOL
+		const { baseReserve, quoteReserve } = poolInfo
+
+		const currencyIn =
+			amountIn instanceof TokenAmount ? amountIn.token : amountIn.currency
+		const reserves = [baseReserve, quoteReserve]
+
+		// input is fixed
+		const input = Liquidity._getAmountSide(amountIn, poolKeys)
+		if (input === 'quote') {
+			reserves.reverse()
+		}
+
+		const [reserveIn, reserveOut] = reserves
+
+		let currentPrice
+		if (poolKeys.version === 4) {
+			currentPrice = new Price(currencyIn, reserveIn, currencyOut, reserveOut)
+		} else {
+			const p = getStablePrice(
+				modelData,
+				baseReserve.toNumber(),
+				quoteReserve.toNumber(),
+				false
+			)
+			if (input === 'quote')
+				currentPrice = new Price(
+					currencyIn,
+					new BN(p * 1e6),
+					currencyOut,
+					new BN(1e6)
+				)
+			else
+				currentPrice = new Price(
+					currencyIn,
+					new BN(1e6),
+					currencyOut,
+					new BN(p * 1e6)
+				)
+		}
+
+		const amountInRaw = amountIn.raw
+		let amountOutRaw = ZERO
+		let feeRaw = ZERO
+
+		if (!amountInRaw.isZero()) {
+			if (poolKeys.version === 4) {
+				feeRaw = BNDivCeil(
+					amountInRaw.mul(LIQUIDITY_FEES_NUMERATOR),
+					LIQUIDITY_FEES_DENOMINATOR
+				)
+				const amountInWithFee = amountInRaw.sub(feeRaw)
+
+				const denominator = reserveIn.add(amountInWithFee)
+				amountOutRaw = reserveOut.mul(amountInWithFee).div(denominator)
+			} else {
+				feeRaw = amountInRaw.mul(new BN(2)).div(new BN(10000))
+				const amountInWithFee = amountInRaw.sub(feeRaw)
+				if (input === 'quote')
+					amountOutRaw = new BN(
+						getDyByDxBaseIn(
+							modelData,
+							quoteReserve.toNumber(),
+							baseReserve.toNumber(),
+							amountInWithFee.toNumber()
+						)
+					)
+				else {
+					amountOutRaw = new BN(
+						getDxByDyBaseIn(
+							modelData,
+							quoteReserve.toNumber(),
+							baseReserve.toNumber(),
+							amountInWithFee.toNumber()
+						)
+					)
+				}
+			}
+		}
+
+		const _slippage = new Percent(ONE).add(slippage)
+		const minAmountOutRaw = _slippage.invert().mul(amountOutRaw).quotient
+
+		const amountOut =
+			currencyOut instanceof Token
+				? new TokenAmount(currencyOut, amountOutRaw)
+				: new CurrencyAmount(currencyOut, amountOutRaw)
+		const minAmountOut =
+			currencyOut instanceof Token
+				? new TokenAmount(currencyOut, minAmountOutRaw)
+				: new CurrencyAmount(currencyOut, minAmountOutRaw)
+
+		let executionPrice = new Price(
+			currencyIn,
+			amountInRaw.sub(feeRaw),
+			currencyOut,
+			amountOutRaw
+		)
+		if (!amountInRaw.isZero() && !amountOutRaw.isZero()) {
+			executionPrice = new Price(
+				currencyIn,
+				amountInRaw.sub(feeRaw),
+				currencyOut,
+				amountOutRaw
+			)
+		}
+
+		const priceImpactDenominator = executionPrice.denominator.mul(
+			currentPrice.numerator
+		)
+		const priceImpactNumerator = executionPrice.numerator
+			.mul(currentPrice.denominator)
+			.sub(priceImpactDenominator)
+			.abs()
+		const priceImpact = new Percent(
+			priceImpactNumerator,
+			priceImpactDenominator
+		)
+
+		const fee =
+			currencyIn instanceof Token
+				? new TokenAmount(currencyIn, feeRaw)
+				: new CurrencyAmount(currencyIn, feeRaw)
+
+		return {
+			amountOut,
+			minAmountOut,
+			currentPrice,
+			executionPrice,
+			priceImpact,
+			fee,
 		}
 	}
 }

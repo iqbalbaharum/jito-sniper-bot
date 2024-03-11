@@ -203,14 +203,13 @@ async function* buildSingleBlockTradeBundle(
 			9
 		)
 
-		let amountOutBN = new TokenAmount(currencyOut, tradeSize)
+		const fixedAmountIn = new TokenAmount(currencyIn, tradeSize)
 
-		// Liquidity.computeAmountIn gave '[DecimalError] Division by zero' for some Token
-		const { maxAmountIn } = BotLiquidity.computeAmountIn({
-			poolKeys,
+		const { amountOut } = Liquidity.computeAmountOut({
 			poolInfo,
-			amountOut: amountOutBN,
-			currencyIn,
+			poolKeys,
+			amountIn: fixedAmountIn,
+			currencyOut,
 			slippage,
 		})
 
@@ -222,14 +221,14 @@ async function* buildSingleBlockTradeBundle(
 			buyTokenInstruction(
 				poolKeys,
 				ata,
-				maxAmountIn.raw,
-				amountOutBN.raw,
+				fixedAmountIn.raw,
+				amountOut.raw,
 				blockhash
 			),
 			sellTokenInstruction(
 				poolKeys,
 				ata,
-				amountOutBN.raw,
+				amountOut.raw,
 				fixedAmountOut,
 				blockhash
 			),
@@ -266,7 +265,7 @@ const sendBundle = async (
 }
 
 ;(async () => {
-	const INITIAL_CAPITAL = 0.07
+	const INITIAL_CAPITAL = 0.0025
 	const { ata } = await setupWSOLTokenAccount(true, INITIAL_CAPITAL)
 
 	if (!ata) {
