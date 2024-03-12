@@ -4,6 +4,7 @@ import { BaseGenerator } from "./base-generator";
 import { ClientDuplexStream } from "@grpc/grpc-js";
 import { BotError } from "../types/error";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
+import { logger } from "../utils/logger";
 
 export type RequestAccounts = {
 	name: string,
@@ -90,6 +91,7 @@ export class GeyserPool extends BaseGenerator {
       while (true) {
         const data = await this.waitForData(this.stream)
 				const message = data.transaction.transaction.message
+				logger.info(bs58.encode(data.transaction.signature))
 				yield {
 					mempoolTxns: {
 						signature: bs58.encode(data.transaction.signature),

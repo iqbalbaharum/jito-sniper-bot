@@ -9,7 +9,7 @@ import { BotLiquidity, BotLookupTable, getAccountPoolKeysFromAccountDataV4, getL
 import sleep from "atomic-sleep";
 import { submitBundle } from "../services/bundle";
 import { mainSearcherClient } from "../adapter/jito";
-import { ArbIdea, BotLiquidityState, LookupIndex, TxInstruction, TxPool } from "../types";
+import { ArbIdea, BotLiquidityState, LookupIndex, MempoolTransaction, TxInstruction, TxPool } from "../types";
 import { BotTransaction, getAmmIdFromSignature } from "../services/transaction";
 import { logger } from "../utils/logger";
 import { RaydiumAmmCoder } from "../utils/coder";
@@ -39,6 +39,11 @@ let mints: Map<string, BotLiquidityState> = new Map<
   string,
   BotLiquidityState
 >();
+
+// tracked for interested LP activities, number would reflect the number of LP
+let countLiquidityPool: Map<string, number> = new Map()
+
+
 let tokenBalances: Map<string, BN> = new Map<string, BN>()
 let bundleInTransit: Map<string, V3BundleInTransit> = new Map<string, V3BundleInTransit>()
 let lookupTable: BotLookupTable
@@ -215,12 +220,7 @@ const sellToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BN, 
   }
 }
 
-// What we care about is only ammId from the Raydium instruction
-// For LP withdrawal instruction, the location of "ammId" is at position #1
-const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: PublicKey) => {
-  
-  const tx = txPool.mempoolTxns
-
+const getAmmIdFromMempoolTx = async (tx: MempoolTransaction, instruction: TxInstruction) => {
   const accountIndexes: number[] = Array.from(instruction.accounts)
   const lookupsForAccountKeyIndex: LookupIndex[] = BotLookupTable.generateTableLookup(tx.addressTableLookups)
   
@@ -236,8 +236,40 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
     ammId = new PublicKey(tx.accountKeys[accountIndex])
   }
 
+  return ammId
+}
+
+const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: PublicKey) => {
+  const tx = txPool.mempoolTxns
+
+  let ammId: PublicKey | undefined = await getAmmIdFromMempoolTx(tx, instruction)
   if(!ammId) { return }
   
+  // SUGGESTION: Is it feasible to integrate v3 version in v2? If the token is not available, the buy the token
+  // This to cover use cases
+  // 1. Didnt buy token initially
+  // 2. Buy failed 
+  if(countLiquidityPool.has(ammId.toBase58())) {
+    let count: number = countLiquidityPool.get(ammId.toBase58())!
+    countLiquidityPool.set(ammId.toBase58(), count - 1)
+  }
+}
+
+// Buy token after token release
+const processDeposit = async (instruction: TxInstruction, txPool: TxPool, ata: PublicKey) => {
+  
+  const tx = txPool.mempoolTxns
+
+  let ammId: PublicKey | undefined = await getAmmIdFromMempoolTx(tx, instruction)
+  if(!ammId) { return }
+  
+  if(!countLiquidityPool.has(ammId.toBase58())) {
+    countLiquidityPool.set(ammId.toBase58(), 1)
+  } else {
+    let count: number = countLiquidityPool.get(ammId.toBase58()) || 0
+    countLiquidityPool.set(ammId.toBase58(), count + 1)
+  }
+
   // Check if we this market has already been bought
   if(!existingMarkets.isExisted(ammId)) {
     await processBuy(ammId, ata)
@@ -248,7 +280,7 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
 // is "in" @ "out" direction. This can be achieved by checking UserSourceTokenAccount and check if it's similar
 // as the signer ATA account. If it's a WSOL, then it's a "in" process, and vice versa
 // For swapBaseIn instruction, the position of "UserSourceTokenAccount" is at position #16
-const processSwapBaseIn = async (signature: string, swapBaseIn: IxSwapBaseIn, instruction: TxInstruction, txPool: TxPool, ata: PublicKey, blockhash: string) => {
+const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstruction, txPool: TxPool, ata: PublicKey) => {
   
   const tx = txPool.mempoolTxns
 
@@ -272,6 +304,11 @@ const processSwapBaseIn = async (signature: string, swapBaseIn: IxSwapBaseIn, in
   }
 
   if(!ammId) { return }
+
+  let count = countLiquidityPool.get(ammId.toBase58())
+  if(!count || count != 0) {
+    return
+  }
 
   const poolKeys = trackedPoolKeys.get(ammId!.toBase58())
   if(!poolKeys) { return }
@@ -347,20 +384,24 @@ const processSwapBaseIn = async (signature: string, swapBaseIn: IxSwapBaseIn, in
     if(!state) { return }
 
     const balance = await getBalance(state?.mint, poolKeys!)
-    logger.info(new Date(), `SELL ${state.mint.toBase58()} ${amount} ${signature}`)
 
     const block = await connection.getLatestBlockhash({
       commitment: 'confirmed'
     })
+    
+    logger.info(new Date(), `SELL ${state.mint.toBase58()} ${amount}`)
 
     if(balance && !balance.isZero()) {
       await sellToken(
         poolKeys as LiquidityPoolKeysV4, 
         ata, 
-        balance.mul(new BN(10 ** state.mintDecimal)), 
+        balance.mul(new BN(10 ** state.mintDecimal)).div(new BN(4)), 
         new BN(amount * LAMPORTS_PER_SOL),
         block.blockhash
       )
+
+      // fetch new balance
+      getBalance(state.mint, poolKeys, true)
     } else {
       // Since there's no check for tracking, the bundle might failed,
       // So if there's no balance in wallet - remove tracking
@@ -378,8 +419,10 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
         
         if(decodedIx.hasOwnProperty('withdraw')) { // remove liquidity
           await processWithdraw(ins, tx, ata)
+        } else if(decodedIx.hasOwnProperty('deposit')) {
+          await processDeposit(ins, tx, ata)
         } else if(decodedIx.hasOwnProperty('swapBaseIn')) {
-          await processSwapBaseIn(tx.mempoolTxns.signature, (decodedIx as any).swapBaseIn, ins, tx, ata, tx.mempoolTxns.recentBlockhash)
+          await processSwapBaseIn((decodedIx as any).swapBaseIn, ins, tx, ata)
         }
       }
     }
