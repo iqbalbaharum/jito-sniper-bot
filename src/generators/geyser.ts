@@ -5,6 +5,7 @@ import { ClientDuplexStream } from "@grpc/grpc-js";
 import { BotError } from "../types/error";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import { logger } from "../utils/logger";
+import { BN } from "bn.js";
 
 export type RequestAccounts = {
 	name: string,
@@ -70,6 +71,10 @@ export class GeyserPool extends BaseGenerator {
 		this.write()
 	}
 
+	getLatestBlockhash = (commitment: CommitmentLevel) => {
+		return this.client.getLatestBlockhash(commitment)
+	}
+
 	private async write() {
 		await this.connect(); 
 		await new Promise<void>((resolve, reject) => {
@@ -91,7 +96,6 @@ export class GeyserPool extends BaseGenerator {
       while (true) {
         const data = await this.waitForData(this.stream)
 				const message = data.transaction.transaction.message
-				logger.info(bs58.encode(data.transaction.signature))
 				yield {
 					mempoolTxns: {
 						signature: bs58.encode(data.transaction.signature),
@@ -109,6 +113,22 @@ export class GeyserPool extends BaseGenerator {
 								accountKey: bs58.encode(e.accountKey),
 								writableIndexes: Array.from(e.writableIndexes),
 								readonlyIndexes: Array.from(e.readonlyIndexes)
+							}
+						}),
+						preTokenBalances: data.transaction.meta.preTokenBalances.map((token: any) => {
+							return {
+								mint: token.mint,
+								owner: token.owner,
+								amount: new BN(token.uiTokenAmount.amount),
+								decimal: token.uiTokenAmount.decimals
+							}
+						}),
+						postTokenBalances: data.transaction.meta.postTokenBalances.map((token: any) => {
+							return {
+								mint: token.mint,
+								owner: token.owner,
+								amount: new BN(token.uiTokenAmount.amount),
+								decimal: token.uiTokenAmount.decimals
 							}
 						})
 					},

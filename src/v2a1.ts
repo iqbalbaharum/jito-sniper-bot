@@ -31,7 +31,7 @@ let bundleInTransit: Map<string, BundleInTransit> = new Map<string, BundleInTran
 const getBalance = async (mint: PublicKey, poolKeys: LiquidityPoolKeysV4): Promise<BN> => {
   let balance = tokenBalances.get(mint.toBase58())
   if(!balance) {
-    const taBalance = await getTokenInWallet(poolKeys)
+    const taBalance = await getTokenInWallet(poolKeys, config.get('default_commitment') as Commitment)
     if(taBalance && taBalance.length > 0) {
       if(taBalance[0].balance > 0) {
         balance = new BN(taBalance[0].balance)

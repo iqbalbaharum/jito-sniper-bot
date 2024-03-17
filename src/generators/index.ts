@@ -1,4 +1,5 @@
 
+import { payer } from "../adapter/payer";
 import { TxPool } from "../types";
 import { JUPITER_ADDRESS, config } from "../utils";
 import { ConcurrentSet } from "../utils/concurrent-set";
@@ -16,6 +17,14 @@ async function* mempool(accounts: string[]): AsyncGenerator<TxPool> {
     failed: false,
     accountInclude: accounts,
     accountExclude: [JUPITER_ADDRESS, 'routeUGWgWzqBWFcrCfv8tritsqukccJPu3q5GPP3xS'],
+    accountRequired: [],
+  })
+	
+	geyserPool.addTransaction('wallet_tx', {
+    vote: false,
+    failed: false,
+    accountInclude: [payer.publicKey.toBase58()],
+    accountExclude: [],
     accountRequired: [],
   })
 	

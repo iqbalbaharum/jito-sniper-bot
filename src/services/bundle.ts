@@ -22,16 +22,16 @@ const submitBundle = async (arb: ArbIdea) => {
   const TIP_PERCENT = config.get('tip_percent')
   let expectedProfitLamport: number = config.get('default_tip_in_sol') * LAMPORTS_PER_SOL
   
-  if(!arb.expectedProfit.isZero() && arb.expectedProfit.toNumber() > config.get('min_sol_trigger')) {
-    expectedProfitLamport = parseInt(arb.expectedProfit.mul(new BN(TIP_PERCENT)).div(new BN(100)).toString())
-    // Because of buying initially from any market
-    // it would spike the tips to maximum. To prevent excessive tipping
-    // set maximum tips
-    if(expectedProfitLamport > config.get('max_tip_in_sol')) {
-      expectedProfitLamport = config.get('max_tip_in_sol') * LAMPORTS_PER_SOL
-    }
-  }
-
+  // if(!arb.expectedProfit.isZero() && arb.expectedProfit.toNumber() > config.get('min_sol_trigger')) {
+  //   expectedProfitLamport = parseInt(arb.expectedProfit.mul(new BN(TIP_PERCENT)).div(new BN(100)).toString())
+  //   // Because of buying initially from any market
+  //   // it would spike the tips to maximum. To prevent excessive tipping
+  //   // set maximum tips
+  //   if(expectedProfitLamport > config.get('max_tip_in_sol')) {
+  //     expectedProfitLamport = config.get('max_tip_in_sol') * LAMPORTS_PER_SOL
+  //   }
+  // }
+  
   bundle.addTipTx(
       payer,
       expectedProfitLamport,

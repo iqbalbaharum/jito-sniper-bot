@@ -52,28 +52,6 @@ let existingMarkets: ExistingRaydiumMarketStorage
 
 const coder = new RaydiumAmmCoder(raydiumIDL as Idl)
 
-const getBalance = async (mint: PublicKey, poolKeys: LiquidityPoolKeysV4, reset: boolean = false): Promise<BN> => {
-  let balance: BN | undefined = new BN(0)
-
-  if(!reset) {
-    balance = tokenBalances.get(mint.toBase58())
-  }
-
-  if(!balance) {
-    const taBalance = await getTokenInWallet(poolKeys)
-    if(taBalance && taBalance.length > 0) {
-      if(taBalance[0].balance > 0) {
-        balance = new BN(taBalance[0].balance)
-        tokenBalances.set(mint.toBase58(), balance)
-      }
-    }
-
-    sleep(1000)
-  }
-
-  return balance!
-}
-
 const onBundleResult = () => {
   mainSearcherClient.onBundleResult(
     (bundleResult) => {
@@ -85,12 +63,6 @@ const onBundleResult = () => {
         logger.info(
           `Bundle ${bundleId} accepted in slot ${bundleResult.accepted?.slot}`,
         );
-        if(bundleInTransit.has(bundleId)) {
-          const bundle = bundleInTransit.get(bundleId)
-          if(!bundle) { return }
-          // to make the request faster, initialize token balance after purchase confirm
-          getBalance(bundle.state.mint, bundle.poolKeys, true)
-        }
       }
 
       if (isRejected) {
@@ -103,7 +75,7 @@ const onBundleResult = () => {
   );
 };
 
-const processBuy = async (ammId: PublicKey, ata: PublicKey) => {
+const processBuy = async (ammId: PublicKey, ata: PublicKey, blockhash: string) => {
   const poolKeys = await BotLiquidity.getAccountPoolKeysFromAccountDataV4(ammId)
   const info = BotLiquidity.getMintInfoFromWSOLPair(poolKeys)
 
@@ -111,21 +83,18 @@ const processBuy = async (ammId: PublicKey, ata: PublicKey) => {
   if(info.mint === undefined) { return }
   
   logger.info(new Date(), `BUY ${info.mint.toBase58()}`)
-  const block = await connection.getLatestBlockhash({
-    commitment: 'finalized'
-  })
 
   if(!poolKeys) { return }
   
-  let bundleId = await buyToken(
+  let signature = await buyToken(
     poolKeys, 
     ata,
     config.get('token_purchase_in_sol') * LAMPORTS_PER_SOL,
     new BN(0 * LAMPORTS_PER_SOL),
-    block.blockhash
+    blockhash
   )
 
-  if(!bundleId) { return }
+  if(!signature) { return }
 
   trackedPoolKeys.set(ammId.toBase58(), poolKeys)
   mints.set(ammId.toBase58(), {
@@ -138,16 +107,7 @@ const processBuy = async (ammId: PublicKey, ata: PublicKey) => {
   // add into the record
   existingMarkets.add(ammId)
 
-  bundleInTransit.set(bundleId, {
-    timestamp: new Date().getTime(),
-    poolKeys,
-    state: {
-      ammId,
-      mint: info.mint,
-      mintDecimal: info.decimal,
-      isMintBase: info.isMintBase
-    }
-  })
+  return signature
 }
 
 const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BigNumberish, expectedProfit: BN, blockhash?: string) => {
@@ -168,17 +128,18 @@ const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BigNu
       }
     );
     
-    let expected = new BN(0)
-    if(!expectedProfit.isZero()) {
-      expected = expectedProfit
-    }
+    // let expected = new BN(0)
+    // if(!expectedProfit.isZero()) {
+    //   expected = expectedProfit
+    // }
   
-    const arb: ArbIdea = {
-      vtransaction: transaction,
-      expectedProfit: expected
-    }
+    // const arb: ArbIdea = {
+    //   vtransaction: transaction,
+    //   expectedProfit: expected
+    // }
 
-    return await submitBundle(arb)
+    // return await submitBundle(arb)
+    return await BotTransaction.sendTransaction(transaction, config.get('default_commitment') as Commitment)
   } catch(e: any) {
     logger.error(e.toString())
     return ''
@@ -191,7 +152,7 @@ const sellToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BN, 
       keys,
       'out',
       ata,
-      amount.div(new BN(2)),
+      amount,
       0,
       'in',
       {
@@ -203,18 +164,18 @@ const sellToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BN, 
       }
     );
     
-    let expected = new BN(0)
-    if(!expectedProfit.isZero()) {
-      expected = expectedProfit
-    }
+    // let expected = new BN(0)
+    // if(!expectedProfit.isZero()) {
+    //   expected = expectedProfit
+    // }
   
-    const arb: ArbIdea = {
-      vtransaction: transaction,
-      expectedProfit: expected
-    }
+    // const arb: ArbIdea = {
+    //   vtransaction: transaction,
+    //   expectedProfit: expected
+    // }
 
-    return await submitBundle(arb)
-
+    // return await submitBundle(arb)
+    return await BotTransaction.sendTransaction(transaction, config.get('default_commitment') as Commitment)
   } catch(e) {
     console.log(e)
   }
@@ -272,7 +233,8 @@ const processDeposit = async (instruction: TxInstruction, txPool: TxPool, ata: P
 
   // Check if we this market has already been bought
   if(!existingMarkets.isExisted(ammId)) {
-    await processBuy(ammId, ata)
+    const signature = await processBuy(ammId, ata, txPool.mempoolTxns.recentBlockhash)
+    logger.info(`Buy TX send: ${signature}`)
   }
 }
 
@@ -291,6 +253,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   let destTA: PublicKey | undefined
   let ammId: PublicKey | undefined
   let serumProgramId: PublicKey | undefined
+  let signer: PublicKey | undefined
 
   // ammId
   const ammIdAccountIndex = accountIndexes[1]
@@ -327,12 +290,25 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
 
   let sourceAccountIndex
   let destinationAccountIndex
+  let signerAccountIndex
   if(serumProgramId?.toBase58() === OPENBOOK_V1_ADDRESS) {
     sourceAccountIndex = accountIndexes[15]
     destinationAccountIndex = accountIndexes[16]
+    signerAccountIndex = accountIndexes[17]
   } else {
     sourceAccountIndex = accountIndexes[14]
     destinationAccountIndex = accountIndexes[15]
+    signerAccountIndex = accountIndexes[16]
+  }
+
+  // signer
+  if(signerAccountIndex >= tx.accountKeys.length) {
+    const lookupIndex = signerAccountIndex - tx.accountKeys.length
+    const lookup = lookupsForAccountKeyIndex[lookupIndex]
+    const table = await lookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
+    signer = table?.state.addresses[lookup?.lookupTableIndex]
+  } else {
+    signer = new PublicKey(tx.accountKeys[signerAccountIndex])
   }
 
   // source 
@@ -354,54 +330,73 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   } else {
     destTA = new PublicKey(tx.accountKeys[destinationAccountIndex])
   }
-
-  if(!sourceTA || !destTA || !ammId) { return }
+  
+  if(!sourceTA || !destTA || !ammId || !signer) { return }
+  
+  const state = mints.get(ammId!.toBase58())
+  if(!state) { return }
+  
   // BUG: The bot tracked the ammId before tx is finalize, so the buy tx appear in request
   // To counter the bug, skip any tx if sourceTA is similar with user WSOL address
-  if(sourceTA.equals(ata)) { return }
-
-  let account = await botTokenAccount.getTokenAccountInfo(sourceTA)
+  if(sourceTA.equals(ata) || signer.equals(payer.publicKey)) {
+    let balance = BotTransaction.getBalanceFromTransaction(tx.preTokenBalances, tx.postTokenBalances, state.mint)
+    if(balance.isNeg()) {
+      const prevBalance = tokenBalances.get(state.mint.toBase58());
+      if (prevBalance !== undefined) {
+        const netChange = balance.sub(prevBalance.abs());
+        tokenBalances.set(state.mint.toBase58(), netChange);
+      } else {
+          // Previous balance not found, set current balance directly
+          tokenBalances.set(state.mint.toBase58(), balance);
+      }
+    } else {
+      tokenBalances.set(state.mint.toBase58(), balance)
+    }
+    return
+  }
   
   let isBuyTradeAction = false
-  let amount = parseFloat(swapBaseIn.amountIn.toString()) / LAMPORTS_PER_SOL
+  let signerWSOLAccount = await BotTokenAccount.getAssociatedTokenAccount(new PublicKey(WSOL_ADDRESS), signer)
 
-  // Bug, onAccountInfo call return null in the transaction if there is Close Account instruction 
-  // attached to the call. To proceed, it is assume, the null is a BUY event.
-  // There is condition, source & dest is null. This happen when user have sold their token.
-  if(!account){
-    let destAccount = await botTokenAccount.getTokenAccountInfo(destTA)
-    if(destAccount) {
-      isBuyTradeAction = true
-    }
+  if(!signerWSOLAccount.equals(sourceTA) && !signerWSOLAccount.equals(destTA)) {
+    return
+  }
+
+  if(signerWSOLAccount.equals(sourceTA)) {
+    isBuyTradeAction = true
   } else {
-    if(account?.mint.toBase58() === WSOL_ADDRESS) {
-      isBuyTradeAction = true
+    if(!signerWSOLAccount.equals(destTA)) {
+      return
     }
   }
 
+  let amount = parseFloat(swapBaseIn.amountIn.toString()) / LAMPORTS_PER_SOL
+
   if(isBuyTradeAction && amount >= config.get('min_sol_trigger')) {
-    const state = mints.get(ammId!.toBase58())
-    if(!state) { return }
 
-    const balance = await getBalance(state?.mint, poolKeys!)
-
-    const block = await connection.getLatestBlockhash({
-      commitment: 'confirmed'
-    })
+    const balance = tokenBalances.get(state.mint.toBase58())
     
     logger.info(new Date(), `SELL ${state.mint.toBase58()} ${amount}`)
 
     if(balance && !balance.isZero()) {
-      await sellToken(
-        poolKeys as LiquidityPoolKeysV4, 
-        ata, 
-        balance.mul(new BN(10 ** state.mintDecimal)).div(new BN(4)), 
-        new BN(amount * LAMPORTS_PER_SOL),
-        block.blockhash
-      )
-
-      // fetch new balance
-      getBalance(state.mint, poolKeys, true)
+      if(!balance.isNeg()) {
+        logger.info(new Date(), `SELL ${state.mint.toBase58()} ${amount} ${balance?.toString()}`)
+        const tradeSize = balance.divn(2)
+        const signature = await sellToken(
+          poolKeys as LiquidityPoolKeysV4, 
+          ata, 
+          tradeSize, 
+          new BN(amount * LAMPORTS_PER_SOL),
+          txPool.mempoolTxns.recentBlockhash
+        )
+  
+        tokenBalances.set(state.mint!.toBase58(), balance.sub(tradeSize))
+        logger.info(`Sell TX send: ${signature}`)
+      } else {
+        // trackedPoolKeys.delete(ammId.toBase58())
+        // mints.delete(ammId.toBase58())
+        tokenBalances.delete(ammId.toBase58())
+      }
     } else {
       // Since there's no check for tracking, the bundle might failed,
       // So if there's no balance in wallet - remove tracking
@@ -443,7 +438,7 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
   botTokenAccount = new BotTokenAccount()
   existingMarkets = new ExistingRaydiumMarketStorage()
 
-  const mempoolUpdates = mempool([RAYDIUM_AUTHORITY_V4_ADDRESS])
+  const mempoolUpdates = mempool([RAYDIUM_AUTHORITY_V4_ADDRESS, payer.publicKey.toBase58()])
   for await (const update of mempoolUpdates) {
     processTx(update, ata) // You can process the updates as needed
   }

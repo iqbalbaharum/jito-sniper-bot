@@ -1,11 +1,11 @@
-import { PublicKey } from "@solana/web3.js";
+import { Commitment, PublicKey } from "@solana/web3.js";
 import { connection } from "../adapter/rpc";
 import { getTokenAccountsByOwner } from "./token-account";
 import { LiquidityPoolKeys, parseBigNumberish } from "@raydium-io/raydium-sdk";
 import { WSOL_ADDRESS } from "../utils/const";
 import { TokenAccountBalance } from "../types";
 
-const getTokenInWallet = async (poolKeys: LiquidityPoolKeys) : Promise<TokenAccountBalance[]> => {
+const getTokenInWallet = async (poolKeys: LiquidityPoolKeys, commitment: Commitment) : Promise<TokenAccountBalance[]> => {
 
 	let mint: PublicKey;
 	
@@ -15,7 +15,7 @@ const getTokenInWallet = async (poolKeys: LiquidityPoolKeys) : Promise<TokenAcco
 		mint = poolKeys.baseMint;
 	}
 
-	const accs = await getTokenAccountsByOwner()
+	const accs = await getTokenAccountsByOwner(commitment)
 	const balanceArray = await accs
 		.filter((acc) => acc.accountInfo.mint.toBase58() === mint.toBase58())
 		.map(async (acc) => {

@@ -1,3 +1,5 @@
+import BN from "bn.js"
+
 export type PoolTiming = {
 	listened: number,
 	preprocessed: number,
@@ -17,12 +19,21 @@ export type TxInstruction = {
 	data: Buffer
 }
 
+export type TxBalance = {
+	mint: string,
+	owner: string,
+	decimals: number,
+	amount: BN
+}
+
 export type MempoolTransaction = {
 	signature: string
 	accountKeys: string[]
 	recentBlockhash: string
 	instructions: TxInstruction[]
-	addressTableLookups: TxAddressLookupTable[]
+	addressTableLookups: TxAddressLookupTable[],
+	preTokenBalances: TxBalance[]
+	postTokenBalances: TxBalance[]
 }
 
 export type LookupIndex = {

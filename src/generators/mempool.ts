@@ -52,7 +52,9 @@ export class JitoMempoolPool extends BaseGenerator {
 								writableIndexes: e.writableIndexes,
 								readonlyIndexes: e.readonlyIndexes
 							}
-						})
+						}),
+						preTokenBalances: [],
+						postTokenBalances: []
 					},
 					timing: {
 						listened: new Date().getTime(),

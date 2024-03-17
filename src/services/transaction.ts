@@ -1,8 +1,10 @@
 import { LiquidityPoolKeysV4, LiquidityStateV4, TxVersion } from "@raydium-io/raydium-sdk"
 import { connection } from "../adapter/rpc"
 import { RAYDIUM_AUTHORITY_V4_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, USDC_ADDRESS, WSOL_ADDRESS, config } from "../utils";
-import { PublicKey, VersionedMessage, VersionedTransaction } from "@solana/web3.js";
+import { Commitment, PublicKey, VersionedMessage, VersionedTransaction } from "@solana/web3.js";
 import { BotLiquidity } from "./liquidity";
+import BN from "bn.js";
+import { TxBalance } from "../types";
 
 const getTokenMintFromSignature = async (signature: string): Promise<string | undefined> => {
 	let tx;
@@ -101,7 +103,6 @@ export class BotTransaction {
   static getAmmIdFromTransaction = (message: VersionedMessage) : PublicKey | undefined => {
     for (let ins of message.compiledInstructions) {
       if(ins.data.length > 0 && message.staticAccountKeys[ins.programIdIndex].toBase58() === RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS) {
-        console.log(ins.accountKeyIndexes)
         // console.log(ins.accountKeyIndexes.forEach(i => console.log(message.staticAccountKeys[i])))
         return message.staticAccountKeys[ins.accountKeyIndexes[1]]
       }
@@ -114,9 +115,36 @@ export class BotTransaction {
       commitment: 'confirmed'
     })
     
-    console.log(response)
     if(!response) { return undefined }
   
     // return this.getAmmIdFromTransaction(response.transaction.message)
+  }
+
+  // Read mint token balance from transaction
+  static getBalanceFromTransaction = (preTokenBalances: TxBalance[], postTokenBalances: TxBalance[], mint: PublicKey) : BN => {
+    const tokenPreAccount = preTokenBalances.filter(
+      (account) =>
+        account.mint === mint.toBase58() &&
+        account.owner === RAYDIUM_AUTHORITY_V4_ADDRESS
+    )[0];
+    const tokenPostAccount = postTokenBalances.filter(
+      (account) =>
+        account.mint === mint.toBase58() &&
+        account.owner === RAYDIUM_AUTHORITY_V4_ADDRESS
+    )[0];
+
+    const tokenAmount = tokenPreAccount.amount.sub(tokenPostAccount.amount)
+
+    return tokenAmount
+  }
+
+  static sendTransaction =  async(transaction: VersionedTransaction, commitment: Commitment) => {
+    return await connection.sendRawTransaction(
+      transaction.serialize(),
+      {
+        maxRetries: 20,
+        skipPreflight: true,
+      },
+    );
   }
 }
