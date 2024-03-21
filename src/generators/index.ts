@@ -1,17 +1,19 @@
 
+import { PublicKey } from "@solana/web3.js";
 import { payer } from "../adapter/payer";
 import { TxPool } from "../types";
-import { JUPITER_ADDRESS, config } from "../utils";
+import { JUPITER_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, config } from "../utils";
 import { ConcurrentSet } from "../utils/concurrent-set";
 import { GeyserPool } from "./geyser";
+import { Web3JSOnLog } from "./log";
 import { JitoMempoolPool } from "./mempool";
 
 async function* mempool(accounts: string[]): AsyncGenerator<TxPool> {
 	const generators: AsyncGenerator<TxPool>[] = [];
-	const pools: ConcurrentSet<string> = new ConcurrentSet<string>(5 * 60000)
+	const pools: ConcurrentSet<string> = new ConcurrentSet<string>(50 * 60000)
 
 	// geyser
-	const geyserPool: GeyserPool = new GeyserPool(config.get('triton_one_url'), config.get('triton_one_api_key'))
+	const geyserPool: GeyserPool = new GeyserPool('geyser', config.get('triton_one_url'), config.get('triton_one_api_key'))
 	geyserPool.addTransaction('raydium_tx', {
     vote: false,
     failed: false,
@@ -27,13 +29,16 @@ async function* mempool(accounts: string[]): AsyncGenerator<TxPool> {
     accountExclude: [],
     accountRequired: [],
   })
+
+	const logsPool: Web3JSOnLog = new Web3JSOnLog('onLog', new PublicKey(RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS))
 	
 	generators.push(geyserPool.listen())
+	// generators.push(logsPool.listen())
 
 	const updates = fuseGenerators(generators)
 
 	for await (const update of updates) {
-		if(!pools.has(update.mempoolTxns.signature)) {
+		if(update && !pools.has(update.mempoolTxns.signature)) {
 			pools.add(update.mempoolTxns.signature)
 			yield update
 		}

@@ -29,11 +29,13 @@ export class GeyserPool extends BaseGenerator {
 		commitment: CommitmentLevel.PROCESSED
 	};
 
+	private streamName: string
 	private client: Client
 	private stream: ClientDuplexStream<SubscribeRequest, SubscribeUpdate> | undefined
 
-	constructor(url: string, apiKey: string) {
+	constructor(streamName: string, url: string, apiKey: string) {
 		super()
+		this.streamName = streamName
 		this.client = new Client(url, apiKey)
 		this.connect()
 	}
@@ -98,6 +100,7 @@ export class GeyserPool extends BaseGenerator {
 				const message = data.transaction.transaction.message
 				yield {
 					mempoolTxns: {
+						source: this.streamName,
 						signature: bs58.encode(data.transaction.signature),
 						accountKeys: message.accountKeys.map((e: any) => bs58.encode(e)),
 						recentBlockhash: bs58.encode(message.recentBlockhash),

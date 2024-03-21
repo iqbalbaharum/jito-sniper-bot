@@ -36,6 +36,7 @@ export class JitoMempoolPool extends BaseGenerator {
 				const message = tx.message
 				yield {
 					mempoolTxns: {
+						source: 'Jito mempool',
 						signature: bs58.encode(tx.signatures[0]),
 						accountKeys: message.staticAccountKeys.map((e: any) => e.toBase58()),
 						recentBlockhash: message.recentBlockhash,

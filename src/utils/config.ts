@@ -64,6 +64,11 @@ const config = convict({
         default: 0.01,
         env: 'MAX_TIP_IN_SOL'
     },
+    tx_balance_chuck_division: {
+        format: Number,
+        default: 4,
+        env: 'TX_BALANCE_CHUCK_DIVISION'
+    },
     log_level: {
         format: String,
         default: 'info',

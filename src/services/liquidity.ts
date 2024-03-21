@@ -31,6 +31,7 @@ import { connection } from '../adapter/rpc'
 import { MINIMAL_MARKET_STATE_LAYOUT_V3 } from '../types/market'
 import { config } from '../utils/config'
 import {
+  AccountInfo,
 	Commitment,
 	ComputeBudgetProgram,
 	LAMPORTS_PER_SOL,
@@ -154,16 +155,22 @@ export class BotLiquidity {
 	static getAccountPoolKeysFromAccountDataV4 = async (
 		ammId: PublicKey
 	): Promise<LiquidityPoolKeys> => {
-		let account = await connection.getAccountInfo(ammId, {
-			commitment: config.get('default_commitment') as Commitment,
-		})
+
+    let account: AccountInfo<Buffer> | null = null
+    while(!account) {
+      account = await connection.getAccountInfo(ammId, {
+        commitment: config.get('default_commitment') as Commitment,
+      })
+
+      sleep(2000)
+    }
 
 		if (!account) {
 			throw new Error(BotError.INVALID_AMM_ID)
 		}
 
 		const accountData = LIQUIDITY_STATE_LAYOUT_V4.decode(account.data)
-
+    
 		const marketInfo = await connection.getAccountInfo(accountData.marketId, {
 			commitment: config.get('default_commitment') as Commitment,
 			dataSlice: {

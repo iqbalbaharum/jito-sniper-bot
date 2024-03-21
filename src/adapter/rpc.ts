@@ -11,4 +11,10 @@ let connection: Connection = new Connection(HTTP_RPC_URL, {
     wsEndpoint: WEBSOCKET_RPC_URL
 })
 
-export { connection }
+let confirmedConnection: Connection = new Connection(HTTP_RPC_URL, {
+    commitment: 'confirmed',
+    disableRetryOnRateLimit: true,
+    wsEndpoint: WEBSOCKET_RPC_URL
+})
+
+export { connection, confirmedConnection }
