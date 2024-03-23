@@ -249,17 +249,18 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
   const tx = txPool.mempoolTxns
   let ammId: PublicKey | undefined = await getAmmIdFromMempoolTx(tx, instruction)
   if(!ammId) { return }
-  console.log(`1`)
+  
   // SUGGESTION: Is it feasible to integrate v3 version in v2? If the token is not available, the buy the token
   // This to cover use cases
   // 1. Didnt buy token initially
   // 2. Buy failed 
-  if(!countLiquidityPool.has(ammId.toBase58())) {
+  let count: number | undefined = countLiquidityPool.get(ammId.toBase58())!
+  if(!count) {
+    await processBuy(ammId, ata, txPool.mempoolTxns.recentBlockhash)
     return
   }
 
-  let count: number = countLiquidityPool.get(ammId.toBase58())!
-  countLiquidityPool.set(ammId.toBase58(), count - 1)
+  // countLiquidityPool.set(ammId.toBase58(), count - 1)
 
   // Burst sell transaction, if rugpull detected
   if(count - 1 === 0) {
@@ -267,7 +268,7 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
     if(!state) { return }
     const totalChunck = SystemConfig.get('tx_balance_chuck_division')
     let blockhash = txPool.mempoolTxns.recentBlockhash
-    for(let i = 0; i < Math.floor(totalChunck / 3); i++) {
+    for(let i = 0; i < Math.floor(totalChunck / 2); i++) {
       await processSell(
         ata,
         ammId,
@@ -297,14 +298,14 @@ const processDeposit = async (instruction: TxInstruction, txPool: TxPool, ata: P
   let ammId: PublicKey | undefined = await getAmmIdFromMempoolTx(tx, instruction)
   if(!ammId) { return }
   
-  if(!countLiquidityPool.has(ammId.toBase58())) {
-    countLiquidityPool.set(ammId.toBase58(), 1)
-    logger.warn(`LP ${ammId} | ${1} | ${txPool.mempoolTxns.signature}`)
-  } else {
-    let count: number = countLiquidityPool.get(ammId.toBase58()) || 0
-    countLiquidityPool.set(ammId.toBase58(), count + 1)
-    logger.warn(`LP ${ammId} | ${count} | ${txPool.mempoolTxns.signature}`)
-  }
+  // if(!countLiquidityPool.has(ammId.toBase58())) {
+  //   countLiquidityPool.set(ammId.toBase58(), 1)
+  //   logger.warn(`LP ${ammId} | ${1} | ${txPool.mempoolTxns.signature}`)
+  // } else {
+  //   let count: number = countLiquidityPool.get(ammId.toBase58()) || 0
+  //   countLiquidityPool.set(ammId.toBase58(), count + 1)
+  //   logger.warn(`LP ${ammId} | ${count} | ${txPool.mempoolTxns.signature}`)
+  // }
   
   await processBuy(ammId, ata, txPool.mempoolTxns.recentBlockhash)
 }
@@ -330,13 +331,13 @@ const processInitialize2 = async (instruction: TxInstruction, txPool: TxPool, at
 
   if(!ammId) { return }
   
-  if(!countLiquidityPool.has(ammId.toBase58())) {
-    countLiquidityPool.set(ammId.toBase58(), 1)
-    logger.warn(`LP ${ammId} | ${1} | ${txPool.mempoolTxns.signature}`)
-  } else {
-    let count: number = countLiquidityPool.get(ammId.toBase58()) || 0
-    logger.warn(`LP ${ammId} | ${count} | ${txPool.mempoolTxns.signature}`)
-  }
+  // if(!countLiquidityPool.has(ammId.toBase58())) {
+  //   countLiquidityPool.set(ammId.toBase58(), 1)
+  //   logger.warn(`LP ${ammId} | ${1} | ${txPool.mempoolTxns.signature}`)
+  // } else {
+  //   let count: number = countLiquidityPool.get(ammId.toBase58()) || 0
+  //   logger.warn(`LP ${ammId} | ${count} | ${txPool.mempoolTxns.signature}`)
+  // }
   
   await processBuy(ammId, ata, txPool.mempoolTxns.recentBlockhash)
 }
@@ -446,6 +447,8 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
             remaining: txAmount,
             chuck
           });
+
+          countLiquidityPool.set(ammId.toBase58(), 1)
       }
     } else {
       let chuck = txAmount.divn(SystemConfig.get('tx_balance_chuck_division'))
@@ -454,6 +457,8 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
         remaining: txAmount,
         chuck
       });
+
+      countLiquidityPool.set(ammId.toBase58(), 1)
     }
     return
   }
@@ -483,8 +488,11 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
 
     const totalChunck = SystemConfig.get('tx_balance_chuck_division')
 
+    // The strategy to have faster swap upon trigger, and slower swap
+    // for subsequence trade after the initial 
     let blockhash = txPool.mempoolTxns.recentBlockhash
-
+    let units = 1000000
+    let microLamports = 101337
     for(let i = 0; i < Math.floor(totalChunck / 3); i++) {
       await processSell(
         ata,
@@ -492,12 +500,14 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
         state.mint, 
         {
           compute: {
-            units: 100000,
-            microLamports: 101337
+            units,
+            microLamports
           },
           blockhash
         }
       )
+
+      units = 100000
 
       let newBlock = await connection.getLatestBlockhash(config.get('default_commitment') as Commitment)
       blockhash = newBlock.blockhash

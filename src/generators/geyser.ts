@@ -6,6 +6,7 @@ import { BotError } from "../types/error";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import { logger } from "../utils/logger";
 import { BN } from "bn.js";
+import { Status } from "@grpc/grpc-js/build/src/constants";
 
 export type RequestAccounts = {
 	name: string,
@@ -36,8 +37,11 @@ export class GeyserPool extends BaseGenerator {
 	constructor(streamName: string, url: string, apiKey: string) {
 		super()
 		this.streamName = streamName
-		this.client = new Client(url, apiKey)
-		this.connect()
+		this.client = new Client(url, apiKey, {
+			'grpc.keepalive_time_ms': Number.MAX_SAFE_INTEGER,
+			'grpc.keepalive_timeout_ms': 20000,
+			'grpc.keepalive_permit_without_calls': 1
+		})
 	}
 
 	private async connect() {
@@ -54,7 +58,7 @@ export class GeyserPool extends BaseGenerator {
 			filters: request.filters,
 			account: request.account
 		}
-		this.write()
+		// this.write()
 	}
 
 	addTransaction = (key: string, request: SubscribeRequestFilterTransactions) => {
@@ -65,12 +69,12 @@ export class GeyserPool extends BaseGenerator {
 			accountExclude: request.accountExclude,
 			accountRequired: request.accountRequired
 		}
-		this.write()
+		// this.write()
 	}
 
 	removeProgram = (name: string) => {
 		delete this.gRequest.accounts[name]
-		this.write()
+		// this.write()
 	}
 
 	getLatestBlockhash = (commitment: CommitmentLevel) => {
@@ -94,14 +98,23 @@ export class GeyserPool extends BaseGenerator {
 
   public async* listen(): AsyncGenerator<TxPool> {
 		await this.connect()
-		try {
-      while (true) {
-        const data = await this.waitForData(this.stream)
-				const message = data.transaction.transaction.message
+		await this.write()
+
+		if(!this.stream) { return }
+
+		this.stream.on('status', async status => {
+			if(status.code === Status.CANCELLED) {
+				await this.connect()
+			}
+		});
+
+		for await(const data of this.stream) {
+			if(data && data.transaction) {
+				const message = data.transaction.transaction.transaction.message
 				yield {
 					mempoolTxns: {
 						source: this.streamName,
-						signature: bs58.encode(data.transaction.signature),
+						signature: bs58.encode(data.transaction.transaction.signature),
 						accountKeys: message.accountKeys.map((e: any) => bs58.encode(e)),
 						recentBlockhash: bs58.encode(message.recentBlockhash),
 						instructions: message.instructions.map((e: any) => {
@@ -118,7 +131,7 @@ export class GeyserPool extends BaseGenerator {
 								readonlyIndexes: Array.from(e.readonlyIndexes)
 							}
 						}),
-						preTokenBalances: data.transaction.meta.preTokenBalances.map((token: any) => {
+						preTokenBalances: data.transaction.transaction.meta.preTokenBalances.map((token: any) => {
 							return {
 								mint: token.mint,
 								owner: token.owner,
@@ -126,7 +139,7 @@ export class GeyserPool extends BaseGenerator {
 								decimal: token.uiTokenAmount.decimals
 							}
 						}),
-						postTokenBalances: data.transaction.meta.postTokenBalances.map((token: any) => {
+						postTokenBalances: data.transaction.transaction.meta.postTokenBalances.map((token: any) => {
 							return {
 								mint: token.mint,
 								owner: token.owner,
@@ -142,10 +155,60 @@ export class GeyserPool extends BaseGenerator {
 						send: 0
 					}
 				}
-      }
-    } finally {
-      // this.grpcStream.cancel();
-    }
+			}
+		}
+		// try {
+    //   while (true) {
+    //     const data = await this.waitForData(this.stream)
+		// 		const message = data.transaction.transaction.message
+		// 		yield {
+		// 			mempoolTxns: {
+		// 				source: this.streamName,
+		// 				signature: bs58.encode(data.transaction.signature),
+		// 				accountKeys: message.accountKeys.map((e: any) => bs58.encode(e)),
+		// 				recentBlockhash: bs58.encode(message.recentBlockhash),
+		// 				instructions: message.instructions.map((e: any) => {
+		// 					return {
+		// 						programIdIndex: e.programIdIndex,
+		// 						accounts: Array.from(e.accounts),
+		// 						data: e.data
+		// 					}
+		// 				}),
+		// 				addressTableLookups: message.addressTableLookups.map((e: any) => {
+		// 					return {
+		// 						accountKey: bs58.encode(e.accountKey),
+		// 						writableIndexes: Array.from(e.writableIndexes),
+		// 						readonlyIndexes: Array.from(e.readonlyIndexes)
+		// 					}
+		// 				}),
+		// 				preTokenBalances: data.transaction.meta.preTokenBalances.map((token: any) => {
+		// 					return {
+		// 						mint: token.mint,
+		// 						owner: token.owner,
+		// 						amount: new BN(token.uiTokenAmount.amount),
+		// 						decimal: token.uiTokenAmount.decimals
+		// 					}
+		// 				}),
+		// 				postTokenBalances: data.transaction.meta.postTokenBalances.map((token: any) => {
+		// 					return {
+		// 						mint: token.mint,
+		// 						owner: token.owner,
+		// 						amount: new BN(token.uiTokenAmount.amount),
+		// 						decimal: token.uiTokenAmount.decimals
+		// 					}
+		// 				})
+		// 			},
+		// 			timing: {
+		// 				listened: new Date().getTime(),
+		// 				preprocessed: 0,
+		// 				processed: 0,
+		// 				send: 0
+		// 			}
+		// 		}
+    //   }
+    // } finally {
+    //   // this.grpcStream.cancel();
+    // }
 		
 	}
 

@@ -31,7 +31,7 @@ export class BotgRPC {
 	private stream: ClientDuplexStream<SubscribeRequest, SubscribeUpdate> | undefined
 
 	constructor() {
-		this.client = new Client(config.get('triton_one_url'), config.get('triton_one_api_key'))
+		this.client = new Client(config.get('triton_one_url'), config.get('triton_one_api_key'), {})
 		this.connect()
 	}
 
@@ -113,6 +113,6 @@ export class BotgRPC {
 	}
 
 	private async* generate(): AsyncGenerator<TxPool> {
-		
+
 	}
 }

@@ -95,7 +95,10 @@ export class Web3JSOnLog extends BaseGenerator {
                 if(tx) {
                   resolve(tx)
                 }
-              }).catch(reject)
+              }).catch((e) => {
+                // connection.removeOnLogsListener(subscribeId)
+                // reject(e)
+              })
             }
       
             // Remove LP
@@ -113,7 +116,10 @@ export class Web3JSOnLog extends BaseGenerator {
               if(tx) {
                 resolve(tx)
               }
-            }).catch(reject)
+            }).catch((e) => {
+              // connection.removeOnLogsListener(subscribeId)
+              // reject(e)
+            })
           }
         },
         config.get('default_commitment') as Commitment

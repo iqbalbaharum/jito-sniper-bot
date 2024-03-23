@@ -32,8 +32,12 @@ async function* mempool(accounts: string[]): AsyncGenerator<TxPool> {
 
 	const logsPool: Web3JSOnLog = new Web3JSOnLog('onLog', new PublicKey(RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS))
 	
-	generators.push(geyserPool.listen())
+	try {
+		generators.push(geyserPool.listen())
 	// generators.push(logsPool.listen())
+	} catch(e: any) {
+		console.log(e.toString())
+	}
 
 	const updates = fuseGenerators(generators)
 
