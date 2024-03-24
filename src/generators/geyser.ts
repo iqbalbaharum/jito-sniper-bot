@@ -1,7 +1,7 @@
 import Client, { CommitmentLevel, SubscribeRequest, SubscribeRequestFilterTransactions, SubscribeUpdate } from "@triton-one/yellowstone-grpc";
 import { TxPool } from "../types";
 import { BaseGenerator } from "./base-generator";
-import { ClientDuplexStream } from "@grpc/grpc-js";
+import { ChannelOptions, ClientDuplexStream } from "@grpc/grpc-js";
 import { BotError } from "../types/error";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import { logger } from "../utils/logger";
@@ -41,7 +41,7 @@ export class GeyserPool extends BaseGenerator {
 			'grpc.keepalive_time_ms': Number.MAX_SAFE_INTEGER,
 			'grpc.keepalive_timeout_ms': 20000,
 			'grpc.keepalive_permit_without_calls': 1
-		})
+		} as ChannelOptions)
 	}
 
 	private async connect() {

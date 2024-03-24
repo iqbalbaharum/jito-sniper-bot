@@ -232,7 +232,7 @@ const execution = async (accountData: LiquidityStateV4, accountId: PublicKey, at
 const runListener = async () => {
   const { ata } = await setupWSOLTokenAccount(true, 0.01)
 
-  const client = new Client(config.get('triton_one_url'), config.get('triton_one_api_key'), {})
+  const client = new Client(config.get('triton_one_url'), config.get('triton_one_api_key'), undefined)
 
   try {
 		const stream = await client.subscribe();
