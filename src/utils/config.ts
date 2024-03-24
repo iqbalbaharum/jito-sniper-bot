@@ -46,7 +46,7 @@ const config = convict({
     },
     min_sol_trigger: {
         format: Number,
-        default: 0.01,
+        default: 0.0001,
         env: 'MIN_SOL_TRIGGER'
     },
     tip_percent: {
