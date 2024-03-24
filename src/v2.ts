@@ -46,7 +46,7 @@ const onExecute = async (accountId: PublicKey, accountData: LiquidityStateV4) =>
 		let mintBalance = -1
 
 		while(mintBalance < 0) {
-			const taBalance = await getTokenInWallet(poolKeys)
+			const taBalance = await getTokenInWallet(poolKeys, config.get('default_commitment') as Commitment)
 			if(taBalance && taBalance.length > 0) {
 				if(taBalance[0].balance > 0) {
 					mintBalance = taBalance[0].balance

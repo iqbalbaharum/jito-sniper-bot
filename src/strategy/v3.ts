@@ -335,21 +335,19 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
     // processBuy
   } else {
     // processSell
-    await processSell(
-      ata,
-      ammId,
-      state.mint, 
-      {
-        compute: {
-          units: 1000000,
-          microLamports: 101337
-        },
-        blockhash: txPool.mempoolTxns.recentBlockhash
-      }
-    )
+    // await processSell(
+    //   ata,
+    //   ammId,
+    //   state.mint, 
+    //   {
+    //     compute: {
+    //       units: 1000000,
+    //       microLamports: 101337
+    //     },
+    //     blockhash: txPool.mempoolTxns.recentBlockhash
+    //   }
+    // )
   }
-  
-  let amount = parseFloat(swapBaseIn.amountIn.toString()) / LAMPORTS_PER_SOL
 }
 
 const processTx = async (tx: TxPool, ata: PublicKey) => {
