@@ -68,7 +68,6 @@ export class Web3JSOnLog extends BaseGenerator {
     try {
       while (true) {
         const tx = await this.waitForData()
-        console.log(tx.transaction.signatures[0])
         yield this.formatTransaction(tx)
       }
     } catch(e) {

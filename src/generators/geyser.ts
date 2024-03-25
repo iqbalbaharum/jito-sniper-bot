@@ -38,8 +38,8 @@ export class GeyserPool extends BaseGenerator {
 		super()
 		this.streamName = streamName
 		this.client = new Client(url, apiKey, {
-			'grpc.keepalive_time_ms': Number.MAX_SAFE_INTEGER,
-			'grpc.keepalive_timeout_ms': 20000,
+			'grpc.keepalive_time_ms': 10_000,
+			'grpc.keepalive_timeout_ms': 1000,
 			'grpc.keepalive_permit_without_calls': 1
 		} as ChannelOptions)
 	}
@@ -103,8 +103,10 @@ export class GeyserPool extends BaseGenerator {
 		if(!this.stream) { return }
 
 		this.stream.on('status', async status => {
-			if(status.code === Status.CANCELLED) {
-				await this.connect()
+			switch(status.code) {
+				case Status.CANCELLED:
+				case Status.UNAVAILABLE:
+					await this.connect()
 			}
 		});
 
@@ -157,69 +159,5 @@ export class GeyserPool extends BaseGenerator {
 				}
 			}
 		}
-		// try {
-    //   while (true) {
-    //     const data = await this.waitForData(this.stream)
-		// 		const message = data.transaction.transaction.message
-		// 		yield {
-		// 			mempoolTxns: {
-		// 				source: this.streamName,
-		// 				signature: bs58.encode(data.transaction.signature),
-		// 				accountKeys: message.accountKeys.map((e: any) => bs58.encode(e)),
-		// 				recentBlockhash: bs58.encode(message.recentBlockhash),
-		// 				instructions: message.instructions.map((e: any) => {
-		// 					return {
-		// 						programIdIndex: e.programIdIndex,
-		// 						accounts: Array.from(e.accounts),
-		// 						data: e.data
-		// 					}
-		// 				}),
-		// 				addressTableLookups: message.addressTableLookups.map((e: any) => {
-		// 					return {
-		// 						accountKey: bs58.encode(e.accountKey),
-		// 						writableIndexes: Array.from(e.writableIndexes),
-		// 						readonlyIndexes: Array.from(e.readonlyIndexes)
-		// 					}
-		// 				}),
-		// 				preTokenBalances: data.transaction.meta.preTokenBalances.map((token: any) => {
-		// 					return {
-		// 						mint: token.mint,
-		// 						owner: token.owner,
-		// 						amount: new BN(token.uiTokenAmount.amount),
-		// 						decimal: token.uiTokenAmount.decimals
-		// 					}
-		// 				}),
-		// 				postTokenBalances: data.transaction.meta.postTokenBalances.map((token: any) => {
-		// 					return {
-		// 						mint: token.mint,
-		// 						owner: token.owner,
-		// 						amount: new BN(token.uiTokenAmount.amount),
-		// 						decimal: token.uiTokenAmount.decimals
-		// 					}
-		// 				})
-		// 			},
-		// 			timing: {
-		// 				listened: new Date().getTime(),
-		// 				preprocessed: 0,
-		// 				processed: 0,
-		// 				send: 0
-		// 			}
-		// 		}
-    //   }
-    // } finally {
-    //   // this.grpcStream.cancel();
-    // }
-		
 	}
-
-	private waitForData(stream: any): Promise<any> {
-    return new Promise((resolve, reject) => {
-      stream.on('data', (d: any) => {
-				if(d && d.transaction) {
-					resolve(d.transaction)
-				}
-			});
-      stream.on('error', (error: Error) => reject(error));
-    });
-  }
 }

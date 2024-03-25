@@ -162,7 +162,7 @@ const getOrCreateTokenAccount = async (
   
     if (check) {
       const ataInfo = await connection.getAccountInfo(ata);
-  
+      
       if (ataInfo === null) {
         let ataTx = new Transaction();
         ataTx.add(
@@ -181,19 +181,19 @@ const getOrCreateTokenAccount = async (
       }
     }
 
-    let balance = await connection.getBalance(ata);
-    if (balance < amount * LAMPORTS_PER_SOL) {
-      let solTx = new Transaction().add(
-        SystemProgram.transfer({
-          fromPubkey: payer.publicKey,
-          toPubkey: ata,
-          lamports: Math.floor((amount - (balance / LAMPORTS_PER_SOL)) * LAMPORTS_PER_SOL),
-        }),
-        createSyncNativeInstruction(ata)
-      );
+    // let balance = await connection.getBalance(ata);
+    // if (balance < amount * LAMPORTS_PER_SOL) {
+    //   let solTx = new Transaction().add(
+    //     SystemProgram.transfer({
+    //       fromPubkey: payer.publicKey,
+    //       toPubkey: ata,
+    //       lamports: Math.floor((amount - (balance / LAMPORTS_PER_SOL)) * LAMPORTS_PER_SOL),
+    //     }),
+    //     createSyncNativeInstruction(ata)
+    //   );
   
-      await sendAndConfirmTransaction(connection, solTx, [payer]);
-    }
+    //   await sendAndConfirmTransaction(connection, solTx, [payer]);
+    // }
   
     return { ata };
   };

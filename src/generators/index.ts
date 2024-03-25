@@ -11,30 +11,30 @@ import { JitoMempoolPool } from "./mempool";
 async function* mempool(accounts: string[]): AsyncGenerator<TxPool> {
 	const generators: AsyncGenerator<TxPool>[] = [];
 	const pools: ConcurrentSet<string> = new ConcurrentSet<string>(50 * 60000)
-
+	
 	// geyser
 	const geyserPool: GeyserPool = new GeyserPool('geyser', config.get('triton_one_url'), config.get('triton_one_api_key'))
 	geyserPool.addTransaction('raydium_tx', {
-    vote: false,
-    failed: false,
-    accountInclude: accounts,
-    accountExclude: [JUPITER_ADDRESS, 'routeUGWgWzqBWFcrCfv8tritsqukccJPu3q5GPP3xS'],
-    accountRequired: [],
-  })
+		vote: false,
+		failed: false,
+		accountInclude: accounts,
+		accountExclude: [JUPITER_ADDRESS, 'routeUGWgWzqBWFcrCfv8tritsqukccJPu3q5GPP3xS'],
+		accountRequired: [],
+	})
 	
 	geyserPool.addTransaction('wallet_tx', {
-    vote: false,
-    failed: false,
-    accountInclude: [payer.publicKey.toBase58()],
-    accountExclude: [],
-    accountRequired: [],
-  })
+		vote: false,
+		failed: false,
+		accountInclude: [payer.publicKey.toBase58()],
+		accountExclude: [],
+		accountRequired: [],
+	})
 
 	const logsPool: Web3JSOnLog = new Web3JSOnLog('onLog', new PublicKey(RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS))
 	
 	try {
 		generators.push(geyserPool.listen())
-		// generators.push(logsPool.listen())
+		generators.push(logsPool.listen())
 	} catch(e: any) {
 		console.log(e.toString())
 	}

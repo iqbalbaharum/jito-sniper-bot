@@ -3,6 +3,11 @@ import * as dotenv from 'dotenv'
 dotenv.config();
 
 const config = convict({
+    mode: {
+        format: String,
+        default: 'development',
+        env: 'MODE'
+    },
     http_rpc_url: {
         format: String,
         default: 'https://api.mainnet-beta.solana.com',

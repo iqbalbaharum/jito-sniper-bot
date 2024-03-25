@@ -74,7 +74,7 @@ const processBuy = async (ammId: PublicKey, ata: PublicKey, blockhash: string) =
   if(existingMarkets.isExisted(ammId)) {
     return
   }
-  
+
   const poolKeys = await BotLiquidity.getAccountPoolKeysFromAccountDataV4(ammId)
   const info = BotLiquidity.getMintInfoFromWSOLPair(poolKeys)
   
@@ -84,7 +84,7 @@ const processBuy = async (ammId: PublicKey, ata: PublicKey, blockhash: string) =
   if(!poolKeys) { return }
   
   logger.info(new Date(), `BUY ${info.mint.toBase58()}`)
-
+  
   let signature = await buyToken(
     poolKeys, 
     ata,
@@ -172,8 +172,15 @@ const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BigNu
         blockhash
       }
     );
-  
-    return await BotTransaction.sendTransaction(transaction, SystemConfig.get('default_commitment') as Commitment)
+    
+    const arb: ArbIdea = {
+      vtransaction: transaction,
+      expectedProfit: new BN(0)
+    }
+    
+    return await submitBundle(arb)
+
+    // return await BotTransaction.sendTransaction(transaction, SystemConfig.get('default_commitment') as Commitment)
   } catch(e: any) {
     logger.error(e.toString())
     return ''
@@ -492,7 +499,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
     let blockhash = txPool.mempoolTxns.recentBlockhash
     let units = 1000000
     let microLamports = 101337
-    logger.info(`Trade detected ${ammId} | ${amount}`)
+    // logger.info(`Trade detected ${ammId} | ${amount}`)
     for(let i = 0; i < Math.floor(totalChunck / 10); i++) {
       await processSell(
         ata,
@@ -522,16 +529,16 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
       if(programId === RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS) {
         const decodedIx = coder.instruction.decode(Buffer.from(ins.data))
         
-        if(decodedIx.hasOwnProperty('withdraw')) { // remove liquidity
-          console.log(`Withdraw ${tx.mempoolTxns.signature}`)
+        if(decodedIx.hasOwnProperty(  'withdraw')) { // remove liquidity
+          logger.info(`Withdraw ${tx.mempoolTxns.signature}`)
           await processWithdraw(ins, tx, ata)
         } else if(decodedIx.hasOwnProperty('deposit')) {
-          console.log(`Deposit ${tx.mempoolTxns.signature}`)
+          logger.info(`Deposit ${tx.mempoolTxns.signature}`)
           await processDeposit(ins, tx, ata)
         } else if(decodedIx.hasOwnProperty('swapBaseIn')) {
           await processSwapBaseIn((decodedIx as any).swapBaseIn, ins, tx, ata)
         } else if(decodedIx.hasOwnProperty('initialize2')) {
-          console.log(`Initialize ${tx.mempoolTxns.signature}`)
+          logger.info(`Initialize ${tx.mempoolTxns.signature}`)
           await processInitialize2(ins, tx, ata)
         }
       }
@@ -544,7 +551,7 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
 (async () => {
   try {
     const { ata } = await setupWSOLTokenAccount(true, 0.07)
-  
+    
     if(!ata) { 
       logger.error('No WSOL Account initialize')
       return 
@@ -553,8 +560,17 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
     lookupTable = new BotLookupTable()
     botTokenAccount = new BotTokenAccount()
     existingMarkets = new ExistingRaydiumMarketStorage()
+    
+    const mempoolUpdates = mempool([
+      RAYDIUM_AUTHORITY_V4_ADDRESS, 
+      payer.publicKey.toBase58(),
+      '7YttLkHDoNj9wyDur5pM1ejNaAvT9X4eqaYcHQqtj2G5'
+    ])
 
-    const mempoolUpdates = mempool([RAYDIUM_AUTHORITY_V4_ADDRESS, payer.publicKey.toBase58()])
+    if(config.get('mode') === 'development') {
+      onBundleResult()
+    }
+    
     for await (const update of mempoolUpdates) {
       processTx(update, ata) // You can process the updates as needed
     }

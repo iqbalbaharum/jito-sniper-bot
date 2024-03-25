@@ -156,14 +156,14 @@ export class BotLiquidity {
 		ammId: PublicKey
 	): Promise<LiquidityPoolKeys> => {
 
-    let account: AccountInfo<Buffer> | null = null
-    while(!account) {
-      account = await connection.getAccountInfo(ammId, {
-        commitment: config.get('default_commitment') as Commitment,
-      })
+		let account: AccountInfo<Buffer> | null = null
+		while(!account) {
+			account = await connection.getAccountInfo(ammId, {
+				commitment: config.get('default_commitment') as Commitment,
+			})
 
-      sleep(2000)
-    }
+			sleep(100)
+		}
 
 		if (!account) {
 			throw new Error(BotError.INVALID_AMM_ID)
