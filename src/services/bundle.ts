@@ -40,7 +40,7 @@ const submitBundle = async (arb: ArbIdea) => {
   )
   
   const bundleId = await mainSearcherClient.sendBundle(bundle)
-  logger.info(`Sending bundle ${bundleId}`)
+  
   return bundleId
 }
 

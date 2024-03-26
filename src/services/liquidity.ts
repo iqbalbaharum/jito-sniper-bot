@@ -50,6 +50,7 @@ import { BotTokenAccount } from './token-account'
 import { TransactionCompute } from '../types'
 import { BotError } from '../types/error'
 import sleep from 'atomic-sleep'
+import { redisClient } from '../adapter/redis'
 
 const getAccountPoolKeysFromAccountDataV4 = async (
 	id: PublicKey,
@@ -147,6 +148,16 @@ let modelData: StableModelLayout = {
 }
 
 export class BotLiquidity {
+
+	static async getAccountPoolKeys (ammId: PublicKey): Promise<LiquidityPoolKeysV4> {
+		let state = await redisClient.get(`state:${ammId.toBase58()}`)
+		if(state) {
+			return await BotLiquidity.formatAccountPoolKeysFromAccountDataV4(ammId, Buffer.from(state, 'hex'))
+		} else {
+			return await BotLiquidity.getAccountPoolKeysFromAccountDataV4(ammId)
+		}
+	}
+
 	/**
 	 *
 	 * @param ammId
@@ -169,7 +180,17 @@ export class BotLiquidity {
 			throw new Error(BotError.INVALID_AMM_ID)
 		}
 
-		const accountData = LIQUIDITY_STATE_LAYOUT_V4.decode(account.data)
+		return BotLiquidity.formatAccountPoolKeysFromAccountDataV4(ammId, account.data)
+	}
+
+	/**
+	 * formating data and generate pool keys structure
+	 * @param ammId 
+	 * @param data 
+	 * @returns 
+	 */
+	static async formatAccountPoolKeysFromAccountDataV4(ammId: PublicKey, data: Buffer): Promise<LiquidityPoolKeys> {
+		const accountData = LIQUIDITY_STATE_LAYOUT_V4.decode(data)
     
 		const marketInfo = await connection.getAccountInfo(accountData.marketId, {
 			commitment: config.get('default_commitment') as Commitment,
@@ -219,6 +240,43 @@ export class BotLiquidity {
 			withdrawQueue: accountData.withdrawQueue,
 			lpVault: accountData.lpVault,
 			lookupTableAccount: PublicKey.default,
+		}
+	}
+
+	static serializeLiquidityPoolKeys(poolkeys: LiquidityPoolKeysV4): string {
+		return JSON.stringify(poolkeys)
+	}
+
+	static deserializeLiquidityPoolKeys(poolkeysString: string): LiquidityPoolKeysV4 {
+		const keys = JSON.parse(poolkeysString)
+
+		return {
+			id: new PublicKey(keys.id),
+			baseMint: new PublicKey(keys.baseMint),
+			quoteMint: new PublicKey(keys.quoteMint),
+			lpMint: new PublicKey(keys.lpMint),
+			baseDecimals: keys.baseDecimals,
+			quoteDecimals: keys.quoteDecimals,
+			lpDecimals: keys.lpDecimals,
+			version: keys.version,
+			programId: new PublicKey(keys.programId),
+			authority: new PublicKey(keys.authority),
+			openOrders: new PublicKey(keys.openOrders),
+			targetOrders: new PublicKey(keys.targetOrders),
+			baseVault: new PublicKey(keys.baseVault),
+			quoteVault: new PublicKey(keys.quoteVault),
+			marketVersion: keys.marketVersion,
+			marketProgramId: new PublicKey(keys.marketProgramId),
+			marketId: new PublicKey(keys.marketId),
+			marketAuthority: new PublicKey(keys.marketAuthority),
+			marketBaseVault: new PublicKey(keys.baseVault),
+			marketQuoteVault: new PublicKey(keys.quoteVault),
+			marketBids: new PublicKey(keys.marketBids),
+			marketAsks: new PublicKey(keys.marketAsks),
+			marketEventQueue: new PublicKey(keys.marketEventQueue),
+			withdrawQueue: new PublicKey(keys.withdrawQueue),
+			lpVault: new PublicKey(keys.lpVault),
+			lookupTableAccount: new PublicKey(keys.lookupTableAccount),
 		}
 	}
 

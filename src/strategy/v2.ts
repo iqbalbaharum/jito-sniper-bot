@@ -75,7 +75,7 @@ const processBuy = async (ammId: PublicKey, ata: PublicKey, blockhash: string) =
     return
   }
 
-  const poolKeys = await BotLiquidity.getAccountPoolKeysFromAccountDataV4(ammId)
+  const poolKeys = await BotLiquidity.getAccountPoolKeys(ammId)
   const info = BotLiquidity.getMintInfoFromWSOLPair(poolKeys)
   
   // Cancel process if pair is not WSOL
@@ -83,7 +83,7 @@ const processBuy = async (ammId: PublicKey, ata: PublicKey, blockhash: string) =
 
   if(!poolKeys) { return }
   
-  logger.info(new Date(), `BUY ${info.mint.toBase58()}`)
+  logger.info(new Date(), `BUY ${ammId.toBase58()} | ${info.mint.toBase58()}`)
   
   let signature = await buyToken(
     poolKeys, 
@@ -435,6 +435,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   let count = countLiquidityPool.get(ammId.toBase58())
 
   let txAmount = BotTransaction.getBalanceFromTransaction(tx.preTokenBalances, tx.postTokenBalances, state.mint)
+  let txSolAmount = BotTransaction.getBalanceFromTransaction(tx.preTokenBalances, tx.postTokenBalances, new PublicKey(WSOL_ADDRESS))
 
   // This function to calculate the latest balance token in payer wallet.
   // The getBalanceFromTransaction, can identify if the tx is BUY @ SELL call
@@ -472,10 +473,9 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
 
   if(txAmount.isNeg()) { isBuyTradeAction = false } else { isBuyTradeAction = true }
   
-  const amount = parseFloat(txAmount.toString()) / LAMPORTS_PER_SOL
-  
-  if(isBuyTradeAction && amount >= SystemConfig.get('min_sol_trigger')) {
+  const amount = parseFloat(txSolAmount.abs().toString()) / LAMPORTS_PER_SOL
 
+  if(isBuyTradeAction && amount >= SystemConfig.get('min_sol_trigger')) {
     const totalChunck = SystemConfig.get('tx_balance_chuck_division')
     // The strategy to have faster swap upon trigger, and slower swap
     // for subsequence trade after the initial 
@@ -483,7 +483,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
     let units = 1000000
     let microLamports = 101337
     logger.warn(`Trade detected ${state.mint.toBase58()} | ${amount} SOL | Disburse ${Math.floor(totalChunck / 10)}`)
-    for(let i = 0; i < Math.floor(totalChunck / 10); i++) {
+    for(let i = 0; i < Math.floor(totalChunck / 5); i++) {
       await processSell(
         ata,
         ammId,
@@ -512,7 +512,7 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
       if(programId === RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS) {
         const decodedIx = coder.instruction.decode(Buffer.from(ins.data))
         
-        if(decodedIx.hasOwnProperty(  'withdraw')) { // remove liquidity
+        if(decodedIx.hasOwnProperty('withdraw')) { // remove liquidity
           logger.info(`Withdraw ${tx.mempoolTxns.signature}`)
           await processWithdraw(ins, tx, ata)
         } else if(decodedIx.hasOwnProperty('deposit')) {

@@ -28,6 +28,11 @@ const config = convict({
         default: '',
         env: 'WEBSOCKET_RPC_URL_2'
     },
+    redis_url: {
+        format: String,
+        default: 'redis://localhost:6379',
+        env: 'REDIS_URL'
+    },
     block_engine_urls: {
         format: Array,
         default: ['tokyo.mainnet.block-engine.jito.wtf'],
