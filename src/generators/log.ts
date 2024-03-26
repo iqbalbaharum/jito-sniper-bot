@@ -7,12 +7,10 @@ import { BN } from "bn.js";
 
 export class Web3JSOnLog extends BaseGenerator {
   programId: PublicKey
-  streamName: string
   connection: Connection
 
   constructor(streamName: string, connection: Connection, programId: PublicKey) {
-		super()
-    this.streamName = streamName
+		super(streamName)
     this.connection = connection
 		this.programId = programId
 	}

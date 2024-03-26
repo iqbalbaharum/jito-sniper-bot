@@ -12,7 +12,7 @@ export class JitoMempoolPool extends BaseGenerator {
 	private programs: PublicKey[] = []
 
 	constructor(programs: string[]) {
-		super()
+		super('mempool')
 		this.registerProgram(programs)
 	}
 
