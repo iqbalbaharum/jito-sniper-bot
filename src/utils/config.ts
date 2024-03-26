@@ -18,6 +18,16 @@ const config = convict({
         default: '',
         env: 'WEBSOCKET_RPC_URL'
     },
+    http_rpc_url_2: {
+        format: String,
+        default: 'https://api.mainnet-beta.solana.com',
+        env: 'HTTP_RPC_URL_2'
+    },
+    websocket_rpc_url_2: {
+        format: String,
+        default: '',
+        env: 'WEBSOCKET_RPC_URL_2'
+    },
     block_engine_urls: {
         format: Array,
         default: ['tokyo.mainnet.block-engine.jito.wtf'],

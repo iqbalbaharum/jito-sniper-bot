@@ -1,5 +1,5 @@
-import { Commitment, Context, Logs, PublicKey, VersionedTransactionResponse } from "@solana/web3.js";
-import { confirmedConnection, connection } from "../adapter/rpc";
+import { Commitment, Connection, Context, Logs, PublicKey, VersionedTransactionResponse } from "@solana/web3.js";
+import { confirmedConnection } from "../adapter/rpc";
 import { TxPool } from "../types";
 import { RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, config } from "../utils";
 import { BaseGenerator } from "./base-generator";
@@ -8,10 +8,12 @@ import { BN } from "bn.js";
 export class Web3JSOnLog extends BaseGenerator {
   programId: PublicKey
   streamName: string
+  connection: Connection
 
-  constructor(streamName: string, programId: PublicKey) {
+  constructor(streamName: string, connection: Connection, programId: PublicKey) {
 		super()
     this.streamName = streamName
+    this.connection = connection
 		this.programId = programId
 	}
 
@@ -77,7 +79,7 @@ export class Web3JSOnLog extends BaseGenerator {
 
   private waitForData(): Promise<VersionedTransactionResponse> {
     return new Promise((resolve, reject) => {
-      connection.onLogs(
+      this.connection.onLogs(
         this.programId,
         (logs: Logs, context: Context) => {
           if (logs.err) {

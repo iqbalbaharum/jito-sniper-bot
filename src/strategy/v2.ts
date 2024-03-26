@@ -126,6 +126,8 @@ async function processSell(
     if(!poolKeys) { return }
   }
 
+  // Check if the we have confirmed balance before
+  // executing sell
   const balance = tokenBalances.get(mint.toBase58())
   if(balance === undefined) { return }
 
@@ -426,35 +428,29 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   }
   
   if(!sourceTA || !destTA || !ammId || !signer) { return }
+
   const state = mints.get(ammId!.toBase58())
   if(!state) { return }
 
   let count = countLiquidityPool.get(ammId.toBase58())
 
-  // BUG: The bot tracked the ammId before tx is finalize, so the buy tx appear in request
-  // To counter the bug, skip any tx if sourceTA is similar with user WSOL address
+  let txAmount = BotTransaction.getBalanceFromTransaction(tx.preTokenBalances, tx.postTokenBalances, state.mint)
+
+  // This function to calculate the latest balance token in payer wallet.
+  // The getBalanceFromTransaction, can identify if the tx is BUY @ SELL call
   if(sourceTA.equals(ata) || signer.equals(payer.publicKey)) {
-    let txAmount = BotTransaction.getBalanceFromTransaction(tx.preTokenBalances, tx.postTokenBalances, state.mint)
-    
-    if(txAmount.isNeg()) {
+    if(txAmount.isNeg()) { // SELL
       const prevBalance = tokenBalances.get(state.mint.toBase58());
-      if (prevBalance !== undefined) {
-        prevBalance.remaining = txAmount.sub(prevBalance.remaining.abs());
-        tokenBalances.set(state.mint.toBase58(), prevBalance);
-      } else {
-          let chuck = txAmount.divn(SystemConfig.get('tx_balance_chuck_division'))
-          // Previous balance not found, set current balance directly
-          tokenBalances.set(state.mint.toBase58(), {
-            total: txAmount,
-            remaining: txAmount,
-            chuck
-          });
-          
-          if(count === undefined) {
-            countLiquidityPool.set(ammId.toBase58(), 1)
-          }
+      if (prevBalance !== undefined && !prevBalance.remaining.isNeg()) {
+        prevBalance.remaining = prevBalance.remaining.sub(txAmount.abs());
+
+        if(prevBalance.remaining.isNeg()) {
+          tokenBalances.delete(ammId.toBase58())
+        } else {
+          tokenBalances.set(state.mint.toBase58(), prevBalance); 
+        }
       }
-    } else {
+    } else { // BUY
       let chuck = txAmount.divn(SystemConfig.get('tx_balance_chuck_division'))
       tokenBalances.set(state.mint.toBase58(), {
         total: txAmount,
@@ -472,24 +468,11 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   if(count === undefined) { return }
   if(count > 0) { return }
 
-  
-
   let isBuyTradeAction = false
-  let signerWSOLAccount = await BotTokenAccount.getAssociatedTokenAccount(new PublicKey(WSOL_ADDRESS), signer)
 
-  if(!signerWSOLAccount.equals(sourceTA) && !signerWSOLAccount.equals(destTA)) {
-    return
-  }
-
-  if(signerWSOLAccount.equals(sourceTA)) {
-    isBuyTradeAction = true
-  } else {
-    if(!signerWSOLAccount.equals(destTA)) {
-      return
-    }
-  }
+  if(txAmount.isNeg()) { isBuyTradeAction = false } else { isBuyTradeAction = true }
   
-  let amount = parseFloat(swapBaseIn.amountIn.toString()) / LAMPORTS_PER_SOL
+  const amount = parseFloat(txAmount.toString()) / LAMPORTS_PER_SOL
   
   if(isBuyTradeAction && amount >= SystemConfig.get('min_sol_trigger')) {
 
@@ -499,7 +482,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
     let blockhash = txPool.mempoolTxns.recentBlockhash
     let units = 1000000
     let microLamports = 101337
-    // logger.info(`Trade detected ${ammId} | ${amount}`)
+    logger.warn(`Trade detected ${state.mint.toBase58()} | ${amount} SOL | Disburse ${Math.floor(totalChunck / 10)}`)
     for(let i = 0; i < Math.floor(totalChunck / 10); i++) {
       await processSell(
         ata,

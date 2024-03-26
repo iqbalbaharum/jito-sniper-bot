@@ -7,6 +7,7 @@ import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import { logger } from "../utils/logger";
 import { BN } from "bn.js";
 import { Status } from "@grpc/grpc-js/build/src/constants";
+import { Connection } from "@solana/web3.js";
 
 export type RequestAccounts = {
 	name: string,
@@ -34,10 +35,10 @@ export class GeyserPool extends BaseGenerator {
 	private client: Client
 	private stream: ClientDuplexStream<SubscribeRequest, SubscribeUpdate> | undefined
 
-	constructor(streamName: string, url: string, apiKey: string) {
+	constructor(streamName: string, geyserUrl: string, geyserApiKey: string) {
 		super()
 		this.streamName = streamName
-		this.client = new Client(url, apiKey, {
+		this.client = new Client(geyserUrl, geyserApiKey, {
 			'grpc.keepalive_time_ms': 10_000,
 			'grpc.keepalive_timeout_ms': 1000,
 			'grpc.keepalive_permit_without_calls': 1
