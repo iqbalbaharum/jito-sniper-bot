@@ -47,6 +47,7 @@ export class JitoMempoolPool extends BaseGenerator {
 								data: e.data
 							}
 						}),
+						innerInstructions: [],
 						addressTableLookups: message.addressTableLookups.map((e: any) => {
 							return {
 								accountKey: e.accountKey.toBase58(),
@@ -55,7 +56,8 @@ export class JitoMempoolPool extends BaseGenerator {
 							}
 						}),
 						preTokenBalances: [],
-						postTokenBalances: []
+						postTokenBalances: [],
+						computeUnitsConsumed: 0
 					},
 					timing: {
 						listened: new Date().getTime(),

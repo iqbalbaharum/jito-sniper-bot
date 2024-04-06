@@ -1,15 +1,16 @@
 import { Commitment, Connection, Context, Logs, PublicKey, VersionedTransactionResponse } from "@solana/web3.js";
 import { confirmedConnection } from "../adapter/rpc";
-import { TxPool } from "../types";
+import { TxInnerInstruction, TxInstruction, TxPool } from "../types";
 import { RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, config } from "../utils";
 import { BaseGenerator } from "./base-generator";
 import { BN } from "bn.js";
+import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 
-export class Web3JSOnLog extends BaseGenerator {
-  programId: PublicKey
+export class SignatureGenerator extends BaseGenerator {
+  programId: string
   connection: Connection
 
-  constructor(streamName: string, connection: Connection, programId: PublicKey) {
+  constructor(streamName: string, connection: Connection, programId: string) {
 		super(streamName)
     this.connection = connection
 		this.programId = programId
@@ -42,10 +43,20 @@ export class Web3JSOnLog extends BaseGenerator {
           return {
             programIdIndex: e.programIdIndex,
             accounts: e.accountKeyIndexes || [],
-            data: Buffer.from(e.data, 'base64').toString('hex')
+            data: e.data
           }
         }),
-        innerInstructions: [],
+        innerInstructions: tx.meta?.innerInstructions?.map((i) => {
+          return {
+            instructions: i.instructions.map(ei => {
+              return {
+                accounts: ei.accounts,
+                programIdIndex: ei.programIdIndex,
+                data: bs58.decode(ei.data).toString('hex')
+              };
+            })
+          } as unknown as TxInnerInstruction
+        }) ?? [],
         addressTableLookups: message.addressTableLookups.map((e: any) => {
           return {
             accountKey: e.accountKey.toBase58(),
@@ -69,7 +80,7 @@ export class Web3JSOnLog extends BaseGenerator {
   public async* listen(): AsyncGenerator<TxPool> {
     try {
       while (true) {
-        const tx = await this.waitForData()
+        const tx = await this.waitForData(this.programId)
         yield this.formatTransaction(tx)
       }
     } catch(e) {
@@ -77,54 +88,15 @@ export class Web3JSOnLog extends BaseGenerator {
     }
   } 
 
-  private waitForData(): Promise<VersionedTransactionResponse> {
-    return new Promise((resolve, reject) => {
-      this.connection.onLogs(
-        this.programId,
-        (logs: Logs, context: Context) => {
-          if (logs.err) {
-            return
-          }
-          
-          let logSequence = [];
-          for (const l of logs.logs) {
-      
-            if (l.includes('InitializeInstruction2')) {
-              confirmedConnection.getTransaction(logs.signature, {
-                maxSupportedTransactionVersion: 0,
-              }).then((tx) => {
-                if(tx) {
-                  resolve(tx)
-                }
-              }).catch((e) => {
-                // connection.removeOnLogsListener(subscribeId)
-                // reject(e)
-              })
-            }
-      
-            // Remove LP
-            if (l.includes('Transfer')) {
-              logSequence.push('T');
-            } else if (l.includes('Burn')) {
-              logSequence.push('B');
-            }
-          }
-      
-          if (logSequence.join(',') === 'T,T,B') {
-            confirmedConnection.getTransaction(logs.signature, {
-              maxSupportedTransactionVersion: 0,
-            }).then((tx) => {
-              if(tx) {
-                resolve(tx)
-              }
-            }).catch((e) => {
-              // connection.removeOnLogsListener(subscribeId)
-              // reject(e)
-            })
-          }
-        },
-        config.get('default_commitment') as Commitment
-      )
-    });
-  }
+  private waitForData(signature: string): Promise<VersionedTransactionResponse> {
+    return new Promise((resolve) => {
+			this.connection.getTransaction(signature, {
+				maxSupportedTransactionVersion: 0,
+			}).then((tx) => {
+				if(tx) {
+					resolve(tx)
+				}
+			})
+    })
+	}
 }

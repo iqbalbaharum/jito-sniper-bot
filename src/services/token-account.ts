@@ -181,7 +181,8 @@ const getOrCreateTokenAccount = async (
       }
     }
 
-    // let balance = await connection.getBalance(ata);
+    let balance = await connection.getBalance(ata);
+
     // if (balance < amount * LAMPORTS_PER_SOL) {
     //   let solTx = new Transaction().add(
     //     SystemProgram.transfer({
@@ -191,7 +192,7 @@ const getOrCreateTokenAccount = async (
     //     }),
     //     createSyncNativeInstruction(ata)
     //   );
-  
+        
     //   await sendAndConfirmTransaction(connection, solTx, [payer]);
     // }
   

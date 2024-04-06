@@ -27,4 +27,15 @@ let connectionAlt1: Connection = new Connection(HTTP_RPC_URL_2, {
     wsEndpoint: WEBSOCKET_RPC_URL_2
 })
 
-export { connection, confirmedConnection, connectionAlt1 }
+// Bundle all rpcs
+let httpOnlyRpcs: Connection[] = []
+
+for(const urls of config.get('http_rpc_urls')) {
+    let c = new Connection(urls, {
+        commitment: 'processed'
+    })
+
+    httpOnlyRpcs.push(c)
+}
+
+export { connection, confirmedConnection, connectionAlt1, httpOnlyRpcs }

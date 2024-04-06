@@ -12,8 +12,10 @@ import {
 	LiquidityPoolInfo,
 	LiquidityPoolKeys,
 	LiquidityPoolKeysV4,
+	LiquidityStateLayoutV4,
 	LiquidityStateV4,
 	MAINNET_PROGRAM_ID,
+	MARKET_STATE_LAYOUT_V3,
 	Market,
 	ONE,
 	Percent,
@@ -28,7 +30,7 @@ import {
 	parseBigNumberish,
 } from '@raydium-io/raydium-sdk'
 import { connection } from '../adapter/rpc'
-import { MINIMAL_MARKET_STATE_LAYOUT_V3 } from '../types/market'
+import { MINIMAL_MARKET_STATE_LAYOUT_V3, MinimalMarketLayoutV3 } from '../types/market'
 import { config } from '../utils/config'
 import {
   AccountInfo,
@@ -40,7 +42,7 @@ import {
 	TransactionMessage,
 	VersionedTransaction,
 } from '@solana/web3.js'
-import { WSOL_ADDRESS } from '../utils/const'
+import { RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, WSOL_ADDRESS } from '../utils/const'
 import { BotLiquidityState, MintInfo } from '../types'
 import { BN } from 'bn.js'
 import { resolve } from 'path'
@@ -51,6 +53,8 @@ import { TransactionCompute } from '../types'
 import { BotError } from '../types/error'
 import sleep from 'atomic-sleep'
 import { redisClient } from '../adapter/redis'
+import { BotMarket } from './market'
+import { logger } from '../utils/logger'
 
 const getAccountPoolKeysFromAccountDataV4 = async (
 	id: PublicKey,
@@ -139,20 +143,38 @@ export const getLiquidityMintState = async (
 
 export { getAccountPoolKeysFromAccountDataV4 }
 
-let modelData: StableModelLayout = {
-	accountType: 0,
-	status: 0,
-	multiplier: 0,
-	validDataCount: 0,
-	DataElement: [],
-}
 
 export class BotLiquidity {
 
-	static async getAccountPoolKeys (ammId: PublicKey): Promise<LiquidityPoolKeysV4> {
-		let state = await redisClient.get(`state:${ammId.toBase58()}`)
-		if(state) {
-			return await BotLiquidity.formatAccountPoolKeysFromAccountDataV4(ammId, Buffer.from(state, 'hex'))
+	static async getAccountPoolKeys (ammId: PublicKey): Promise<LiquidityPoolKeysV4 | undefined> {
+		let stateData = await redisClient.hGet(`${ammId.toBase58()}`, 'state')
+
+		if(stateData) {
+
+			let state = LIQUIDITY_STATE_LAYOUT_V4.decode(Buffer.from(stateData, 'hex'))
+
+			let mint: PublicKey
+			if(state.baseMint.toBase58() === WSOL_ADDRESS) {
+				mint = state.quoteMint
+			} else {
+				mint = state.baseMint
+			}
+
+			let marketData = await redisClient.hGet(`${mint.toBase58()}`, 'market')
+
+			let market: MinimalMarketLayoutV3 | undefined
+			if(marketData) {
+				logger.info(`here`)
+				market = MINIMAL_MARKET_STATE_LAYOUT_V3.decode(Buffer.from(marketData, 'hex'));
+			} else {
+				logger.info(`there`)
+				market = await BotMarket.getMinimalMarketV3(state.marketId)
+			}
+
+			if(market) {
+				return this.createPoolKeys(ammId, state, market!)
+			}
+			
 		} else {
 			return await BotLiquidity.getAccountPoolKeysFromAccountDataV4(ammId)
 		}
@@ -182,6 +204,54 @@ export class BotLiquidity {
 
 		return BotLiquidity.formatAccountPoolKeysFromAccountDataV4(ammId, account.data)
 	}
+
+	/**
+	 * Create pool key from onProgramChange, and MinimalMarket data
+	 * @param ammId 
+	 * @param accountData 
+	 * @param minimalMarketLayoutV3 
+	 * @returns 
+	 */
+	static createPoolKeys(
+		ammId: PublicKey,
+		accountData: LiquidityStateV4,
+		minimalMarketLayoutV3: MinimalMarketLayoutV3,
+	  ): LiquidityPoolKeys {
+
+		const programId = MAINNET_PROGRAM_ID.AmmV4
+		const marketId = accountData.marketId
+		
+		const { publicKey: authority, nonce } = Liquidity.getAssociatedAuthority({ programId })
+
+		return {
+		  id: ammId,
+		  baseMint: accountData.baseMint,
+		  quoteMint: accountData.quoteMint,
+		  lpMint: accountData.lpMint,
+		  baseDecimals: accountData.baseDecimal.toNumber(),
+		  quoteDecimals: accountData.quoteDecimal.toNumber(),
+		  lpDecimals: 5,
+		  version: 4,
+		  programId: new PublicKey(RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS),
+		  authority,
+		  openOrders: accountData.openOrders,
+		  targetOrders: accountData.targetOrders,
+		  baseVault: accountData.baseVault,
+		  quoteVault: accountData.quoteVault,
+		  marketVersion: 3,
+		  marketProgramId: accountData.marketProgramId,
+		  marketId,
+		  marketAuthority: authority,
+		  marketBaseVault: accountData.baseVault,
+		  marketQuoteVault: accountData.quoteVault,
+		  marketBids: minimalMarketLayoutV3.bids,
+		  marketAsks: minimalMarketLayoutV3.asks,
+		  marketEventQueue: minimalMarketLayoutV3.eventQueue,
+		  withdrawQueue: accountData.withdrawQueue,
+		  lpVault: accountData.lpVault,
+		  lookupTableAccount: PublicKey.default,
+		};
+	  }
 
 	/**
 	 * formating data and generate pool keys structure
@@ -293,7 +363,6 @@ export class BotLiquidity {
 		let mint: PublicKey | undefined = undefined
 		let decimal: number = 0
 		let isMintBase: boolean = true
-
 		// Check if either of is WSOL
 		if (poolKeys.baseMint.toBase58() === WSOL_ADDRESS) {
 			mint = poolKeys.quoteMint
@@ -431,6 +500,13 @@ export class BotLiquidity {
 		return transaction
 	}
 
+	/**
+	 * Get token price
+	 * @param mint 
+	 * @param poolKeys 
+	 * @param poolInfo 
+	 * @returns 
+	 */
 	static getTokenPrice(
 		mint: PublicKey,
 		poolKeys: LiquidityPoolKeysV4,

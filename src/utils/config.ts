@@ -23,6 +23,12 @@ const config = convict({
         default: 'https://api.mainnet-beta.solana.com',
         env: 'HTTP_RPC_URL_2'
     },
+    http_rpc_urls: {
+        format: Array,
+        default: ['https://api.mainnet-beta.solana.com'],
+        doc: 'rpc (http) urls. push transaction to all rpcs',
+        env: 'HTTP_RPC_URLS'
+    },
     websocket_rpc_url_2: {
         format: String,
         default: '',
@@ -109,6 +115,36 @@ const config = convict({
         default: '',
         env: 'TRITON_ONE_API_KEY'
     },
+    compute_unit_percentage: {
+        format: Number,
+        default: 0,
+        env: 'COMPUTE_UNIT_PERCENTAGE'
+    },
+    adjusted_percentage: {
+        format: Number,
+        default: 100,
+        env: 'ADJUSTED_PERCENTAGE'
+    },
+    rdca_sell_interval: {
+        format: Number,
+        default: 5000,
+        env: 'RDCA_SELL_INTERVAL'
+    },
+    rdca_1st_percentage: {
+        format: Number,
+        default: 25,
+        env: 'RDCA_1ST_PERCENTAGE'
+    },
+    rdca_default_percentage: {
+        format: Number,
+        default: 25,
+        env: 'RDCA_DEFAULT_PERCENTAGE'
+    },
+    block_time_range: {
+        format: Number,
+        default: 10000,
+        env: 'BLOCK_TIME_RANGE'
+    }
 })
 
 config.validate({ allowed: 'strict' })

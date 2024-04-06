@@ -74,13 +74,15 @@ const processBuy = async (ammId: PublicKey, ata: PublicKey, blockhash: string) =
   if(existingMarkets.isExisted(ammId)) {
     return
   }
-
-  const poolKeys = await BotLiquidity.getAccountPoolKeys(ammId)
-  const info = BotLiquidity.getMintInfoFromWSOLPair(poolKeys)
   
+  logger.info(`Before PK`)
+  const poolKeys = await BotLiquidity.getAccountPoolKeys(ammId)
+  if(!poolKeys) { return }
+  
+  const info = BotLiquidity.getMintInfoFromWSOLPair(poolKeys)
   // Cancel process if pair is not WSOL
   if(info.mint === undefined) { return }
-
+  logger.info(`After PK`)
   if(!poolKeys) { return }
   
   logger.info(new Date(), `BUY ${ammId.toBase58()} | ${info.mint.toBase58()}`)
@@ -179,7 +181,7 @@ const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BigNu
       vtransaction: transaction,
       expectedProfit: new BN(0)
     }
-    
+    logger.info(`Before submit`)
     return await submitBundle(arb)
 
     // return await BotTransaction.sendTransaction(transaction, SystemConfig.get('default_commitment') as Commitment)
@@ -343,9 +345,8 @@ const processInitialize2 = async (instruction: TxInstruction, txPool: TxPool, at
 }
 
 // Most Raydium transaction is using swapBaseIn, so the bot need to figure out if this transaction
-// is "in" @ "out" direction. This can be achieved by checking UserSourceTokenAccount and check if it's similar
-// as the signer ATA account. If it's a WSOL, then it's a "in" process, and vice versa
-// For swapBaseIn instruction, the position of "UserSourceTokenAccount" is at position #16
+// is "in" @ "out" direction. This can be achieved by checking the mint token balance in transaction, 
+// if mint token is negative, then it is sell, and if positive value it's buy
 const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstruction, txPool: TxPool, ata: PublicKey) => {
   
   const tx = txPool.mempoolTxns
@@ -481,7 +482,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
     // for subsequence trade after the initial 
     let blockhash = txPool.mempoolTxns.recentBlockhash
     let units = 1000000
-    let microLamports = 101337
+    let microLamports = 1013370
     logger.warn(`Trade detected ${state.mint.toBase58()} | ${amount} SOL | Disburse ${Math.floor(totalChunck / 10)}`)
     for(let i = 0; i < Math.floor(totalChunck / 5); i++) {
       await processSell(
@@ -498,6 +499,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
       )
 
       units = 100000
+      microLamports = 101337
 
       let newBlock = await connection.getLatestBlockhash(config.get('default_commitment') as Commitment)
       blockhash = newBlock.blockhash
@@ -533,7 +535,7 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
 
 (async () => {
   try {
-    const { ata } = await setupWSOLTokenAccount(true, 0.07)
+    const { ata } = await setupWSOLTokenAccount(true, 0.3)
     
     if(!ata) { 
       logger.error('No WSOL Account initialize')

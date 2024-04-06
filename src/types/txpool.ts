@@ -1,3 +1,5 @@
+import { CompiledInnerInstruction } from "@solana/web3.js"
+import { InnerInstruction } from "@triton-one/yellowstone-grpc/dist/grpc/solana-storage"
 import BN from "bn.js"
 
 export type PoolTiming = {
@@ -16,7 +18,11 @@ export type TxAddressLookupTable = {
 export type TxInstruction = {
 	programIdIndex: number,
 	accounts: number[],
-	data: Buffer
+	data: Buffer | string
+}
+
+export type TxInnerInstruction = {
+	instructions: TxInstruction[]
 }
 
 export type TxBalance = {
@@ -28,13 +34,16 @@ export type TxBalance = {
 
 export type MempoolTransaction = {
 	source: string
+	filter?: string
 	signature: string
 	accountKeys: string[]
 	recentBlockhash: string
 	instructions: TxInstruction[]
+	innerInstructions: TxInnerInstruction[],
 	addressTableLookups: TxAddressLookupTable[],
 	preTokenBalances: TxBalance[]
 	postTokenBalances: TxBalance[]
+	computeUnitsConsumed: number
 }
 
 export type LookupIndex = {

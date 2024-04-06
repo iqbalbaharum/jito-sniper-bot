@@ -18,7 +18,7 @@ async function* mempool(accounts: string[]): AsyncGenerator<TxPool> {
 		vote: false,
 		failed: false,
 		accountInclude: accounts,
-		accountExclude: [JUPITER_ADDRESS, 'routeUGWgWzqBWFcrCfv8tritsqukccJPu3q5GPP3xS'],
+		accountExclude: [],
 		accountRequired: [],
 	})
 	
@@ -30,11 +30,11 @@ async function* mempool(accounts: string[]): AsyncGenerator<TxPool> {
 		accountRequired: [],
 	})
 
-	const logsPool: Web3JSOnLog = new Web3JSOnLog('onLog', connectionAlt1, new PublicKey(RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS))
+	// const logsPool: Web3JSOnLog = new Web3JSOnLog('onLog', connectionAlt1, new PublicKey(RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS))
 	
 	try {
 		generators.push(geyserPool.listen())
-		generators.push(logsPool.listen())
+		// generators.push(logsPool.listen())
 	} catch(e: any) {
 		console.log(e.toString())
 	}

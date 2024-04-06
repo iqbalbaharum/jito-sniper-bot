@@ -5,15 +5,24 @@
 import { Commitment, KeyedAccountInfo, PublicKey } from "@solana/web3.js";
 import { redisClient } from "../adapter/redis";
 import { connection, connectionAlt1 } from "../adapter/rpc";
-import { RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, config } from "../utils";
+import { OPENBOOK_V1_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, WSOL_ADDRESS, config } from "../utils";
 import { BotLiquidity, BotMarket } from "../services";
-import { LIQUIDITY_STATE_LAYOUT_V4 } from "@raydium-io/raydium-sdk";
+import { LIQUIDITY_STATE_LAYOUT_V4, MARKET_STATE_LAYOUT_V3 } from "@raydium-io/raydium-sdk";
 
 async function processAccountInfo(account: KeyedAccountInfo) {
 	try {
-		const state = await redisClient.hGet(`${account.accountId.toBase58()}`, 'state')
-		if(!state) {
-			redisClient.hSet(`${account.accountId.toBase58()}`, 'state', account.accountInfo.data.toString('hex'))
+		const market = await redisClient.hGet(`${account.accountId.toBase58()}`, 'market')
+		if(!market) {
+			let market = MARKET_STATE_LAYOUT_V3.decode(account.accountInfo.data);
+
+			let mint: PublicKey
+			if(market.baseMint.toBase58() === WSOL_ADDRESS) {
+				mint = market.quoteMint
+			} else {
+				mint = market.baseMint
+			}
+			
+			redisClient.hSet(`${mint.toBase58()}`, 'market', account.accountInfo.data.toString('hex'))
 		}
 	} catch(e:any) {
 		console.log(e.toString())
@@ -22,13 +31,13 @@ async function processAccountInfo(account: KeyedAccountInfo) {
 
 function main() {
 	connectionAlt1.onProgramAccountChange(
-		new PublicKey(RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS),
+		new PublicKey(OPENBOOK_V1_ADDRESS),
 		processAccountInfo,
 		config.get('default_commitment') as Commitment
 	)
 	
 	connection.onProgramAccountChange(
-		new PublicKey(RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS),
+		new PublicKey(OPENBOOK_V1_ADDRESS),
 		processAccountInfo,
 		config.get('default_commitment') as Commitment
 )

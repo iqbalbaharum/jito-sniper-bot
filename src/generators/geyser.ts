@@ -114,6 +114,7 @@ export class GeyserPool extends BaseGenerator {
 				yield {
 					mempoolTxns: {
 						source: this.streamName,
+						filter: data.filters,
 						signature: bs58.encode(data.transaction.transaction.signature),
 						accountKeys: message.accountKeys.map((e: any) => bs58.encode(e)),
 						recentBlockhash: bs58.encode(message.recentBlockhash),
@@ -124,6 +125,7 @@ export class GeyserPool extends BaseGenerator {
 								data: e.data
 							}
 						}),
+						innerInstructions: data.transaction.transaction.meta.innerInstructions,
 						addressTableLookups: message.addressTableLookups.map((e: any) => {
 							return {
 								accountKey: bs58.encode(e.accountKey),
@@ -146,7 +148,8 @@ export class GeyserPool extends BaseGenerator {
 								amount: new BN(token.uiTokenAmount.amount),
 								decimal: token.uiTokenAmount.decimals
 							}
-						})
+						}),
+						computeUnitsConsumed: data.transaction.transaction.meta.computeUnitsConsumed
 					},
 					timing: {
 						listened: new Date().getTime(),
