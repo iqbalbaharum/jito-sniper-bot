@@ -111,23 +111,22 @@ const processTx = async (accountInfo: KeyedAccountInfo, ata: PublicKey) => {
 		);
 
 		if(state.swapBaseInAmount.isZero()) {
-			
+			let shouldSnipe = false
+			let mint
+
+			if(state.baseMint.toBase58() === WSOL_ADDRESS) {
+				mint = state.quoteMint
+			} else {
+				mint = state.baseMint
+			}
+
+			shouldSnipe = await SnipeList.isTokenListed(mint)
+
+			if(shouldSnipe) {
+				await processBuy(accountInfo.accountId, ata, '')
+			}
 		}
-
-		let shouldSnipe = false
-		let mint
-
-		if(state.baseMint.toBase58() === WSOL_ADDRESS) {
-			mint = state.quoteMint
-		} else {
-			mint = state.baseMint
-		}
-
-		shouldSnipe = await SnipeList.isTokenListed(mint)
-
-		if(shouldSnipe) {
-			await processBuy(accountInfo.accountId, ata, '')
-		}
+		
 	} catch(e) {
 		console.log(e)
 	}

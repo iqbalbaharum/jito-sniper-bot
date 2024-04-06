@@ -164,10 +164,8 @@ export class BotLiquidity {
 
 			let market: MinimalMarketLayoutV3 | undefined
 			if(marketData) {
-				logger.info(`here`)
 				market = MINIMAL_MARKET_STATE_LAYOUT_V3.decode(Buffer.from(marketData, 'hex'));
 			} else {
-				logger.info(`there`)
 				market = await BotMarket.getMinimalMarketV3(state.marketId)
 			}
 
