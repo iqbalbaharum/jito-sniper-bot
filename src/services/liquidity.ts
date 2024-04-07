@@ -179,6 +179,21 @@ export class BotLiquidity {
 	}
 
 	/**
+	 * Function to know if the LP pool is a newly active
+	 * @param ammId 
+	 * @returns 
+	 */
+	static async isLiquidityPoolNewlyActive(ammId: PublicKey) : Promise<boolean> {
+		let stateData = await redisClient.hGet(`${ammId.toBase58()}`, 'state')
+		if(stateData) {
+			let state = LIQUIDITY_STATE_LAYOUT_V4.decode(Buffer.from(stateData, 'hex'))
+			return state.swapBaseOutAmount.isZero() || state.swapQuoteOutAmount.isZero()
+		}
+
+		return false
+	}
+
+	/**
 	 *
 	 * @param ammId
 	 * @returns

@@ -70,19 +70,14 @@ const onBundleResult = () => {
 };
 
 const processBuy = async (ammId: PublicKey, ata: PublicKey, blockhash: string) => {
-
-  if(existingMarkets.isExisted(ammId)) {
-    return
-  }
   
-  logger.info(`Before PK`)
   const poolKeys = await BotLiquidity.getAccountPoolKeys(ammId)
   if(!poolKeys) { return }
-  
+
   const info = BotLiquidity.getMintInfoFromWSOLPair(poolKeys)
   // Cancel process if pair is not WSOL
   if(info.mint === undefined) { return }
-  logger.info(`After PK`)
+  
   if(!poolKeys) { return }
   
   logger.info(new Date(), `BUY ${ammId.toBase58()} | ${info.mint.toBase58()}`)
@@ -181,7 +176,7 @@ const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BigNu
       vtransaction: transaction,
       expectedProfit: new BN(0)
     }
-    logger.info(`Before submit`)
+    
     return await submitBundle(arb)
 
     // return await BotTransaction.sendTransaction(transaction, SystemConfig.get('default_commitment') as Commitment)
@@ -257,6 +252,10 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
   // 2. Buy failed 
   let count: number | undefined = countLiquidityPool.get(ammId.toBase58())!
   if(count === undefined) {
+    if(existingMarkets.isExisted(ammId)) {
+      return
+    }
+
     await processBuy(ammId, ata, txPool.mempoolTxns.recentBlockhash)
     countLiquidityPool.set(ammId.toBase58(), 0)
     return
@@ -309,6 +308,10 @@ const processDeposit = async (instruction: TxInstruction, txPool: TxPool, ata: P
   //   logger.warn(`LP ${ammId} | ${count} | ${txPool.mempoolTxns.signature}`)
   // }
   
+  if(existingMarkets.isExisted(ammId)) {
+    return
+  }
+
   await processBuy(ammId, ata, txPool.mempoolTxns.recentBlockhash)
 }
 
@@ -341,6 +344,10 @@ const processInitialize2 = async (instruction: TxInstruction, txPool: TxPool, at
   //   logger.warn(`LP ${ammId} | ${count} | ${txPool.mempoolTxns.signature}`)
   // }
   
+  if(existingMarkets.isExisted(ammId)) {
+    return
+  }
+
   await processBuy(ammId, ata, txPool.mempoolTxns.recentBlockhash)
 }
 
@@ -372,6 +379,18 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   }
 
   if(!ammId) { return }
+  
+  // Check, if the ammId is not tracked, and the swapBaseIn/swapBaseOut is still zero
+  // then it's a newly opened pool.
+  if(!existingMarkets.isExisted(ammId)) {
+    let isNewlyActive = await BotLiquidity.isLiquidityPoolNewlyActive(ammId)
+    if(isNewlyActive) {
+      logger.error(`Delayed LP ${ammId}`)
+      await processBuy(ammId, ata, txPool.mempoolTxns.recentBlockhash)
+      return
+    }
+  }
+
 
   // BUG: There's another method for Raydium swap which move the array positions
   // to differentiate which position, check the position of OPENBOOK program Id in accountKeys
