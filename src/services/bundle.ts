@@ -19,21 +19,37 @@ const submitBundle = async (arb: ArbIdea) => {
 
   const bundle = new Bundle([arb.vtransaction], 5)
 
-  const TIP_PERCENT = config.get('tip_percent')
-  let expectedProfitLamport: number = config.get('default_tip_in_sol') * LAMPORTS_PER_SOL
-  
-  // if(!arb.expectedProfit.isZero() && arb.expectedProfit.toNumber() > config.get('min_sol_trigger')) {
-  //   expectedProfitLamport = parseInt(arb.expectedProfit.mul(new BN(TIP_PERCENT)).div(new BN(100)).toString())
-  //   // Because of buying initially from any market
-  //   // it would spike the tips to maximum. To prevent excessive tipping
-  //   // set maximum tips
-  //   if(expectedProfitLamport > config.get('max_tip_in_sol')) {
-  //     expectedProfitLamport = config.get('max_tip_in_sol') * LAMPORTS_PER_SOL
-  //   }
-  // }
+  const TIP_PERCENT_MIN = config.get('tip_percent_min')
+  const TIP_PERCENT_MAX = config.get('tip_percent_max')
+  const MAX_TIP_IN_SOL = config.get('max_tip_in_sol')
+  const MIN_TIP_IN_SOL = config.get('min_tip_in_sol')
+
+  let expectedProfitLamport: number = MIN_TIP_IN_SOL * LAMPORTS_PER_SOL 
+  let tipPercentage = TIP_PERCENT_MIN
+
+  if(!arb.expectedProfit.isZero() && arb.expectedProfit.toNumber() > config.get('min_sol_trigger')) {
+    if(arb.expectedProfit.gte(new BN(0.1 * LAMPORTS_PER_SOL))) {
+      tipPercentage = TIP_PERCENT_MAX
+    }
+
+    expectedProfitLamport = parseFloat(arb.expectedProfit.mul(new BN(tipPercentage)).div(new BN(100)).toString()) * LAMPORTS_PER_SOL
+    // Because of buying initially from any market
+    // it would spike the tips to maximum. To prevent excessive tipping
+    // set maximum tips
+    if(expectedProfitLamport > MAX_TIP_IN_SOL) {
+      expectedProfitLamport = MAX_TIP_IN_SOL * LAMPORTS_PER_SOL
+    }
+
+    if(expectedProfitLamport < MAX_TIP_IN_SOL) {
+      expectedProfitLamport = MAX_TIP_IN_SOL * LAMPORTS_PER_SOL
+    }
+  }
+
+  logger.info(`Expected Profit: ${arb.expectedProfit.toString()}, Expected Lamport: ${arb.expectedProfit.mul(new BN(tipPercentage)).div(new BN(100)).toString()},  final LAMPORT: ${expectedProfitLamport} SOL`)
   
   bundle.addTipTx(
       payer,
+      // (MIN_TIP_IN_SOL / 100) * LAMPORTS_PER_SOL,
       expectedProfitLamport,
       tipAccount,
       resp.blockhash
@@ -52,7 +68,7 @@ const submitBundleDefaultTip = async (arbIdeas: ArbIdea[]) => {
 
   const bundle = new Bundle(arbIdeas.map(idea => idea.vtransaction), 5)
 
-  let tip: number = config.get('default_tip_in_sol') * LAMPORTS_PER_SOL
+  let tip: number = config.get('min_tip_in_sol') * LAMPORTS_PER_SOL
 
   bundle.addTipTx(
       payer,
@@ -73,7 +89,7 @@ const onDefaultBundleResult = () => {
       const isAccepted = bundleResult.accepted;
       const isRejected = bundleResult.rejected;
       if (isAccepted) {
-        logger.info(
+        logger.info(  
           `Bundle ${bundleId} accepted in slot ${bundleResult.accepted?.slot}`,
         );
       }

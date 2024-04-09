@@ -1,7 +1,7 @@
 import { GeyserPool } from "../generators/geyser";
 import { BotLiquidity, BotLookupTable, setupWSOLTokenAccount } from "../services";
-import { CopyTrades } from "../storage";
-import { ArbIdea, LookupIndex, TxInstruction, TxPool } from "../types";
+import { CopyTrades, ExistingRaydiumMarketStorage } from "../storage";
+import { ArbIdea, BalanceTracker, LookupIndex, TxInstruction, TxPool } from "../types";
 import { logger } from "../utils/logger";
 import { config as SystemConfig } from "../utils/config";
 import { payer } from "../adapter/payer";
@@ -20,6 +20,7 @@ import { connection } from "../adapter/rpc";
 import { SnipeList } from "../services/snipe-list";
 
 let lookupTable: BotLookupTable
+let existingMarkets: ExistingRaydiumMarketStorage
 
 const coder = new RaydiumAmmCoder(raydiumIDL as Idl)
 
@@ -100,7 +101,7 @@ const processBuy = async (ammId: PublicKey, ata: PublicKey, blockhash: string) =
   if(!signature) { return }
   
   logger.info(`Buy TX send: ${signature}`)
-
+	existingMarkets.add(ammId)
   return signature
 }
 
@@ -122,11 +123,11 @@ const processTx = async (accountInfo: KeyedAccountInfo, ata: PublicKey) => {
 
 			shouldSnipe = await SnipeList.isTokenListed(mint)
 
-			if(shouldSnipe) {
+			if(shouldSnipe && !existingMarkets.isExisted(state.marketId)) {
 				await processBuy(accountInfo.accountId, ata, '')
 			}
 		}
-		
+
 	} catch(e) {
 		console.log(e)
 	}
@@ -143,6 +144,7 @@ const processTx = async (accountInfo: KeyedAccountInfo, ata: PublicKey) => {
       }
   
       lookupTable = new BotLookupTable()
+			existingMarkets = new ExistingRaydiumMarketStorage()
   
       const generators: AsyncGenerator<any>[] = [];
   

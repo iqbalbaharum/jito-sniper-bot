@@ -75,19 +75,24 @@ const config = convict({
         default: 0.0001,
         env: 'MIN_SOL_TRIGGER'
     },
-    tip_percent: {
+    tip_percent_min: {
         format: Number,
-        default: 10,
-        env: 'TIP_PERCENT'
+        default: 1,
+        env: 'TIP_PERCENT_MIN'
     },
-    default_tip_in_sol: {
+    tip_percent_max: {
+        format: Number,
+        default: 1,
+        env: 'TIP_PERCENT_MAX'
+    },
+    min_tip_in_sol: {
         format: Number,
         default: 0.001,
-        env: 'DEFAULT_TIP_IN_SOL'
+        env: 'MIN_TIP_IN_SOL'
     },
     max_tip_in_sol: {
         format: Number,
-        default: 0.01,
+        default: 0.001,
         env: 'MAX_TIP_IN_SOL'
     },
     tx_balance_chuck_division: {

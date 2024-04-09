@@ -53,11 +53,11 @@ const onBundleResult = () => {
       const isAccepted = bundleResult.accepted;
       const isRejected = bundleResult.rejected;
       
-      if (isAccepted) {
-        logger.info(
-          `Bundle ${bundleId} accepted in slot ${bundleResult.accepted?.slot}`,
-        );
-      }
+      // if (isAccepted) {
+      //   logger.info(
+      //     `Bundle ${bundleId} accepted in slot ${bundleResult.accepted?.slot}`,
+      //   );
+      // }
 
       if (isRejected) {
         logger.warn(bundleResult.rejected, `Bundle ${bundleId} rejected:`);
@@ -116,7 +116,8 @@ async function processSell(
     blockhash: String
     compute: TransactionCompute
   },
-  poolKeys?: LiquidityPoolKeysV4, ) {
+  poolKeys?: LiquidityPoolKeysV4, 
+  expectedProfit: BN = new BN(0)) {
   
   if(!poolKeys) {
     poolKeys = trackedPoolKeys.get(ammId!.toBase58())
@@ -136,7 +137,8 @@ async function processSell(
         poolKeys, 
         ata, 
         balance.chuck,
-        config
+        config,
+        expectedProfit
       )
 
       balance.remaining = balance.remaining.sub(balance.chuck)
@@ -176,12 +178,12 @@ const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BigNu
       vtransaction: transaction,
       expectedProfit: new BN(0)
     }
-    
+
     return await submitBundle(arb)
 
     // return await BotTransaction.sendTransaction(transaction, SystemConfig.get('default_commitment') as Commitment)
   } catch(e: any) {
-    logger.error(e.toString())
+    logger.error(`TEST: ` + e.toString())
     return ''
   }
 }
@@ -193,7 +195,8 @@ const sellToken = async (
   config: {
     blockhash: String
     compute: TransactionCompute
-  }) => {
+  },
+  expectedProfit: BN = new BN(0)) => {
   try {
     const transaction = await BotLiquidity.makeSimpleSwapInstruction(
       keys,
@@ -382,15 +385,17 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   
   // Check, if the ammId is not tracked, and the swapBaseIn/swapBaseOut is still zero
   // then it's a newly opened pool.
+  // For this liquidity, add to market list before the buy complete, this to prevent
+  // multiple purchase of the same token.
   if(!existingMarkets.isExisted(ammId)) {
-    let isNewlyActive = await BotLiquidity.isLiquidityPoolNewlyActive(ammId)
+    let isNewlyActive = await BotLiquidity.isLiquidityPoolNewlyActive(ammId, 1000)
     if(isNewlyActive) {
-      logger.error(`Delayed LP ${ammId}`)
-      await processBuy(ammId, ata, txPool.mempoolTxns.recentBlockhash)
-      return
+      existingMarkets.add(ammId)
+      await processBuy(ammId, ata, txPool.mempoolTxns.recentBlockhash) 
     }
-  }
 
+    return
+  }
 
   // BUG: There's another method for Raydium swap which move the array positions
   // to differentiate which position, check the position of OPENBOOK program Id in accountKeys
@@ -513,8 +518,10 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
             units,
             microLamports
           },
-          blockhash
-        }
+          blockhash,
+        },
+        undefined,
+        new BN(amount * LAMPORTS_PER_SOL)
       )
 
       units = 100000
@@ -527,11 +534,13 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
 }
 
 const processTx = async (tx: TxPool, ata: PublicKey) => {
-  try {
-    for(const ins of tx.mempoolTxns.instructions) {
-      const programId = tx.mempoolTxns.accountKeys[ins.programIdIndex]
-      if(programId === RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS) {
-        const decodedIx = coder.instruction.decode(Buffer.from(ins.data))
+  for(const ins of tx.mempoolTxns.instructions) {
+    const programId = tx.mempoolTxns.accountKeys[ins.programIdIndex]
+    if(programId === RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS) {
+
+      try {
+        let dataBuffer = Buffer.from(ins.data)
+        const decodedIx = coder.instruction.decode(dataBuffer)
         
         if(decodedIx.hasOwnProperty('withdraw')) { // remove liquidity
           logger.info(`Withdraw ${tx.mempoolTxns.signature}`)
@@ -545,10 +554,10 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
           logger.info(`Initialize ${tx.mempoolTxns.signature}`)
           await processInitialize2(ins, tx, ata)
         }
+      } catch(e:any) {
+        console.log(tx.mempoolTxns.signature, e)
       }
     }
-  } catch(e) {
-    console.log(e)
   }
 }
 
@@ -571,9 +580,9 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
       '7YttLkHDoNj9wyDur5pM1ejNaAvT9X4eqaYcHQqtj2G5'
     ])
 
-    if(config.get('mode') === 'development') {
-      onBundleResult()
-    }
+    // if(config.get('mode') === 'development') {
+    //   onBundleResult()
+    // }
     
     for await (const update of mempoolUpdates) {
       processTx(update, ata) // You can process the updates as needed

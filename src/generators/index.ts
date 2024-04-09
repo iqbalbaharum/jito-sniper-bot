@@ -42,7 +42,7 @@ async function* mempool(accounts: string[]): AsyncGenerator<TxPool> {
 	const updates = fuseGenerators(generators)
 
 	for await (const update of updates) {
-		if(update && !pools.has(update.mempoolTxns.signature)) {
+		if(update) {
 			pools.add(update.mempoolTxns.signature)
 			yield update
 		}

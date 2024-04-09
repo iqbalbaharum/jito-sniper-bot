@@ -180,14 +180,15 @@ export class BotLiquidity {
 
 	/**
 	 * Function to know if the LP pool is a newly active
+	 * If the pool is just opened in less than 5 second
 	 * @param ammId 
 	 * @returns 
 	 */
-	static async isLiquidityPoolNewlyActive(ammId: PublicKey) : Promise<boolean> {
+	static async isLiquidityPoolNewlyActive(ammId: PublicKey, cutOffTime: number = 5000) : Promise<boolean> {
 		let stateData = await redisClient.hGet(`${ammId.toBase58()}`, 'state')
 		if(stateData) {
 			let state = LIQUIDITY_STATE_LAYOUT_V4.decode(Buffer.from(stateData, 'hex'))
-			return state.swapBaseOutAmount.isZero() || state.swapQuoteOutAmount.isZero()
+			return new Date().getTime() - (state.poolOpenTime.toNumber() * 1000) <= cutOffTime
 		}
 
 		return false
