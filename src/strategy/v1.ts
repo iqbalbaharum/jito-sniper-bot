@@ -246,7 +246,7 @@ async function* buildSingleBlockTradeBundle(
 	}
 }
 
-let tip: number = config.get('default_tip_in_sol') * LAMPORTS_PER_SOL
+let tip: number = config.get('min_tip_in_sol') * LAMPORTS_PER_SOL
 
 const sendBundle = async (
 	iterator: AsyncGenerator<{
