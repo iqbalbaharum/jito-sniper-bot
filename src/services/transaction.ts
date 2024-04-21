@@ -1,10 +1,17 @@
 import { LiquidityPoolKeysV4, LiquidityStateV4, TxVersion } from "@raydium-io/raydium-sdk"
-import { connection, httpOnlyRpcs } from "../adapter/rpc"
+import { connection, lite_rpc, httpOnlyRpcs } from "../adapter/rpc"
 import { RAYDIUM_AUTHORITY_V4_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, USDC_ADDRESS, WSOL_ADDRESS, config } from "../utils";
-import { Commitment, PublicKey, VersionedMessage, VersionedTransaction } from "@solana/web3.js";
+import { Commitment, ComputeBudgetProgram, PublicKey, TransactionInstruction, VersionedMessage, VersionedTransaction } from "@solana/web3.js";
 import { BotLiquidity } from "./liquidity";
 import BN from "bn.js";
-import { TxBalance } from "../types";
+import { TransactionCompute, TxBalance } from "../types";
+
+import * as anchor from "@coral-xyz/anchor";
+import { Program } from "@coral-xyz/anchor";
+import { payer } from "../adapter/payer";
+import { logger } from "../utils/logger";
+import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
+import idl from '../idl/amm_proxy.json'
 
 const getTokenMintFromSignature = async (signature: string): Promise<string | undefined> => {
 	let tx;
@@ -150,6 +157,66 @@ export class BotTransaction {
       );
     })
 
+    signature = lite_rpc.sendRawTransaction(
+      transaction.serialize(),
+      {
+        skipPreflight: true,
+      },
+    );
+
     return signature
+  }
+
+  static sendToSwapProgram = async (
+    poolKeys: LiquidityPoolKeysV4,
+    sourceTokenAccount: PublicKey,
+    destTokenAccount: PublicKey,
+    amountIn: BN,
+    amountOut: BN,
+    compute: TransactionCompute,
+    startInstructions: TransactionInstruction[]
+  ) => {
+
+    const program = new anchor.Program(
+      idl as anchor.Idl, 
+      config.get('swap_program_id'),
+      new anchor.AnchorProvider(connection, new NodeWallet(payer), {})
+    )
+
+    const tx = await program.methods.proxySwapBaseIn(
+        amountIn,
+        amountOut
+      )
+      .accounts({
+        ammProgram: poolKeys.programId,
+        amm: poolKeys.id,
+        ammAuthority: poolKeys.authority,
+        ammOpenOrders: poolKeys.openOrders,
+        ammCoinVault: poolKeys.baseVault,
+        ammPcVault: poolKeys.quoteVault,
+        marketProgram: poolKeys.marketProgramId,
+        market: poolKeys.marketId,
+        marketBids: poolKeys.marketBids,
+        marketAsks: poolKeys.marketAsks,
+        marketEventQueue: poolKeys.marketEventQueue,
+        marketCoinVault: poolKeys.marketBaseVault,
+        marketPcVault: poolKeys.marketQuoteVault,
+        marketVaultSigner: poolKeys.marketAuthority,
+        userTokenSource: sourceTokenAccount,
+        userTokenDestination: destTokenAccount,
+        userSourceOwner: payer.publicKey,
+      })
+      .preInstructions([
+        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: compute.microLamports }),
+        ComputeBudgetProgram.setComputeUnitLimit({ units: compute.units }),
+        ...startInstructions
+      ])
+      .postInstructions([])
+      .signers([
+        payer
+      ]).rpc({
+        skipPreflight: false
+      });
+    
   }
 }

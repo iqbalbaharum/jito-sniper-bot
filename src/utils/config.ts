@@ -18,6 +18,16 @@ const config = convict({
         default: '',
         env: 'WEBSOCKET_RPC_URL'
     },
+    lite_rpc_url: {
+        format: String,
+        default: '',
+        env: 'LITE_RPC_URL'
+    },
+    lite_rpc_ws_url: {
+        format: String,
+        default: '',
+        env: 'LITE_RPC_WS_URL'
+    },
     http_rpc_url_2: {
         format: String,
         default: 'https://api.mainnet-beta.solana.com',
@@ -60,6 +70,11 @@ const config = convict({
         default: 'processed',
         env: 'DEFAULT_COMMITMENT'
     },
+    swap_program_id: {
+        format: String,
+        default: '',
+        env: 'SWAP_PROGRAM_ID'
+    },
     helius_api_key: {
         format: String,
         default: '',
@@ -94,6 +109,11 @@ const config = convict({
         format: Number,
         default: 0.001,
         env: 'MAX_TIP_IN_SOL'
+    },
+    jito_bundle_min_threshold: {
+        format: Number,
+        default: 0.001,
+        env: 'JITO_BUNDLE_MIN_THRESHOLD'
     },
     tx_balance_chuck_division: {
         format: Number,

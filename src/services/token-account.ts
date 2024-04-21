@@ -1,4 +1,4 @@
-import Spl, { getAssociatedTokenAddress, ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID, createAssociatedTokenAccountInstruction, NATIVE_MINT, createSyncNativeInstruction, AccountLayout, RawAccount, getAssociatedTokenAddressSync } from '@solana/spl-token'
+import Spl, { getAssociatedTokenAddress, ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID, createAssociatedTokenAccountInstruction, NATIVE_MINT, createSyncNativeInstruction, AccountLayout, RawAccount, getAssociatedTokenAddressSync, createAssociatedTokenAccount } from '@solana/spl-token'
 import { connection } from '../adapter/rpc';
 import { Commitment, LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction, TransactionInstruction, sendAndConfirmTransaction } from '@solana/web3.js';
 import { payer } from '../adapter/payer';

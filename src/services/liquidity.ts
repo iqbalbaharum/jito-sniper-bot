@@ -17,6 +17,8 @@ import {
 	MAINNET_PROGRAM_ID,
 	MARKET_STATE_LAYOUT_V3,
 	Market,
+	MarketStateLayoutV3,
+	MarketStateV3,
 	ONE,
 	Percent,
 	Price,
@@ -162,13 +164,14 @@ export class BotLiquidity {
 
 			let marketData = await redisClient.hGet(`${mint.toBase58()}`, 'market')
 
-			let market: MinimalMarketLayoutV3 | undefined
+			let market: MarketStateV3 | undefined
 			if(marketData) {
-				market = MINIMAL_MARKET_STATE_LAYOUT_V3.decode(Buffer.from(marketData, 'hex'));
+				market = MARKET_STATE_LAYOUT_V3.decode(Buffer.from(marketData, 'hex'));
 			} else {
-				market = await BotMarket.getMinimalMarketV3(state.marketId)
+				market = await BotMarket.getMarketV3(state.marketId)
 			}
 
+			console.log(market)
 			if(market) {
 				return this.createPoolKeys(ammId, state, market!)
 			}
@@ -229,7 +232,7 @@ export class BotLiquidity {
 	static createPoolKeys(
 		ammId: PublicKey,
 		accountData: LiquidityStateV4,
-		minimalMarketLayoutV3: MinimalMarketLayoutV3,
+		marketStateLayout: MarketStateV3,
 	  ): LiquidityPoolKeys {
 
 		const programId = MAINNET_PROGRAM_ID.AmmV4
@@ -256,11 +259,11 @@ export class BotLiquidity {
 		  marketProgramId: accountData.marketProgramId,
 		  marketId,
 		  marketAuthority: authority,
-		  marketBaseVault: accountData.baseVault,
-		  marketQuoteVault: accountData.quoteVault,
-		  marketBids: minimalMarketLayoutV3.bids,
-		  marketAsks: minimalMarketLayoutV3.asks,
-		  marketEventQueue: minimalMarketLayoutV3.eventQueue,
+		  marketBaseVault: marketStateLayout.baseVault,
+		  marketQuoteVault: marketStateLayout.quoteVault,
+		  marketBids: marketStateLayout.bids,
+		  marketAsks: marketStateLayout.asks,
+		  marketEventQueue: marketStateLayout.eventQueue,
 		  withdrawQueue: accountData.withdrawQueue,
 		  lpVault: accountData.lpVault,
 		  lookupTableAccount: PublicKey.default,
@@ -277,18 +280,14 @@ export class BotLiquidity {
 		const accountData = LIQUIDITY_STATE_LAYOUT_V4.decode(data)
     
 		const marketInfo = await connection.getAccountInfo(accountData.marketId, {
-			commitment: config.get('default_commitment') as Commitment,
-			dataSlice: {
-				offset: 253, // eventQueue
-				length: 32 * 3,
-			},
+			commitment: config.get('default_commitment') as Commitment
 		})
 
 		if (!marketInfo) {
 			throw new Error(BotError.MARKET_FETCH_ERROR)
 		}
 
-		const minimalMarketData = MINIMAL_MARKET_STATE_LAYOUT_V3.decode(
+		const marketData = MARKET_STATE_LAYOUT_V3.decode(
 			marketInfo.data
 		)
 
@@ -316,11 +315,11 @@ export class BotLiquidity {
 				programId: accountData.marketProgramId,
 				marketId: accountData.marketId,
 			}).publicKey,
-			marketBaseVault: accountData.baseVault,
-			marketQuoteVault: accountData.quoteVault,
-			marketBids: minimalMarketData.bids,
-			marketAsks: minimalMarketData.asks,
-			marketEventQueue: minimalMarketData.eventQueue,
+			marketBaseVault: marketData.baseVault,
+			marketQuoteVault: marketData.quoteVault,
+			marketBids: marketData.bids,
+			marketAsks: marketData.asks,
+			marketEventQueue: marketData.eventQueue,
 			withdrawQueue: accountData.withdrawQueue,
 			lpVault: accountData.lpVault,
 			lookupTableAccount: PublicKey.default,
@@ -394,6 +393,58 @@ export class BotLiquidity {
 			decimal,
 			isMintBase,
 		}
+	}
+
+
+	static getSourceDestinationTokenAccount = async(
+		poolKeys: LiquidityPoolKeys, 
+		direction: 'in' | 'out', 
+		wsolTokenAccount: PublicKey
+	) => {
+		let sourceAccountIn
+		let destinationAccountIn
+		let accountInDecimal
+		let startInstructions: TransactionInstruction[] = []
+
+		if (direction === 'in') {
+			let accountOut
+			if (poolKeys.baseMint.toString() === WSOL_ADDRESS) {
+				accountOut = poolKeys.quoteMint
+			} else {
+				accountOut = poolKeys.baseMint
+			}
+
+			const { ata, instructions } =
+				await BotTokenAccount.getOrCreateTokenAccountInstruction(
+					accountOut,
+					true
+				)
+
+			sourceAccountIn = wsolTokenAccount
+			destinationAccountIn = ata
+
+			startInstructions = instructions
+		} else {
+			let accountIn: PublicKey
+
+			if (poolKeys.baseMint.toString() === WSOL_ADDRESS) {
+				accountIn = poolKeys.quoteMint
+				accountInDecimal = poolKeys.quoteDecimals
+			} else {
+				accountIn = poolKeys.baseMint
+				accountInDecimal = poolKeys.baseDecimals
+			}
+
+			const { ata } = await BotTokenAccount.getOrCreateTokenAccountInstruction(
+				accountIn,
+				false
+			)
+
+			sourceAccountIn = ata
+			destinationAccountIn = wsolTokenAccount
+		}
+
+		return {sourceAccountIn, destinationAccountIn, accountInDecimal, startInstructions}
 	}
 
 	/**
@@ -512,6 +563,67 @@ export class BotLiquidity {
 		transaction.sign([payer, ...innerTransaction.signers])
 
 		return transaction
+	}
+
+	static makeAmmSwapAccounts = async (
+		poolKeys: LiquidityPoolKeysV4,
+		direction: 'in' | 'out',
+		wsolTokenAccount: PublicKey,
+		amountIn: BigNumberish,
+		amountOut: BigNumberish,
+		config?: {
+			blockhash?: String
+			compute?: TransactionCompute
+	}) => {
+		let tokenAccountIn
+		let tokenAccountOut
+		let accountInDecimal
+		let blockhash = config?.blockhash
+
+		if (!blockhash) {
+			const block = await connection.getLatestBlockhash({
+				commitment: 'confirmed',
+			})
+			blockhash = block.blockhash
+		}
+
+		if (direction === 'in') {
+			let accountOut
+			if (poolKeys.baseMint.toString() === WSOL_ADDRESS) {
+				accountOut = poolKeys.quoteMint
+			} else {
+				accountOut = poolKeys.baseMint
+			}
+
+			const { ata, instructions } =
+				await BotTokenAccount.getOrCreateTokenAccountInstruction(
+					accountOut,
+					true
+				)
+
+			tokenAccountIn = wsolTokenAccount
+			tokenAccountOut = ata
+		} else {
+			let accountIn: PublicKey
+
+			if (poolKeys.baseMint.toString() === WSOL_ADDRESS) {
+				accountIn = poolKeys.quoteMint
+				accountInDecimal = poolKeys.quoteDecimals
+			} else {
+				accountIn = poolKeys.baseMint
+				accountInDecimal = poolKeys.baseDecimals
+			}
+
+			const { ata } = await BotTokenAccount.getOrCreateTokenAccountInstruction(
+				accountIn,
+				false
+			)
+
+			tokenAccountIn = ata
+			tokenAccountOut = wsolTokenAccount
+		}
+
+
 	}
 
 	/**

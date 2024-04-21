@@ -40,8 +40,8 @@ const submitBundle = async (arb: ArbIdea) => {
       expectedProfitLamport = MAX_TIP_IN_SOL * LAMPORTS_PER_SOL
     }
 
-    if(expectedProfitLamport < MAX_TIP_IN_SOL) {
-      expectedProfitLamport = MAX_TIP_IN_SOL * LAMPORTS_PER_SOL
+    if(expectedProfitLamport < MIN_TIP_IN_SOL) {
+      expectedProfitLamport = MIN_TIP_IN_SOL * LAMPORTS_PER_SOL
     }
   }
 
@@ -49,7 +49,6 @@ const submitBundle = async (arb: ArbIdea) => {
   
   bundle.addTipTx(
       payer,
-      // (MIN_TIP_IN_SOL / 100) * LAMPORTS_PER_SOL,
       expectedProfitLamport,
       tipAccount,
       resp.blockhash

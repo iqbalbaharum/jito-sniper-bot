@@ -85,7 +85,7 @@ const processBuy = async (ammId: PublicKey, ata: PublicKey, blockhash: string) =
   let signature = await buyToken(
     poolKeys, 
     ata,
-    SystemConfig.get('token_purchase_in_sol') * LAMPORTS_PER_SOL,
+    new BN(SystemConfig.get('token_purchase_in_sol') * LAMPORTS_PER_SOL),
     new BN(0 * LAMPORTS_PER_SOL),
     blockhash
   )
@@ -111,7 +111,8 @@ const processBuy = async (ammId: PublicKey, ata: PublicKey, blockhash: string) =
 async function processSell(
   ata: PublicKey,
   ammId: PublicKey,
-  mint: PublicKey, 
+  mint: PublicKey,
+  useBundle: boolean,
   config: {
     blockhash: String
     compute: TransactionCompute
@@ -137,6 +138,7 @@ async function processSell(
         poolKeys, 
         ata, 
         balance.chuck,
+        useBundle,
         config,
         expectedProfit
       )
@@ -156,34 +158,54 @@ async function processSell(
   }
 }
 
-const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BigNumberish, expectedProfit: BN, blockhash?: string) => {
+const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BN, expectedProfit: BN, blockhash?: string) => {
   try {
-    const transaction = await BotLiquidity.makeSimpleSwapInstruction(
+    const {sourceAccountIn, destinationAccountIn, startInstructions} = await BotLiquidity.getSourceDestinationTokenAccount(
       keys,
       'in',
-      ata,
-      amount,
-      0,
-      'in',
-      {
-        compute: {
-          microLamports: 10000,
-          units: 101337
-        },
-        blockhash
-      }
-    );
-    
-    const arb: ArbIdea = {
-      vtransaction: transaction,
-      expectedProfit: new BN(0)
-    }
+      ata
+    )
 
-    return await submitBundle(arb)
+    BotTransaction.sendToSwapProgram(
+      keys,
+      sourceAccountIn,
+      destinationAccountIn,
+      amount,
+      new BN(0),
+      {
+        microLamports: 250000,
+        units: 200000
+      },
+      startInstructions
+    )
+
+    // const transaction = await BotLiquidity.makeSimpleSwapInstruction(
+    //   keys,
+    //   'in',
+    //   ata,
+    //   amount,
+    //   0,
+    //   'in',
+    //   {
+    //     compute: {
+    //       microLamports: 250000,
+    //       units: 200000
+    //     },
+    //     blockhash
+    //   }
+    // );
+
+    // const arb: ArbIdea = {
+    //   vtransaction: transaction,
+    //   expectedProfit: new BN(0)
+    // }
+
+    // return await submitBundle(arb)
 
     // return await BotTransaction.sendTransaction(transaction, SystemConfig.get('default_commitment') as Commitment)
   } catch(e: any) {
     logger.error(`TEST: ` + e.toString())
+    console.log(e)
     return ''
   }
 }
@@ -192,34 +214,57 @@ const sellToken = async (
   keys: LiquidityPoolKeysV4,
   ata: PublicKey,
   amount: BN,
+  useBundle: boolean,
   config: {
     blockhash: String
     compute: TransactionCompute
   },
   expectedProfit: BN = new BN(0)) => {
   try {
-    const transaction = await BotLiquidity.makeSimpleSwapInstruction(
+
+    const {sourceAccountIn, destinationAccountIn, startInstructions} = await BotLiquidity.getSourceDestinationTokenAccount(
       keys,
       'out',
-      ata,
-      amount,
-      0,
-      'in',
-      config
-    );
-    
-    // let expected = new BN(0)
-    // if(!expectedProfit.isZero()) {
-    //   expected = expectedProfit
-    // }
-  
-    // const arb: ArbIdea = {
-    //   vtransaction: transaction,
-    //   expectedProfit: expected
-    // }
+      ata
+    )
 
-    // return await submitBundle(arb)
-    return await BotTransaction.sendTransaction(transaction, SystemConfig.get('default_commitment') as Commitment)
+    BotTransaction.sendToSwapProgram(
+      keys,
+      sourceAccountIn,
+      destinationAccountIn,
+      amount,
+      new BN(0),
+      config.compute,
+      startInstructions
+    )
+
+    // const transaction = await BotLiquidity.makeSimpleSwapInstruction(
+    //   keys,
+    //   'out',
+    //   ata,
+    //   amount,
+    //   0,
+    //   'in',
+    //   config
+    // );
+    
+    // if(useBundle) {
+    //   let expected = new BN(0)
+    //   if(!expectedProfit.isZero()) {
+    //     expected = expectedProfit
+    //   }
+    
+    //   const arb: ArbIdea = {
+    //     vtransaction: transaction,
+    //     expectedProfit: expected
+    //   }
+
+    //   return await submitBundle(arb)
+    // } else {
+    //   return await BotTransaction.sendTransaction(transaction, SystemConfig.get('default_commitment') as Commitment)
+    // }
+    
+    // return await BotTransaction.sendTransaction(transaction, SystemConfig.get('default_commitment') as Commitment)
   } catch(e) {
     console.log(e)
   }
@@ -277,13 +322,14 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
         ata,
         ammId,
         state.mint, 
+        false,
         {
           compute: {
             units: 100000,
             microLamports: 101337
           },
           blockhash
-        }
+        },
       )
 
       let newBlock = await connection.getLatestBlockhash(config.get('default_commitment') as Commitment)
@@ -502,17 +548,43 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
 
   if(isBuyTradeAction && amount >= SystemConfig.get('min_sol_trigger')) {
     const totalChunck = SystemConfig.get('tx_balance_chuck_division')
-    // The strategy to have faster swap upon trigger, and slower swap
-    // for subsequence trade after the initial 
-    let blockhash = txPool.mempoolTxns.recentBlockhash
-    let units = 1000000
-    let microLamports = 1013370
     logger.warn(`Trade detected ${state.mint.toBase58()} | ${amount} SOL | Disburse ${Math.floor(totalChunck / 10)}`)
-    for(let i = 0; i < Math.floor(totalChunck / 5); i++) {
+    // The strategy to have faster swap upon trigger, and slower swap
+    // for subsequence trade after the initial
+    // For amount that is bigger than the minimum threshold, use bundle
+    // else use send tx
+    let blockhash = txPool.mempoolTxns.recentBlockhash
+    let units = 100000
+    let microLamports = 1013370
+    await processSell(
+      ata,
+      ammId,
+      state.mint,
+      amount > SystemConfig.get('jito_bundle_min_threshold'),
+      {
+        compute: {
+          units,
+          microLamports
+        },
+        blockhash,
+      },
+      undefined,
+      new BN(amount * LAMPORTS_PER_SOL)
+    )
+    
+    // If send as bundle, send tx as pairing as well
+    if(amount > SystemConfig.get('jito_bundle_min_threshold')) {
+
+      units = 1000000
+      
+      let newBlock = await connection.getLatestBlockhash(config.get('default_commitment') as Commitment)
+      blockhash = newBlock.blockhash
+
       await processSell(
         ata,
         ammId,
-        state.mint, 
+        state.mint,
+        false,
         {
           compute: {
             units,
@@ -522,13 +594,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
         },
         undefined,
         new BN(amount * LAMPORTS_PER_SOL)
-      )
-
-      units = 100000
-      microLamports = 101337
-
-      let newBlock = await connection.getLatestBlockhash(config.get('default_commitment') as Commitment)
-      blockhash = newBlock.blockhash
+      ) 
     }
   }
 }
@@ -546,8 +612,7 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
           logger.info(`Withdraw ${tx.mempoolTxns.signature}`)
           await processWithdraw(ins, tx, ata)
         } else if(decodedIx.hasOwnProperty('deposit')) {
-          logger.info(`Deposit ${tx.mempoolTxns.signature}`)
-          await processDeposit(ins, tx, ata)
+          // Not processed - only target for new token only
         } else if(decodedIx.hasOwnProperty('swapBaseIn')) {
           await processSwapBaseIn((decodedIx as any).swapBaseIn, ins, tx, ata)
         } else if(decodedIx.hasOwnProperty('initialize2')) {
