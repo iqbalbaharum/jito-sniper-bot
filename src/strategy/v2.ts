@@ -23,7 +23,7 @@ import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import { ASSOCIATED_TOKEN_PROGRAM_ID, AccountLayout } from "@solana/spl-token";
 import { IxSwapBaseIn } from "../utils/coder/layout";
 import { payer } from "../adapter/payer";
-import { ExistingRaydiumMarketStorage } from "../storage";
+import { CountLiquidityPoolStorage, ExistingRaydiumMarketStorage } from "../storage";
 import { mempool } from "../generators";
 import { BotgRPC } from "../services/grpc";
 import { redisClient } from "../adapter/redis";
@@ -37,14 +37,12 @@ let mints: Map<string, BotLiquidityState> = new Map<
   BotLiquidityState
 >();
 
-// tracked for interested LP activities, number would reflect the number of LP
-let countLiquidityPool: Map<string, number> = new Map()
-
-
 let tokenBalances: Map<string, BalanceTracker> = new Map<string, BalanceTracker>()
 let lookupTable: BotLookupTable
 let botTokenAccount: BotTokenAccount
 let existingMarkets: ExistingRaydiumMarketStorage
+// tracked for interested LP activities, number would reflect the number of LP
+let countLiquidityPool: CountLiquidityPoolStorage
 
 const coder = new RaydiumAmmCoder(raydiumIDL as Idl)
 
@@ -331,20 +329,22 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
   let ammId: PublicKey | undefined = await getAmmIdFromMempoolTx(tx, instruction)
   if(!ammId) { return }
   
-  // If the token is not available, the buy the token. This to cover use cases:
+  // If the token is not available, then buy the token. This to cover use cases:
   // 1. Didnt buy token initially
   // 2. Buy failed 
-  let count: number | undefined = countLiquidityPool.get(ammId.toBase58())!
+  let count: number | undefined = await countLiquidityPool.get(ammId)
+  console.log(count)
   if(count === undefined) {
+    console.log('hello')
     if(await existingMarkets.isExisted(ammId)) {
       return
     }
 
     await processBuy(ammId, ata, txPool.mempoolTxns.recentBlockhash)
-    countLiquidityPool.set(ammId.toBase58(), 0)
+    await countLiquidityPool.set(ammId, 0)
     return
   } else {
-    countLiquidityPool.set(ammId.toBase58(), count - 1)
+    await countLiquidityPool.set(ammId, count - 1)
   }
 
   // Burst sell transaction, if rugpull detected
@@ -514,7 +514,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   const state = mints.get(ammId!.toBase58())
   if(!state) { return }
 
-  let count = countLiquidityPool.get(ammId.toBase58())
+  let count = await countLiquidityPool.get(ammId)
 
   let txAmount = BotTransaction.getBalanceFromTransaction(tx.preTokenBalances, tx.postTokenBalances, state.mint)
   let txSolAmount = BotTransaction.getBalanceFromTransaction(tx.preTokenBalances, tx.postTokenBalances, new PublicKey(WSOL_ADDRESS))
@@ -543,7 +543,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
       });
 
       if(count === undefined) {
-        countLiquidityPool.set(ammId.toBase58(), 1)
+        await countLiquidityPool.set(ammId, 1)
       }
     }
     return
@@ -650,6 +650,7 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
     lookupTable = new BotLookupTable(redisClient, false)
     botTokenAccount = new BotTokenAccount(redisClient, true)
     existingMarkets = new ExistingRaydiumMarketStorage(redisClient, true)
+    countLiquidityPool = new CountLiquidityPoolStorage(redisClient, true)
     
     // const mempoolUpdates = mempool([
     //   RAYDIUM_AUTHORITY_V4_ADDRESS, 
