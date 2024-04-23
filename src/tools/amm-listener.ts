@@ -21,11 +21,11 @@ async function processAccountInfo(account: KeyedAccountInfo) {
 }
 
 function main() {
-	connectionAlt1.onProgramAccountChange(
-		new PublicKey(RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS),
-		processAccountInfo,
-		config.get('default_commitment') as Commitment
-	)
+	// connectionAlt1.onProgramAccountChange(
+	// 	new PublicKey(RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS),
+	// 	processAccountInfo,
+	// 	config.get('default_commitment') as Commitment
+	// )
 	
 	connection.onProgramAccountChange(
 		new PublicKey(RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS),

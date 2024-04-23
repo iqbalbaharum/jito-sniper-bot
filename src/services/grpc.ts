@@ -1,9 +1,10 @@
 import Client, { CommitmentLevel, SubscribeRequest, SubscribeRequestFilterTransactions, SubscribeUpdate } from "@triton-one/yellowstone-grpc";
-import { config } from "../utils";
 import { ClientDuplexStream } from "@grpc/grpc-js";
 import { BotError } from "../types/error";
 import { LIQUIDITY_STATE_LAYOUT_V4, MAINNET_PROGRAM_ID } from "@raydium-io/raydium-sdk";
 import { TxPool } from "../types";
+import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
+import { BN } from "bn.js";
 
 export type RequestAccounts = {
 	name: string,
@@ -30,8 +31,8 @@ export class BotgRPC {
 	private client: Client
 	private stream: ClientDuplexStream<SubscribeRequest, SubscribeUpdate> | undefined
 
-	constructor() {
-		this.client = new Client(config.get('triton_one_url'), config.get('triton_one_api_key'), undefined)
+	constructor(endpoint: string, token: string) {
+		this.client = new Client(endpoint, token, {})
 		this.connect()
 	}
 
@@ -43,12 +44,13 @@ export class BotgRPC {
 		}
 	}
 
-	addProgram = (request: RequestAccounts) => {
+	addAccount = (request: RequestAccounts) => {
 		this.gRequest.accounts[request.name] = {
 			owner: request.owner,
 			filters: request.filters,
 			account: request.account
 		}
+		
 		this.write()
 	}
 
@@ -60,6 +62,7 @@ export class BotgRPC {
 			accountExclude: request.accountExclude,
 			accountRequired: request.accountRequired
 		}
+		
 		this.write()
 	}
 
@@ -68,15 +71,62 @@ export class BotgRPC {
 		this.write()
 	}
 
-	public async listen(callbackAcc: (arg0: any) => void, cbTransaction: (arg0: any) => void) {
+	public async listen(callbackAcc: (arg0: any) => void, cbTransaction: (arg0: TxPool) => void) {
 		await this.connect(); 
-		this.stream?.on("data", (d) => {
-			if(d && d.account) {
-        callbackAcc(d)
+		this.stream?.on("data", (data) => {
+			if(data && data.account) {
+        		callbackAcc(data)
 			}
 
-			if(d && d.transaction) {
-				cbTransaction(d.transaction)
+			if(data && data.transaction) {
+				const message = data.transaction.transaction.transaction.message
+				cbTransaction({
+					mempoolTxns: {
+						source: 'geyser',
+						filter: data.filters,
+						signature: bs58.encode(data.transaction.transaction.signature),
+						accountKeys: message.accountKeys.map((e: any) => bs58.encode(e)),
+						recentBlockhash: bs58.encode(message.recentBlockhash),
+						instructions: message.instructions.map((e: any) => {
+							return {
+								programIdIndex: e.programIdIndex,
+								accounts: Array.from(e.accounts),
+								data: e.data
+							}
+						}),
+						innerInstructions: data.transaction.transaction.meta.innerInstructions,
+						addressTableLookups: message.addressTableLookups.map((e: any) => {
+							return {
+								accountKey: bs58.encode(e.accountKey),
+								writableIndexes: Array.from(e.writableIndexes),
+								readonlyIndexes: Array.from(e.readonlyIndexes)
+							}
+						}),
+						preTokenBalances: data.transaction.transaction.meta.preTokenBalances.map((token: any) => {
+							return {
+								mint: token.mint,
+								owner: token.owner,
+								amount: new BN(token.uiTokenAmount.amount),
+								decimal: token.uiTokenAmount.decimals
+							}
+						}),
+						postTokenBalances: data.transaction.transaction.meta.postTokenBalances.map((token: any) => {
+							return {
+								mint: token.mint,
+								owner: token.owner,
+								amount: new BN(token.uiTokenAmount.amount),
+								decimal: token.uiTokenAmount.decimals
+							}
+						}),
+						computeUnitsConsumed: data.transaction.transaction.meta.computeUnitsConsumed
+					},
+					timing: {
+						listened: new Date().getTime(),
+						preprocessed: 0,
+						processed: 0,
+						send: 0
+					}
+				})
 			}
 		});
 

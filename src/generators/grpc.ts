@@ -15,7 +15,7 @@ export type RequestAccounts = {
 	filters: any[]
 }
 
-export class GeyserPool extends BaseGenerator {
+export class GrpcGenerator extends BaseGenerator {
 
 	private gRequest: SubscribeRequest = {
 		slots: {
@@ -45,7 +45,8 @@ export class GeyserPool extends BaseGenerator {
 	private async connect() {
 		try {
 			this.stream = await this.client.subscribe();
-		} catch(e) {
+		} catch(e:any) {
+			console.log(e.toString())
 			this.connect()
 		}
 	}
@@ -94,7 +95,7 @@ export class GeyserPool extends BaseGenerator {
 		});
 	}
 
-  public async* listen(): AsyncGenerator<TxPool> {
+  	public async* listen(): AsyncGenerator<TxPool> {
 		await this.connect()
 		await this.write()
 

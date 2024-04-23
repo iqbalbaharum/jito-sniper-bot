@@ -1,4 +1,4 @@
-import { GeyserPool } from "../generators/geyser";
+import { GrpcGenerator } from "../generators/grpc";
 import { BotLiquidity, BotLookupTable, setupWSOLTokenAccount } from "../services";
 import { CopyTrades, ExistingRaydiumMarketStorage } from "../storage";
 import { ArbIdea, BalanceTracker, LookupIndex, TxInstruction, TxPool } from "../types";
@@ -18,6 +18,7 @@ import { mainSearcherClient } from "../adapter/jito";
 import { RaydiumLiquidityGenerator } from "../generators/state";
 import { connection } from "../adapter/rpc";
 import { SnipeList } from "../services/snipe-list";
+import { redisClient } from "../adapter/redis";
 
 let lookupTable: BotLookupTable
 let existingMarkets: ExistingRaydiumMarketStorage
@@ -143,8 +144,8 @@ const processTx = async (accountInfo: KeyedAccountInfo, ata: PublicKey) => {
         return 
       }
   
-      lookupTable = new BotLookupTable()
-			existingMarkets = new ExistingRaydiumMarketStorage()
+      lookupTable = new BotLookupTable(redisClient, true)
+			existingMarkets = new ExistingRaydiumMarketStorage(redisClient, true)
   
       const generators: AsyncGenerator<any>[] = [];
   

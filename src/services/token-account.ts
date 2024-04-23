@@ -5,6 +5,7 @@ import { payer } from '../adapter/payer';
 import { SPL_ACCOUNT_LAYOUT } from '@raydium-io/raydium-sdk';
 import { config } from '../utils/config';
 import { TokenAccountStorage } from '../storage';
+import { redisClient } from '../adapter/redis';
 
 export type BotTA = {
   ata: PublicKey,
@@ -15,8 +16,8 @@ export class BotTokenAccount {
 
   storage: TokenAccountStorage
 
-  constructor() {
-    this.storage = new TokenAccountStorage()
+  constructor(client: any, useRedis: boolean) {
+    this.storage = new TokenAccountStorage(client, useRedis)
   }
   
   /**
@@ -90,7 +91,7 @@ export class BotTokenAccount {
    * @returns 
    */
   public getTokenAccountInfo = async (ata: PublicKey) : Promise<RawAccount | undefined> => {
-    let buffer = this.storage.get(ata)
+    let buffer = await this.storage.get(ata)
     if(!buffer) {
     
       const info = await connection.getAccountInfo(ata, {
@@ -111,8 +112,8 @@ export class BotTokenAccount {
     return AccountLayout.decode(buffer)
   }
 
-  public isAtaExist = (ata: PublicKey) : Boolean => {
-    return this.storage.exist(ata)
+  public isAtaExist = async (ata: PublicKey) : Promise<Boolean> => {
+    return await this.storage.exist(ata)
   }
 }
 

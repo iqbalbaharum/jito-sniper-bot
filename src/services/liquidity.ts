@@ -31,7 +31,7 @@ import {
 	getStablePrice,
 	parseBigNumberish,
 } from '@raydium-io/raydium-sdk'
-import { connection } from '../adapter/rpc'
+import { connection, connectionAlt1 } from '../adapter/rpc'
 import { MINIMAL_MARKET_STATE_LAYOUT_V3, MinimalMarketLayoutV3 } from '../types/market'
 import { config } from '../utils/config'
 import {
@@ -45,7 +45,7 @@ import {
 	VersionedTransaction,
 } from '@solana/web3.js'
 import { RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, WSOL_ADDRESS } from '../utils/const'
-import { BotLiquidityState, MintInfo } from '../types'
+import { BotLiquidityState, MintInfo, PoolInfo } from '../types'
 import { BN } from 'bn.js'
 import { resolve } from 'path'
 import { rejects } from 'assert'
@@ -57,6 +57,7 @@ import sleep from 'atomic-sleep'
 import { redisClient } from '../adapter/redis'
 import { BotMarket } from './market'
 import { logger } from '../utils/logger'
+import { BotTransaction } from './transaction'
 
 const getAccountPoolKeysFromAccountDataV4 = async (
 	id: PublicKey,
@@ -148,20 +149,20 @@ export { getAccountPoolKeysFromAccountDataV4 }
 
 export class BotLiquidity {
 
-	static async getAccountPoolKeys (ammId: PublicKey): Promise<LiquidityPoolKeysV4 | undefined> {
+	static async getAccountPoolKeys (ammId: PublicKey): Promise<LiquidityPoolKeysV4 & PoolInfo | undefined> {
 		let stateData = await redisClient.hGet(`${ammId.toBase58()}`, 'state')
 
 		if(stateData) {
 
 			let state = LIQUIDITY_STATE_LAYOUT_V4.decode(Buffer.from(stateData, 'hex'))
-
+			
 			let mint: PublicKey
 			if(state.baseMint.toBase58() === WSOL_ADDRESS) {
 				mint = state.quoteMint
 			} else {
 				mint = state.baseMint
 			}
-
+			
 			let marketData = await redisClient.hGet(`${mint.toBase58()}`, 'market')
 
 			let market: MarketStateV3 | undefined
@@ -171,9 +172,10 @@ export class BotLiquidity {
 				market = await BotMarket.getMarketV3(state.marketId)
 			}
 
-			console.log(market)
 			if(market) {
-				return this.createPoolKeys(ammId, state, market!)
+				return {
+					...this.createPoolKeys(ammId, state, market!),
+				}
 			}
 			
 		} else {
@@ -204,7 +206,7 @@ export class BotLiquidity {
 	 */
 	static getAccountPoolKeysFromAccountDataV4 = async (
 		ammId: PublicKey
-	): Promise<LiquidityPoolKeys> => {
+	): Promise<LiquidityPoolKeys & PoolInfo> => {
 
 		let account: AccountInfo<Buffer> | null = null
 		while(!account) {
@@ -233,7 +235,7 @@ export class BotLiquidity {
 		ammId: PublicKey,
 		accountData: LiquidityStateV4,
 		marketStateLayout: MarketStateV3,
-	  ): LiquidityPoolKeys {
+	  ): LiquidityPoolKeys & PoolInfo {
 
 		const programId = MAINNET_PROGRAM_ID.AmmV4
 		const marketId = accountData.marketId
@@ -267,6 +269,7 @@ export class BotLiquidity {
 		  withdrawQueue: accountData.withdrawQueue,
 		  lpVault: accountData.lpVault,
 		  lookupTableAccount: PublicKey.default,
+		  poolOpenTime: accountData.poolOpenTime.toNumber()
 		};
 	  }
 
@@ -276,7 +279,7 @@ export class BotLiquidity {
 	 * @param data 
 	 * @returns 
 	 */
-	static async formatAccountPoolKeysFromAccountDataV4(ammId: PublicKey, data: Buffer): Promise<LiquidityPoolKeys> {
+	static async formatAccountPoolKeysFromAccountDataV4(ammId: PublicKey, data: Buffer): Promise<LiquidityPoolKeys & PoolInfo> {
 		const accountData = LIQUIDITY_STATE_LAYOUT_V4.decode(data)
     
 		const marketInfo = await connection.getAccountInfo(accountData.marketId, {
@@ -323,6 +326,7 @@ export class BotLiquidity {
 			withdrawQueue: accountData.withdrawQueue,
 			lpVault: accountData.lpVault,
 			lookupTableAccount: PublicKey.default,
+			poolOpenTime: accountData.poolOpenTime.toNumber()
 		}
 	}
 
@@ -530,6 +534,11 @@ export class BotLiquidity {
 			amountOut: amountOut,
 			fixedSide: fixedSide ? fixedSide : 'in',
 		})
+		
+		// const cu = await BotTransaction.getExpectedComputeUnitFromTransactions(connectionAlt1, [
+		// 	...startInstructions,
+		// 	...innerTransaction.instructions
+		//   ])
 
 		let computeInstructions: TransactionInstruction[] = []
 
@@ -560,6 +569,7 @@ export class BotLiquidity {
 		}).compileToV0Message()
 
 		const transaction = new VersionedTransaction(messageV0)
+
 		transaction.sign([payer, ...innerTransaction.signers])
 
 		return transaction

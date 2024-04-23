@@ -14,7 +14,7 @@ const LITE_RPC_URL = config.get('lite_rpc_url')
 const LITE_RPC_WS_URL = config.get('lite_rpc_ws_url')
 
 let connection: Connection = new Connection(HTTP_RPC_URL, {
-    commitment: 'processed',
+    commitment: 'confirmed',
     disableRetryOnRateLimit: true,
     wsEndpoint: WEBSOCKET_RPC_URL
 })

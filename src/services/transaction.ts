@@ -1,7 +1,7 @@
 import { LiquidityPoolKeysV4, LiquidityStateV4, TxVersion } from "@raydium-io/raydium-sdk"
-import { connection, lite_rpc, httpOnlyRpcs } from "../adapter/rpc"
-import { RAYDIUM_AUTHORITY_V4_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, USDC_ADDRESS, WSOL_ADDRESS, config } from "../utils";
-import { Commitment, ComputeBudgetProgram, PublicKey, TransactionInstruction, VersionedMessage, VersionedTransaction } from "@solana/web3.js";
+import { connection, lite_rpc, httpOnlyRpcs, connectionAlt1 } from "../adapter/rpc"
+import { RAYDIUM_AUTHORITY_V4_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, USDC_ADDRESS, WSOL_ADDRESS, config as SystemConfig } from "../utils";
+import { BlockhashWithExpiryBlockHeight, Commitment, ComputeBudgetProgram, Connection, PublicKey, RpcResponseAndContext, TransactionInstruction, TransactionMessage, Version, VersionedMessage, VersionedTransaction, sendAndConfirmRawTransaction } from "@solana/web3.js";
 import { BotLiquidity } from "./liquidity";
 import BN from "bn.js";
 import { TransactionCompute, TxBalance } from "../types";
@@ -12,49 +12,8 @@ import { payer } from "../adapter/payer";
 import { logger } from "../utils/logger";
 import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
 import idl from '../idl/amm_proxy.json'
-
-const getTokenMintFromSignature = async (signature: string): Promise<string | undefined> => {
-	let tx;
-  let timer = new Date().getTime();
-
-	while (true) {
-    let res = await fetch(
-      `https://api.helius.xyz/v0/transactions/?api-key=${config.get('helius_api_key')}&commitment=confirmed`,
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          transactions: [`${signature}`],
-        }),
-      }
-    );
-
-    const json = await res.json();
-    tx = json[0];
-    if (tx) {
-      break;
-    }
-
-    if (new Date().getTime() - timer > 30000) {
-      return undefined
-    }
-  }
-
-	const token = tx.tokenTransfers.find(
-		(token: any) =>
-			token.mint !== WSOL_ADDRESS &&
-			token.fromUserAccount === RAYDIUM_AUTHORITY_V4_ADDRESS
-	);
-	
-	if(!token) {
-		return undefined
-	}
-
-	if (token.mint === USDC_ADDRESS) {
-    return undefined
-  }
-
-	return token.mint
-}
+import sleep from "atomic-sleep";
+import { getSimulationComputeUnits } from "@solana-developers/helpers";
 
 export const getAmmIdFromSignature = async (signature: string) : Promise<PublicKey | undefined> => {
   const response = await connection.getTransaction(signature, {
@@ -78,10 +37,6 @@ export const getAmmIdFromTransaction = (message: VersionedMessage) : PublicKey |
       return message.staticAccountKeys[ins.accountKeyIndexes[1]]
     }
   }
-}
-
-export {
-    getTokenMintFromSignature
 }
 
 export class BotTransaction {
@@ -145,45 +100,84 @@ export class BotTransaction {
     return tokenAmount
   }
 
-  static sendTransaction =  async(transaction: VersionedTransaction, commitment: Commitment) => {
-    let signature 
+  static sendTransactionToMultipleRpcs =  async(transaction: VersionedTransaction) => {
+    let signature
+
     httpOnlyRpcs.forEach((rpc) => {
       signature = rpc.sendRawTransaction(
         transaction.serialize(),
         {
-          maxRetries: 5,
-          skipPreflight: true,
+          maxRetries: 3,
+          skipPreflight: false,
+          preflightCommitment: 'confirmed'
         },
       );
     })
 
-    signature = lite_rpc.sendRawTransaction(
-      transaction.serialize(),
-      {
-        skipPreflight: true,
-      },
-    );
-
     return signature
   }
 
+  /**
+   * Capture sendRawTransaction error and return error separately
+   * this to prevent from the bot stop unexpectedly
+   * If it detect blockhash not found, retry again?
+   * @param transaction 
+   * @param blockhashResult 
+   */
+  static sendAutoRetryTransaction =  async(conn: Connection, transaction: VersionedTransaction) => {
+    const rawTransaction = transaction.serialize()
+
+    let signature
+    
+    signature = await conn.sendRawTransaction(rawTransaction, {
+      // skipPreflight: false,
+      // maxRetries: 3,
+      // preflightCommitment: 'confirmed'
+    }).catch(e => {
+      logger.warn(e.toString())
+      if(e.toString().includes('Blockhash not found')) {
+        logger.warn(`Retry`)
+        this.sendAutoRetryTransaction(conn, transaction)
+      }
+    });
+
+    // this.sendTransactionToMultipleRpcs(transaction)
+    
+    return signature
+  }
+
+  static async getExpectedComputeUnitFromTransactions (conn: Connection, instructions: TransactionInstruction[]) {
+    let cu = await getSimulationComputeUnits(conn, instructions, payer.publicKey, [])
+    if(!cu) { return 0 }
+
+    return Math.ceil(cu * 1.01)
+  }
+
   static sendToSwapProgram = async (
+    conn: Connection,
     poolKeys: LiquidityPoolKeysV4,
     sourceTokenAccount: PublicKey,
     destTokenAccount: PublicKey,
     amountIn: BN,
     amountOut: BN,
-    compute: TransactionCompute,
-    startInstructions: TransactionInstruction[]
+    startInstructions: TransactionInstruction[],
+    config: {
+      compute: TransactionCompute,
+      blockhash?: string
+    }
   ) => {
 
-    const program = new anchor.Program(
-      idl as anchor.Idl, 
-      config.get('swap_program_id'),
-      new anchor.AnchorProvider(connection, new NodeWallet(payer), {})
-    )
+    try {
 
-    const tx = await program.methods.proxySwapBaseIn(
+      const blockResponse = await connection.getLatestBlockhashAndContext('confirmed')
+
+      const program = new anchor.Program(
+        idl as anchor.Idl, 
+        SystemConfig.get('swap_program_id'),
+        new anchor.AnchorProvider(connection, new NodeWallet(payer), {})
+      )
+      
+      const instruction = await program.methods.proxySwapBaseIn(
         amountIn,
         amountOut
       )
@@ -206,17 +200,49 @@ export class BotTransaction {
         userTokenDestination: destTokenAccount,
         userSourceOwner: payer.publicKey,
       })
-      .preInstructions([
-        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: compute.microLamports }),
-        ComputeBudgetProgram.setComputeUnitLimit({ units: compute.units }),
-        ...startInstructions
-      ])
-      .postInstructions([])
-      .signers([
-        payer
-      ]).rpc({
-        skipPreflight: false
-      });
-    
+      .instruction()
+
+      // const cu = await this.getExpectedComputeUnitFromTransactions(connectionAlt1, [
+      //   ...startInstructions,
+      //   instruction
+      // ])
+
+      let computeInstructions: TransactionInstruction[] = []
+
+      if (config?.compute && config?.compute.units > 0) {
+        computeInstructions.push(
+          ComputeBudgetProgram.setComputeUnitLimit({
+            // units: cu as number || 55000,
+            units: 55000
+          })
+        )
+      }
+  
+      if (config?.compute && config?.compute.units > 0) {
+        computeInstructions.push(
+          ComputeBudgetProgram.setComputeUnitPrice({
+            microLamports: config.compute.microLamports,
+          })
+        )
+      }
+
+      const messageV0 = new TransactionMessage({
+        payerKey: payer.publicKey,
+        recentBlockhash: blockResponse.value.blockhash as string,
+        instructions: [
+          ...computeInstructions,
+          ...startInstructions,
+          instruction,
+        ],
+      }).compileToV0Message()
+      
+      const transaction = new VersionedTransaction(messageV0)
+      transaction.sign([payer])
+
+      return this.sendAutoRetryTransaction(conn, transaction)
+
+    } catch(e: any) {
+      logger.warn(`${e.toString()}`)
+    }
   }
 }

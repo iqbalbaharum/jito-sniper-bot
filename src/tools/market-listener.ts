@@ -30,17 +30,17 @@ async function processAccountInfo(account: KeyedAccountInfo) {
 }
 
 function main() {
-	connectionAlt1.onProgramAccountChange(
-		new PublicKey(OPENBOOK_V1_ADDRESS),
-		processAccountInfo,
-		config.get('default_commitment') as Commitment
-	)
+	// connectionAlt1.onProgramAccountChange(
+	// 	new PublicKey(OPENBOOK_V1_ADDRESS),
+	// 	processAccountInfo,
+	// 	config.get('default_commitment') as Commitment
+	// )
 	
 	connection.onProgramAccountChange(
 		new PublicKey(OPENBOOK_V1_ADDRESS),
 		processAccountInfo,
 		config.get('default_commitment') as Commitment
-)
+	)
 }
 
 main()

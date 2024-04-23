@@ -18,6 +18,7 @@ const config = convict({
         default: '',
         env: 'WEBSOCKET_RPC_URL'
     },
+    // Lite RPC
     lite_rpc_url: {
         format: String,
         default: '',
@@ -27,6 +28,11 @@ const config = convict({
         format: String,
         default: '',
         env: 'LITE_RPC_WS_URL'
+    },
+    use_lite_rpc: {
+        format: Boolean,
+        default: false,
+        env: 'USE_LITE_RPC'
     },
     http_rpc_url_2: {
         format: String,
@@ -130,16 +136,6 @@ const config = convict({
         default: '',
         env: 'BOT_NAME'
     },
-    triton_one_url: {
-        format: String,
-        default: '',
-        env: 'TRITON_ONE_URL'
-    },
-    triton_one_api_key: {
-        format: String,
-        default: '',
-        env: 'TRITON_ONE_API_KEY'
-    },
     compute_unit_percentage: {
         format: Number,
         default: 0,
@@ -169,6 +165,33 @@ const config = convict({
         format: Number,
         default: 10000,
         env: 'BLOCK_TIME_RANGE'
+    },
+    // POOL CONFIGURATION
+    pool_opentime_wait_max: {
+        format: Number,
+        default: 0,
+        env: 'POOL_OPENTIME_WAIT_MAX'
+    },
+    // GRPC
+    grpc_1_url: {
+        format: String,
+        default: '',
+        env: 'GRPC_1_URL'
+    },
+    grpc_1_token: {
+        format: String,
+        default: '',
+        env: 'GRPC_1_TOKEN'
+    },
+    grpc_2_url: {
+        format: String,
+        default: '',
+        env: 'GRPC_2_URL'
+    },
+    grpc_2_token: {
+        format: String,
+        default: '',
+        env: 'GRPC_2_TOKEN'
     }
 })
 

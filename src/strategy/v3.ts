@@ -25,8 +25,9 @@ import { IxSwapBaseIn } from "../utils/coder/layout";
 import { payer } from "../adapter/payer";
 import { CopyTrades, ExistingRaydiumMarketStorage } from "../storage";
 import { fuseGenerators, mempool } from "../generators";
-import { GeyserPool } from "../generators/geyser";
+import { GrpcGenerator } from "../generators/grpc";
 import { SignatureGenerator } from "../generators/signature";
+import { redisClient } from "../adapter/redis";
 
 // let trackedLiquidityPool: Set<string> = new Set<string>()
 let tokenBalances: Map<string, BalanceTracker> = new Map<string, BalanceTracker>()
@@ -165,7 +166,7 @@ const buyToken = async (
 
     // return await submitBundle(arb)
 
-    return await BotTransaction.sendTransaction(transaction, SystemConfig.get('default_commitment') as Commitment)
+    return await BotTransaction.sendTransactionToMultipleRpcs(transaction)
   } catch(e: any) {
     logger.error(e.toString())
     return ''
@@ -197,7 +198,7 @@ const sellToken = async (
     // }
 
     // return await submitBundle(arb)
-    return await BotTransaction.sendTransaction(transaction, SystemConfig.get('default_commitment') as Commitment)
+    return await BotTransaction.sendTransactionToMultipleRpcs(transaction)
   } catch(e) {
     console.log(e)
   }
@@ -481,12 +482,12 @@ const onBundleResult = () => {
       return 
     }
 
-    lookupTable = new BotLookupTable()
+    lookupTable = new BotLookupTable(redisClient, true)
     copyTrades =  new CopyTrades()
 
     const generators: AsyncGenerator<TxPool>[] = [];
 
-    const geyserPool: GeyserPool = new GeyserPool('geyser', config.get('triton_one_url'), config.get('triton_one_api_key'))
+    const geyserPool: GrpcGenerator = new GrpcGenerator('geyser', config.get('grpc_1_url'), config.get('grpc_1_token'))
     geyserPool.addTransaction('oooEYsNtbAnQnkx6SMtVui9iwP4Eu3KuTGC6NAp2gk2_tx', {
       vote: false,
       failed: false,

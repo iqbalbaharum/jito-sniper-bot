@@ -40,6 +40,7 @@ import { connection } from '../adapter/rpc'
 import { config } from '../utils/config'
 import { payer } from '../adapter/payer'
 import { Bundle } from 'jito-ts/dist/sdk/block-engine/types'
+import { redisClient } from '../adapter/redis'
 
 let lookupTable: BotLookupTable
 let botTokenAccount: BotTokenAccount
@@ -165,7 +166,7 @@ async function* processTx(txns: AsyncGenerator<TxPool>, ata: PublicKey) {
 			if (!decodedIx.hasOwnProperty('swapBaseIn')) continue
 
 			const ammId = await processDeposit(ins, { mempoolTxns, timing })
-			if (!ammId || existingMarkets.isExisted(ammId)) continue
+			if (!ammId || await existingMarkets.isExisted(ammId)) continue
 
 			yield {
 				mempoolTxns,
@@ -276,9 +277,9 @@ const sendBundle = async (
 		return
 	}
 
-	lookupTable = new BotLookupTable()
-	botTokenAccount = new BotTokenAccount()
-	existingMarkets = new ExistingRaydiumMarketStorage()
+	lookupTable = new BotLookupTable(redisClient, true)
+	botTokenAccount = new BotTokenAccount(redisClient, true)
+	existingMarkets = new ExistingRaydiumMarketStorage(redisClient, true)
 
 	onBundleResult()
 

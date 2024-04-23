@@ -4,7 +4,7 @@ import { payer } from "../adapter/payer";
 import { TxPool } from "../types";
 import { JUPITER_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, config } from "../utils";
 import { ConcurrentSet } from "../utils/concurrent-set";
-import { GeyserPool } from "./geyser";
+import { GrpcGenerator } from "./grpc";
 import { Web3JSOnLog } from "./log";
 import { connectionAlt1 } from "../adapter/rpc";
 
@@ -13,19 +13,20 @@ async function* mempool(accounts: string[]): AsyncGenerator<TxPool> {
 	const pools: ConcurrentSet<string> = new ConcurrentSet<string>(50 * 60000)
 	
 	// geyser
-	const geyserPool: GeyserPool = new GeyserPool('geyser', config.get('triton_one_url'), config.get('triton_one_api_key'))
-	geyserPool.addTransaction('raydium_tx', {
+	const geyser1Pool: GrpcGenerator = new GrpcGenerator('geyser_1', config.get('grpc_1_url'), config.get('grpc_1_token'))
+	geyser1Pool.addTransaction('raydium_tx', {
 		vote: false,
 		failed: false,
 		accountInclude: accounts,
 		accountExclude: [],
 		accountRequired: [],
 	})
-	
-	geyserPool.addTransaction('wallet_tx', {
+
+	const geyser2Pool: GrpcGenerator = new GrpcGenerator('geyser_2', config.get('grpc_2_url'), config.get('grpc_2_token'))
+	geyser1Pool.addTransaction('raydium_tx', {
 		vote: false,
 		failed: false,
-		accountInclude: [payer.publicKey.toBase58()],
+		accountInclude: accounts,
 		accountExclude: [],
 		accountRequired: [],
 	})
@@ -33,7 +34,8 @@ async function* mempool(accounts: string[]): AsyncGenerator<TxPool> {
 	// const logsPool: Web3JSOnLog = new Web3JSOnLog('onLog', connectionAlt1, new PublicKey(RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS))
 	
 	try {
-		generators.push(geyserPool.listen())
+		generators.push(geyser1Pool.listen())
+		generators.push(geyser2Pool.listen())
 		// generators.push(logsPool.listen())
 	} catch(e: any) {
 		console.log(e.toString())
@@ -42,7 +44,7 @@ async function* mempool(accounts: string[]): AsyncGenerator<TxPool> {
 	const updates = fuseGenerators(generators)
 
 	for await (const update of updates) {
-		if(update) {
+		if(update && !pools.has(update.mempoolTxns.signature)) {
 			pools.add(update.mempoolTxns.signature)
 			yield update
 		}

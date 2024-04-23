@@ -7,13 +7,13 @@ export class BotLookupTable {
 
   storage: LookupTableStorage
 
-  constructor() {
-    this.storage = new LookupTableStorage()
+  constructor(client: any, useRedis: boolean) {
+    this.storage = new LookupTableStorage(client, useRedis)
   }
 
   async getLookupTable(lutAddress: PublicKey) : Promise<AddressLookupTableAccount | undefined> {
     
-    let lut = this.storage.get(lutAddress)
+    let lut = await this.storage.get(lutAddress)
     if(lut) {
       return lut
     }
