@@ -135,10 +135,9 @@ export class BotTransaction {
       // preflightCommitment: 'confirmed'
     }).catch(e => {
       logger.warn(e.toString())
-      if(e.toString().includes('Blockhash not found')) {
-        logger.warn(`Retry`)
-        this.sendAutoRetryTransaction(conn, transaction)
-      }
+      // if(e.toString().includes('Blockhash not found')) {
+      //   this.sendAutoRetryTransaction(conn, transaction)
+      // }
     });
 
     // this.sendTransactionToMultipleRpcs(transaction)

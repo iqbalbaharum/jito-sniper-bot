@@ -23,6 +23,7 @@ import Client, { CommitmentLevel, SubscribeRequest } from "@triton-one/yellowsto
 import { payer } from "../adapter/payer";
 import { ExistingRaydiumMarketStorage } from "../storage";
 import { mempool } from "../generators";
+import { redisClient } from "../adapter/redis";
 
 // let trackedLiquidityPool: Set<string> = new Set<string>()
 let trackedPoolKeys: Map<string, LiquidityPoolKeys> = new Map<
@@ -128,7 +129,7 @@ const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BigNu
 
     // return await submitBundle(arb)
 
-    return await BotTransaction.sendTransaction(transaction, config.get('default_commitment') as Commitment)
+    // return await BotTransaction.sendTransaction(transaction, config.get('default_commitment') as Commitment)
   } catch(e: any) {
     logger.error(e.toString())
     return ''
@@ -165,7 +166,7 @@ const sellToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BN, 
     // }
     
     // return await submitBundle(arb)
-    return await BotTransaction.sendTransaction(transaction, config.get('default_commitment') as Commitment)
+    // return await BotTransaction.sendTransaction(transaction)
   } catch(e) {
     console.log(e)
   }
@@ -414,9 +415,9 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
     return 
   }
 
-  lookupTable = new BotLookupTable()
-  botTokenAccount = new BotTokenAccount()
-  existingMarkets = new ExistingRaydiumMarketStorage()
+  lookupTable = new BotLookupTable(redisClient, false)
+  botTokenAccount = new BotTokenAccount(redisClient, false)
+  existingMarkets = new ExistingRaydiumMarketStorage(redisClient, false)
 
   const mempoolUpdates = mempool([RAYDIUM_AUTHORITY_V4_ADDRESS, payer.publicKey.toBase58()])
   for await (const update of mempoolUpdates) {

@@ -333,9 +333,7 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
   // 1. Didnt buy token initially
   // 2. Buy failed 
   let count: number | undefined = await countLiquidityPool.get(ammId)
-  console.log(count)
-  if(count === undefined) {
-    console.log('hello')
+  if(count === undefined || count === null) {
     if(await existingMarkets.isExisted(ammId)) {
       return
     }

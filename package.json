@@ -12,7 +12,8 @@
     "listener:ammstate": "ts-node src/tools/amm-listener.ts",
     "listener:market": "ts-node src/tools/market-listener.ts",
     "listener:ammnetflow": "ts-node src/tools/amm-netflow-listener.ts",
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json",
+    "start_server": "pm2 start ecosystem.config.js"
   },
   "keywords": [],
   "author": "",

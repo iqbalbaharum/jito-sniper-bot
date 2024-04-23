@@ -12,6 +12,7 @@ import { RaydiumAmmCoder } from "../utils/coder";
 import raydiumIDL from '../idl/raydiumAmm.json'
 import { Idl } from "@coral-xyz/anchor";
 import { connection } from "../adapter/rpc";
+import { redisClient } from "../adapter/redis";
 
 let trackedPoolKeys: Map<string, LiquidityPoolKeys> = new Map<
   string,
@@ -187,9 +188,9 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
       return 
     }
   
-    lookupTable = new BotLookupTable()
-    botTokenAccount = new BotTokenAccount()
-    existingMarkets = new ExistingRaydiumMarketStorage()
+    lookupTable = new BotLookupTable(redisClient, false)
+    botTokenAccount = new BotTokenAccount(redisClient, false)
+    existingMarkets = new ExistingRaydiumMarketStorage(redisClient, false)
   
     const mempoolUpdates = mempool([RAYDIUM_AUTHORITY_V4_ADDRESS])
     for await (const update of mempoolUpdates) {
