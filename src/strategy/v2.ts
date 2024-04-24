@@ -394,7 +394,7 @@ const processInitialize2 = async (instruction: TxInstruction, txPool: TxPool, at
   }
 
   if(!ammId) { return }
-  
+
   // if(!countLiquidityPool.has(ammId.toBase58())) {
   //   countLiquidityPool.set(ammId.toBase58(), 1)
   //   logger.warn(`LP ${ammId} | ${1} | ${txPool.mempoolTxns.signature}`)
@@ -559,28 +559,30 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   if(isBuyTradeAction && amount >= SystemConfig.get('min_sol_trigger')) {
     const totalChunck = SystemConfig.get('tx_balance_chuck_division')
     logger.warn(`Trade detected ${state.mint.toBase58()} | ${amount} SOL | Disburse ${Math.floor(totalChunck / 10)}`)
-    // The strategy to have faster swap upon trigger, and slower swap
-    // for subsequence trade after the initial
-    // For amount that is bigger than the minimum threshold, use bundle
-    // else use send tx
+    // The strategy similar as bot v3 (old). On every trade triggered,
+    // burst out a number of txs (chunk)
     let blockhash = txPool.mempoolTxns.recentBlockhash
     let units = 55000
     let microLamports = 500000
-    await processSell(
-      ata,
-      ammId,
-      state.mint,
-      amount > SystemConfig.get('jito_bundle_min_threshold'),
-      {
-        compute: {
-          units,
-          microLamports
+    for(let i=0; i < Math.floor(totalChunck/ 5); i++) {
+      await processSell(
+        ata,
+        ammId,
+        state.mint,
+        false,
+        {
+          compute: {
+            units,
+            microLamports
+          },
+          blockhash,
         },
-        blockhash,
-      },
-      undefined,
-      new BN(amount * LAMPORTS_PER_SOL)
-    )
+        undefined,
+        new BN(amount * LAMPORTS_PER_SOL)
+      )
+
+      sleep(2000)
+    }
     
     // If send as bundle, send tx as pairing as well
     if(amount > SystemConfig.get('jito_bundle_min_threshold')) {

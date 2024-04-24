@@ -124,6 +124,9 @@ const sellToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BN, 
 // Listen to price changes
 const executeSingleBlockTrade = async (ammId: PublicKey, ata: PublicKey) => {
   const poolKeys = await BotLiquidity.getAccountPoolKeysFromAccountDataV4(ammId)
+
+  if(!poolKeys) { return }
+  
   const info = BotLiquidity.getMintInfoFromWSOLPair(poolKeys)
   const poolInfo = await Liquidity.fetchInfo({ connection: connection, poolKeys });
   // Cancel process if pair is not WSOL

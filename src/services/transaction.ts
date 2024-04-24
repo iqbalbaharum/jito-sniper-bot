@@ -130,7 +130,7 @@ export class BotTransaction {
     let signature
     
     signature = await conn.sendRawTransaction(rawTransaction, {
-      // skipPreflight: false,
+      skipPreflight: false,
       // maxRetries: 3,
       // preflightCommitment: 'confirmed'
     }).catch(e => {
@@ -201,18 +201,18 @@ export class BotTransaction {
       })
       .instruction()
 
-      // const cu = await this.getExpectedComputeUnitFromTransactions(connectionAlt1, [
-      //   ...startInstructions,
-      //   instruction
-      // ])
+      const cu = await this.getExpectedComputeUnitFromTransactions(connectionAlt1, [
+        ...startInstructions,
+        instruction
+      ])
 
       let computeInstructions: TransactionInstruction[] = []
 
       if (config?.compute && config?.compute.units > 0) {
         computeInstructions.push(
           ComputeBudgetProgram.setComputeUnitLimit({
-            // units: cu as number || 55000,
-            units: 55000
+            units: cu as number || 55000,
+            // units: 55000
           })
         )
       }

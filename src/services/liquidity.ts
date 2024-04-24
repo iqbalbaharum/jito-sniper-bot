@@ -177,7 +177,6 @@ export class BotLiquidity {
 					...this.createPoolKeys(ammId, state, market!),
 				}
 			}
-			
 		} else {
 			return await BotLiquidity.getAccountPoolKeysFromAccountDataV4(ammId)
 		}
@@ -206,19 +205,14 @@ export class BotLiquidity {
 	 */
 	static getAccountPoolKeysFromAccountDataV4 = async (
 		ammId: PublicKey
-	): Promise<LiquidityPoolKeys & PoolInfo> => {
+	): Promise<LiquidityPoolKeys & PoolInfo | undefined> => {
 
-		let account: AccountInfo<Buffer> | null = null
-		while(!account) {
-			account = await connection.getAccountInfo(ammId, {
-				commitment: config.get('default_commitment') as Commitment,
-			})
-
-			sleep(100)
-		}
+		let account: AccountInfo<Buffer> | null = await connection.getAccountInfo(ammId, {
+			commitment: config.get('default_commitment') as Commitment,
+		})
 
 		if (!account) {
-			throw new Error(BotError.INVALID_AMM_ID)
+			return undefined
 		}
 
 		return BotLiquidity.formatAccountPoolKeysFromAccountDataV4(ammId, account.data)
@@ -535,17 +529,18 @@ export class BotLiquidity {
 			fixedSide: fixedSide ? fixedSide : 'in',
 		})
 		
-		// const cu = await BotTransaction.getExpectedComputeUnitFromTransactions(connectionAlt1, [
-		// 	...startInstructions,
-		// 	...innerTransaction.instructions
-		//   ])
+		const cu = await BotTransaction.getExpectedComputeUnitFromTransactions(connectionAlt1, [
+			...startInstructions,
+			...innerTransaction.instructions
+		  ])
 
 		let computeInstructions: TransactionInstruction[] = []
 
 		if (config?.compute && config?.compute.units > 0) {
 			computeInstructions.push(
 				ComputeBudgetProgram.setComputeUnitLimit({
-					units: config.compute.units,
+					// units: config.compute.units,
+					units: cu || 55000
 				})
 			)
 		}

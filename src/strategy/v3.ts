@@ -63,6 +63,9 @@ const processBuy = async (
   }) => {
   
   const poolKeys = await BotLiquidity.getAccountPoolKeysFromAccountDataV4(ammId)
+
+  if(!poolKeys) { return }
+  
   const info = BotLiquidity.getMintInfoFromWSOLPair(poolKeys)
   
   // Cancel process if pair is not WSOL

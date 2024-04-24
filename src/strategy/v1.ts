@@ -187,6 +187,9 @@ async function* buildSingleBlockTradeBundle(
 	for await (const { mempoolTxns, ata, ammId } of iterator) {
 		const poolKeys =
 			await BotLiquidity.getAccountPoolKeysFromAccountDataV4(ammId)
+
+		if(!poolKeys) { return }
+		
 		const info = BotLiquidity.getMintInfoFromWSOLPair(poolKeys)
 		const poolInfo = await Liquidity.fetchInfo({
 			connection: connection,

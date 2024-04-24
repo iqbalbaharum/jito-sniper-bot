@@ -1,5 +1,5 @@
 import Client, { CommitmentLevel, SubscribeRequest, SubscribeRequestFilterTransactions, SubscribeUpdate } from "@triton-one/yellowstone-grpc";
-import { ClientDuplexStream } from "@grpc/grpc-js";
+import { ChannelOptions, ClientDuplexStream } from "@grpc/grpc-js";
 import { BotError } from "../types/error";
 import { LIQUIDITY_STATE_LAYOUT_V4, MAINNET_PROGRAM_ID } from "@raydium-io/raydium-sdk";
 import { TxPool } from "../types";
@@ -32,7 +32,11 @@ export class BotgRPC {
 	private stream: ClientDuplexStream<SubscribeRequest, SubscribeUpdate> | undefined
 
 	constructor(endpoint: string, token: string) {
-		this.client = new Client(endpoint, token, {})
+		this.client = new Client(endpoint, token, {
+			'grpc.keepalive_time_ms': 10_000,
+			'grpc.keepalive_timeout_ms': 1000,
+			'grpc.keepalive_permit_without_calls': 1
+		} as ChannelOptions)
 		this.connect()
 	}
 
