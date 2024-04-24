@@ -13,7 +13,7 @@ export class RetryConnection extends Connection {
 			let retries = 0
 			while (retries < this.maxRetries) {
 				try {
-						return super.getAddressLookupTable(accountKey, config)
+					return await super.getAddressLookupTable(accountKey, config)
 				} catch (error) {
 					if (this.isRetryableError(error)) {
 						retries++;
@@ -31,7 +31,7 @@ export class RetryConnection extends Connection {
 			let retries = 0
 			while (retries < this.maxRetries) {
 				try {
-						return super.getLatestBlockhash(commitmentOrConfig)
+					return await super.getLatestBlockhash(commitmentOrConfig)
 				} catch (error) {
 					if (this.isRetryableError(error)) {
 						retries++;
@@ -49,7 +49,7 @@ export class RetryConnection extends Connection {
 			let retries = 0
 			while (retries < this.maxRetries) {
 				try {
-						return super.getAccountInfo(publicKey, commitmentOrConfig)
+					return await super.getAccountInfo(publicKey, commitmentOrConfig)
 				} catch (error) {
 					if (this.isRetryableError(error)) {
 						retries++;

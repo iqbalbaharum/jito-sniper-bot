@@ -441,6 +441,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
 
   if(!ammId) { return }
   
+  // TODO: Effect: Multiple purchase of same token
   // Check, if the ammId is not tracked, and the swapBaseIn/swapBaseOut is still zero
   // then it's a newly opened pool.
   // For this liquidity, add to market list before the buy complete, this to prevent
@@ -454,7 +455,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
 
     return
   }
-
+  
   // BUG: There's another method for Raydium swap which move the array positions
   // to differentiate which position, check the position of OPENBOOK program Id in accountKeys
   const serumAccountIndex = accountIndexes[7]
@@ -479,7 +480,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
     destinationAccountIndex = accountIndexes[15]
     signerAccountIndex = accountIndexes[16]
   }
-
+  
   // signer
   if(signerAccountIndex >= tx.accountKeys.length) {
     const lookupIndex = signerAccountIndex - tx.accountKeys.length
@@ -514,12 +515,12 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
 
   const state = await mints.get(ammId!)
   if(!state) { return }
-
+  
   let txAmount = BotTransaction.getBalanceFromTransaction(tx.preTokenBalances, tx.postTokenBalances, state.mint)
   let txSolAmount = BotTransaction.getBalanceFromTransaction(tx.preTokenBalances, tx.postTokenBalances, new PublicKey(WSOL_ADDRESS))
-
+  
   let count = await countLiquidityPool.get(ammId)
-
+  
   // This function to calculate the latest balance token in payer wallet.
   // The getBalanceFromTransaction, can identify if the tx is BUY @ SELL call
   if(sourceTA.equals(ata) || signer.equals(payer.publicKey)) {
@@ -528,7 +529,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
     
     return
   }
-  
+
   // Validate if the swap fullfill certain condition
   // 1. LP have been removed (Check LP count)
   // 2. Buy swap
@@ -545,7 +546,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   if(txAmount.isNeg()) { isBuyTradeAction = false } else { isBuyTradeAction = true }
   
   const amount = parseFloat(txSolAmount.abs().toString()) / LAMPORTS_PER_SOL
-
+  
   if(isBuyTradeAction && amount >= SystemConfig.get('min_sol_trigger')) {
     const totalChunck = SystemConfig.get('tx_balance_chuck_division')
     // The strategy similar as bot v3 (old). On every trade triggered,
