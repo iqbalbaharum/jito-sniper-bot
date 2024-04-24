@@ -145,6 +145,9 @@ export class BotgRPC {
 			this.stream?.on("close", () => {
 				resolve();
 			});
+			this.stream?.on("status", () => {
+				resolve();
+			});
 		});
 
 		await streamClosed;

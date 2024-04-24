@@ -6,9 +6,4 @@ export type BotLiquidityState = {
     mint: PublicKey
     mintDecimal: number,
     isMintBase: boolean,
-    lastWSOLInAmount?: BN
-    lastWSOLOutAmount?: BN
-    lastTokenInAmount?: BN
-    lastTokenOutAmount?: BN
-    // wsolAmountInVault: BN
 }

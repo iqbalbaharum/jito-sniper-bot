@@ -1,7 +1,7 @@
 import { GrpcGenerator } from "../generators/grpc";
 import { BotLiquidity, BotLookupTable, setupWSOLTokenAccount } from "../services";
 import { CopyTrades, ExistingRaydiumMarketStorage } from "../storage";
-import { ArbIdea, BalanceTracker, LookupIndex, TxInstruction, TxPool } from "../types";
+import { ArbIdea, LookupIndex, TxInstruction, TxPool } from "../types";
 import { logger } from "../utils/logger";
 import { config as SystemConfig } from "../utils/config";
 import { payer } from "../adapter/payer";

@@ -41,7 +41,7 @@ export class GrpcGenerator extends BaseGenerator {
 
 	private async connect() {
 		try {
-			this.stream = await this.client.subscribe();
+			this.stream = await this.client.subscribe()
 		} catch(e:any) {
 			console.log(e.toString())
 			this.connect()
@@ -102,8 +102,14 @@ export class GrpcGenerator extends BaseGenerator {
 			switch(status.code) {
 				case Status.CANCELLED:
 				case Status.UNAVAILABLE:
-					await this.connect()
+					console.log(this.stream)
+					console.log(`Here ${this.stream?.isPaused}`)
+					this.stream?.resume()
 			}
+		});
+
+		this.stream.on('error', async error => {
+			console.log(error)
 		});
 
 		for await(const data of this.stream) {

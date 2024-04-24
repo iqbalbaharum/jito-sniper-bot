@@ -1,4 +1,4 @@
-import { AddressLookupTableAccount, Commitment, Connection, ConnectionConfig, GetAccountInfoConfig, GetLatestBlockhashConfig, PublicKey, RpcResponseAndContext } from "@solana/web3.js";
+import { AccountInfo, AddressLookupTableAccount, Commitment, Connection, ConnectionConfig, GetAccountInfoConfig, GetLatestBlockhashConfig, PublicKey, RpcResponseAndContext } from "@solana/web3.js";
 
 export class RetryConnection extends Connection {
 
@@ -9,7 +9,7 @@ export class RetryConnection extends Connection {
       this.maxRetries = maxRetries
     }
     
-    async getAddressLookupTable(accountKey: PublicKey, config?: GetAccountInfoConfig | undefined): Promise<RpcResponseAndContext<AddressLookupTableAccount | null>> {
+    public async fetchAddressLookupTable(accountKey: PublicKey, config?: GetAccountInfoConfig | undefined): Promise<RpcResponseAndContext<AddressLookupTableAccount | null>> {
 			let retries = 0
 			while (retries < this.maxRetries) {
 				try {
@@ -27,7 +27,7 @@ export class RetryConnection extends Connection {
 			throw new Error(`Exhausted all retries for getAddressLookupTable`);
     }
 
-		async getLatestBlockhash(commitmentOrConfig?: Commitment | GetLatestBlockhashConfig | undefined): Promise<Readonly<{ blockhash: string; lastValidBlockHeight: number; }>> {
+		async fetchLatestBlockhash(commitmentOrConfig?: Commitment | GetLatestBlockhashConfig | undefined): Promise<Readonly<{ blockhash: string; lastValidBlockHeight: number; }>> {
 			let retries = 0
 			while (retries < this.maxRetries) {
 				try {
@@ -43,6 +43,24 @@ export class RetryConnection extends Connection {
 			}
 		
 			throw new Error(`Exhausted all retries for getLatestBlockhash`);
+		}
+		
+		async fetchAccountInfo(publicKey: PublicKey, commitmentOrConfig?: Commitment | GetAccountInfoConfig | undefined): Promise<AccountInfo<Buffer> | null> {
+			let retries = 0
+			while (retries < this.maxRetries) {
+				try {
+						return super.getAccountInfo(publicKey, commitmentOrConfig)
+				} catch (error) {
+					if (this.isRetryableError(error)) {
+						retries++;
+						console.warn(`Retrying getAccountInfo ... Attempt ${retries}`);
+					} else {
+						throw error;
+					}
+				}
+			}
+		
+			throw new Error(`Exhausted all retries for getAccountInfo`);
 		}
   
     private isRetryableError(error: any): boolean {

@@ -1,5 +1,6 @@
 import { Connection } from "@solana/web3.js";
 import { config } from "../utils/config";
+import { RetryConnection } from "../utils/connection-retry";
 
 // Non rate limiter (primary)
 const HTTP_RPC_URL = config.get('http_rpc_url')
@@ -13,7 +14,7 @@ const WEBSOCKET_RPC_URL_2 = config.get('websocket_rpc_url_2')
 const LITE_RPC_URL = config.get('lite_rpc_url')
 const LITE_RPC_WS_URL = config.get('lite_rpc_ws_url')
 
-let connection: Connection = new Connection(HTTP_RPC_URL, {
+let connection = new RetryConnection(HTTP_RPC_URL, {
     commitment: 'confirmed',
     disableRetryOnRateLimit: true,
     wsEndpoint: WEBSOCKET_RPC_URL

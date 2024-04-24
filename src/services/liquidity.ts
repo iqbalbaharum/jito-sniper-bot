@@ -136,11 +136,7 @@ export const getLiquidityMintState = async (
 		ammId: accountData.marketId,
 		mint,
 		isMintBase,
-		mintDecimal: decimal,
-		lastWSOLInAmount: new BN(0),
-		lastWSOLOutAmount: new BN(0),
-		lastTokenInAmount: new BN(0),
-		lastTokenOutAmount: new BN(0),
+		mintDecimal: decimal
 	}
 }
 
@@ -207,7 +203,7 @@ export class BotLiquidity {
 		ammId: PublicKey
 	): Promise<LiquidityPoolKeys & PoolInfo | undefined> => {
 
-		let account: AccountInfo<Buffer> | null = await connection.getAccountInfo(ammId, {
+		let account: AccountInfo<Buffer> | null = await connection.fetchAccountInfo(ammId, {
 			commitment: config.get('default_commitment') as Commitment,
 		})
 
@@ -321,43 +317,6 @@ export class BotLiquidity {
 			lpVault: accountData.lpVault,
 			lookupTableAccount: PublicKey.default,
 			poolOpenTime: accountData.poolOpenTime.toNumber()
-		}
-	}
-
-	static serializeLiquidityPoolKeys(poolkeys: LiquidityPoolKeysV4): string {
-		return JSON.stringify(poolkeys)
-	}
-
-	static deserializeLiquidityPoolKeys(poolkeysString: string): LiquidityPoolKeysV4 {
-		const keys = JSON.parse(poolkeysString)
-
-		return {
-			id: new PublicKey(keys.id),
-			baseMint: new PublicKey(keys.baseMint),
-			quoteMint: new PublicKey(keys.quoteMint),
-			lpMint: new PublicKey(keys.lpMint),
-			baseDecimals: keys.baseDecimals,
-			quoteDecimals: keys.quoteDecimals,
-			lpDecimals: keys.lpDecimals,
-			version: keys.version,
-			programId: new PublicKey(keys.programId),
-			authority: new PublicKey(keys.authority),
-			openOrders: new PublicKey(keys.openOrders),
-			targetOrders: new PublicKey(keys.targetOrders),
-			baseVault: new PublicKey(keys.baseVault),
-			quoteVault: new PublicKey(keys.quoteVault),
-			marketVersion: keys.marketVersion,
-			marketProgramId: new PublicKey(keys.marketProgramId),
-			marketId: new PublicKey(keys.marketId),
-			marketAuthority: new PublicKey(keys.marketAuthority),
-			marketBaseVault: new PublicKey(keys.baseVault),
-			marketQuoteVault: new PublicKey(keys.quoteVault),
-			marketBids: new PublicKey(keys.marketBids),
-			marketAsks: new PublicKey(keys.marketAsks),
-			marketEventQueue: new PublicKey(keys.marketEventQueue),
-			withdrawQueue: new PublicKey(keys.withdrawQueue),
-			lpVault: new PublicKey(keys.lpVault),
-			lookupTableAccount: new PublicKey(keys.lookupTableAccount),
 		}
 	}
 

@@ -35,7 +35,7 @@ async function* mempool(accounts: string[]): AsyncGenerator<TxPool> {
 	
 	try {
 		generators.push(geyser1Pool.listen())
-		generators.push(geyser2Pool.listen())
+		// generators.push(geyser2Pool.listen())
 		// generators.push(logsPool.listen())
 	} catch(e: any) {
 		console.log(e.toString())

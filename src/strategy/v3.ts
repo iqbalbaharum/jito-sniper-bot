@@ -12,7 +12,7 @@ import { BotLiquidity, BotLookupTable, getAccountPoolKeysFromAccountDataV4, getL
 import sleep from "atomic-sleep";
 import { submitBundle } from "../services/bundle";
 import { mainSearcherClient } from "../adapter/jito";
-import { ArbIdea, BalanceTracker, BotLiquidityState, LookupIndex, MempoolTransaction, TransactionCompute, TxInstruction, TxPool } from "../types";
+import { ArbIdea, TokenChunk, BotLiquidityState, LookupIndex, MempoolTransaction, TransactionCompute, TxInstruction, TxPool } from "../types";
 import { BotTransaction, getAmmIdFromSignature } from "../services/transaction";
 import { logger } from "../utils/logger";
 import { RaydiumAmmCoder } from "../utils/coder";
@@ -30,7 +30,7 @@ import { SignatureGenerator } from "../generators/signature";
 import { redisClient } from "../adapter/redis";
 
 // let trackedLiquidityPool: Set<string> = new Set<string>()
-let tokenBalances: Map<string, BalanceTracker> = new Map<string, BalanceTracker>()
+let tokenBalances: Map<string, TokenChunk> = new Map<string, TokenChunk>()
 let rdcaTimers: Map<string, NodeJS.Timeout> = new Map()
 let trackedPoolKeys: Map<string, LiquidityPoolKeys> = new Map<
   string,
@@ -65,7 +65,7 @@ const processBuy = async (
   const poolKeys = await BotLiquidity.getAccountPoolKeysFromAccountDataV4(ammId)
 
   if(!poolKeys) { return }
-  
+
   const info = BotLiquidity.getMintInfoFromWSOLPair(poolKeys)
   
   // Cancel process if pair is not WSOL
@@ -345,7 +345,9 @@ const processSwapBaseIn = async (
       tokenBalances.set(state.mint.toBase58(), {
         total: txAmount,
         remaining: txAmount,
-        chuck: new BN(0)
+        chuck: new BN(0),
+        isConfirmed: false,
+        isUsedUp: false
       });
 
       startRDCA(ammId, state.mint, ata)

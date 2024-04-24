@@ -40,7 +40,7 @@ export class BotTokenAccount {
         ASSOCIATED_TOKEN_PROGRAM_ID
       );
   
-      const ataInfo = await connection.getAccountInfo(ata);
+      const ataInfo = await connection.fetchAccountInfo(ata);
   
       if (create && !ataInfo) {
         instructions.push(
@@ -94,9 +94,7 @@ export class BotTokenAccount {
     let buffer = await this.storage.get(ata)
     if(!buffer) {
     
-      const info = await connection.getAccountInfo(ata, {
-        commitment: config.get('default_commitment') as Commitment
-      })
+      const info = await connection.fetchAccountInfo(ata)
 
       if (!info) {
         this.storage.set(ata, Buffer.alloc(0));
@@ -130,7 +128,7 @@ const getOrCreateTokenAccount = async (
         ASSOCIATED_TOKEN_PROGRAM_ID
       );
   
-      const ataInfo = await connection.getAccountInfo(ata);
+      const ataInfo = await connection.fetchAccountInfo(ata);
   
       if (create && !ataInfo) {
         instructions.push(
@@ -162,7 +160,7 @@ const getOrCreateTokenAccount = async (
     );
   
     if (check) {
-      const ataInfo = await connection.getAccountInfo(ata);
+      const ataInfo = await connection.fetchAccountInfo(ata);
       
       if (ataInfo === null) {
         let ataTx = new Transaction();
