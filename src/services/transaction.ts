@@ -132,7 +132,7 @@ export class BotTransaction {
     signature = await conn.sendRawTransaction(rawTransaction, {
       skipPreflight: false,
       // maxRetries: 3,
-      // preflightCommitment: 'confirmed'
+      preflightCommitment: 'confirmed'
     }).catch(e => {
       logger.warn(e.toString())
       // if(e.toString().includes('Blockhash not found')) {

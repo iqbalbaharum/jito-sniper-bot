@@ -324,33 +324,19 @@ const getAmmIdFromMempoolTx = async (tx: MempoolTransaction, instruction: TxInst
   return ammId
 }
 
-const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: PublicKey) => {
-  const tx = txPool.mempoolTxns
-  let ammId: PublicKey | undefined = await getAmmIdFromMempoolTx(tx, instruction)
-  if(!ammId) { return }
-  
-  // If the token is not available, then buy the token. This to cover use cases:
-  // 1. Didnt buy token initially
-  // 2. Buy failed 
-  let count: number | undefined = await countLiquidityPool.get(ammId)
-  if(count === undefined || count === null) {
-    if(await existingMarkets.isExisted(ammId)) {
-      return
-    }
-
-    await processBuy(ammId, ata, txPool.mempoolTxns.recentBlockhash)
-    await countLiquidityPool.set(ammId, 0)
-    return
-  } else {
-    await countLiquidityPool.set(ammId, count - 1)
-  }
-
-  // Burst sell transaction, if rugpull detected
-  if(count - 1 === 0) {
+/**
+ * Burst sell trade based on balance chuck
+ * @param ammId 
+ * @param ata 
+ * @param blockhash 
+ * @returns 
+ */
+const burstSellAfterLP = async(ammId: PublicKey, ata: PublicKey, blockhash: string) => {
+  logger.info(`Burst TXs | ${ammId.toBase58()}`)
     const state = mints.get(ammId!.toBase58())
     if(!state) { return }
     const totalChunck = SystemConfig.get('tx_balance_chuck_division')
-    let blockhash = txPool.mempoolTxns.recentBlockhash
+
     for(let i = 0; i < Math.floor(totalChunck / 4); i++) {
       await processSell(
         ata,
@@ -371,6 +357,31 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
 
       sleep(1800)
     } 
+}
+
+const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: PublicKey) => {
+  const tx = txPool.mempoolTxns
+  let ammId: PublicKey | undefined = await getAmmIdFromMempoolTx(tx, instruction)
+  if(!ammId) { return }
+  
+  // If the token is not available, then buy the token. This to cover use cases:
+  // 1. Didnt buy token initially
+  // 2. Buy failed 
+  let count: number | undefined = await countLiquidityPool.get(ammId)
+  if(count === undefined || count === null) {
+    if(await existingMarkets.isExisted(ammId)) {
+      return
+    }
+
+    await processBuy(ammId, ata, txPool.mempoolTxns.recentBlockhash)
+    await countLiquidityPool.set(ammId, 0)
+  } else {
+    await countLiquidityPool.set(ammId, count - 1)
+  }
+
+  // Burst sell transaction, if rugpull detected
+  if(count && count - 1 === 0) {
+    burstSellAfterLP(ammId, ata, txPool.mempoolTxns.recentBlockhash)
   }
 }
 
@@ -407,6 +418,34 @@ const processInitialize2 = async (instruction: TxInstruction, txPool: TxPool, at
   }
 
   await processBuy(ammId, ata, txPool.mempoolTxns.recentBlockhash)
+}
+
+const updateTokenBalance = async (ammId: PublicKey, mint: PublicKey, amount: BN, lpCount: number | undefined) => {
+  if(amount.isNeg()) { // SELL
+    logger.error(amount)
+    const prevBalance = tokenBalances.get(mint.toBase58());
+    if (prevBalance !== undefined && !prevBalance.remaining.isNeg()) {
+      prevBalance.remaining = prevBalance.remaining.sub(amount.abs());
+
+      if(prevBalance.remaining.isNeg()) {
+        tokenBalances.delete(ammId.toBase58())
+      } else {
+        tokenBalances.set(mint.toBase58(), prevBalance); 
+      }
+    }
+  } else { // BUY
+    let chuck = amount.divn(SystemConfig.get('tx_balance_chuck_division'))
+    tokenBalances.set(mint.toBase58(), {
+      total: amount,
+      remaining: amount,
+      chuck
+    });
+
+    if(lpCount === undefined) {
+      await countLiquidityPool.set(ammId, 1)
+    }
+  }
+  return
 }
 
 // Most Raydium transaction is using swapBaseIn, so the bot need to figure out if this transaction
@@ -520,30 +559,9 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   // This function to calculate the latest balance token in payer wallet.
   // The getBalanceFromTransaction, can identify if the tx is BUY @ SELL call
   if(sourceTA.equals(ata) || signer.equals(payer.publicKey)) {
-    if(txAmount.isNeg()) { // SELL
-      logger.error(txAmount)
-      const prevBalance = tokenBalances.get(state.mint.toBase58());
-      if (prevBalance !== undefined && !prevBalance.remaining.isNeg()) {
-        prevBalance.remaining = prevBalance.remaining.sub(txAmount.abs());
-        
-        if(prevBalance.remaining.isNeg()) {
-          tokenBalances.delete(ammId.toBase58())
-        } else {
-          tokenBalances.set(state.mint.toBase58(), prevBalance); 
-        }
-      }
-    } else { // BUY
-      let chuck = txAmount.divn(SystemConfig.get('tx_balance_chuck_division'))
-      tokenBalances.set(state.mint.toBase58(), {
-        total: txAmount,
-        remaining: txAmount,
-        chuck
-      });
-
-      if(count === undefined) {
-        await countLiquidityPool.set(ammId, 1)
-      }
-    }
+    logger.info(`Token update ${ammId}`)
+    updateTokenBalance(ammId, state.mint, txAmount, count)
+    
     return
   }
   
@@ -558,7 +576,6 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
 
   if(isBuyTradeAction && amount >= SystemConfig.get('min_sol_trigger')) {
     const totalChunck = SystemConfig.get('tx_balance_chuck_division')
-    logger.warn(`Trade detected ${state.mint.toBase58()} | ${amount} SOL | Disburse ${Math.floor(totalChunck / 10)}`)
     // The strategy similar as bot v3 (old). On every trade triggered,
     // burst out a number of txs (chunk)
     let blockhash = txPool.mempoolTxns.recentBlockhash
@@ -623,8 +640,6 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
         if(decodedIx.hasOwnProperty('withdraw')) { // remove liquidity
           logger.info(`Withdraw ${tx.mempoolTxns.signature}`)
           await processWithdraw(ins, tx, ata)
-        } else if(decodedIx.hasOwnProperty('deposit')) {
-          // Not processed - only target for new token only
         } else if(decodedIx.hasOwnProperty('swapBaseIn')) {
           await processSwapBaseIn((decodedIx as any).swapBaseIn, ins, tx, ata)
         } else if(decodedIx.hasOwnProperty('initialize2')) {

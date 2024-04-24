@@ -36,9 +36,6 @@ export class GrpcGenerator extends BaseGenerator {
 	constructor(streamName: string, geyserUrl: string, geyserApiKey: string) {
 		super(streamName)
 		this.client = new Client(geyserUrl, geyserApiKey, {
-			'grpc.keepalive_time_ms': 10_000,
-			'grpc.keepalive_timeout_ms': 1000,
-			'grpc.keepalive_permit_without_calls': 1
 		} as ChannelOptions)
 	}
 

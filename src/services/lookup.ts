@@ -19,6 +19,7 @@ export class BotLookupTable {
     }
 
     const res = await connection.getAddressLookupTable(lutAddress);
+    
     if (!res.value) {
       return undefined;
     }
