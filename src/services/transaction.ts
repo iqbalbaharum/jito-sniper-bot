@@ -1,10 +1,10 @@
 import { LiquidityPoolKeysV4, LiquidityStateV4, TxVersion } from "@raydium-io/raydium-sdk"
 import { connection, lite_rpc, httpOnlyRpcs, connectionAlt1 } from "../adapter/rpc"
 import { RAYDIUM_AUTHORITY_V4_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, USDC_ADDRESS, WSOL_ADDRESS, config as SystemConfig } from "../utils";
-import { BlockhashWithExpiryBlockHeight, Commitment, ComputeBudgetProgram, Connection, PublicKey, RpcResponseAndContext, TransactionInstruction, TransactionMessage, Version, VersionedMessage, VersionedTransaction, sendAndConfirmRawTransaction } from "@solana/web3.js";
+import { BlockhashWithExpiryBlockHeight, Commitment, ComputeBudgetProgram, Connection, PublicKey, RpcResponseAndContext, TransactionInstruction, TransactionMessage, Version, VersionedMessage, VersionedTransaction, VersionedTransactionResponse, sendAndConfirmRawTransaction } from "@solana/web3.js";
 import { BotLiquidity } from "./liquidity";
 import BN from "bn.js";
-import { TransactionCompute, TxBalance } from "../types";
+import { TransactionCompute, TxBalance, TxPool } from "../types";
 
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
@@ -117,6 +117,57 @@ export class BotTransaction {
     return signature
   }
 
+  static formatTransactionToTxPool(streamName: string, tx: VersionedTransactionResponse): TxPool {
+    const message = tx.transaction.message
+
+    const preTokenBalances = tx.meta?.preTokenBalances?.map((token: any) => ({
+      mint: token.mint,
+      owner: token.owner,
+      amount: new BN(token.uiTokenAmount.amount),
+      decimals: token.uiTokenAmount.decimals,
+    })) || [];
+  
+    const postTokenBalances = tx.meta?.postTokenBalances?.map((token: any) => ({
+      mint: token.mint,
+      owner: token.owner,
+      amount: new BN(token.uiTokenAmount.amount),
+      decimals: token.uiTokenAmount.decimals,
+    })) || [];
+
+    return {
+      mempoolTxns: {
+        source: streamName,
+        signature: tx.transaction.signatures[0],
+        accountKeys: message.staticAccountKeys.map((e: any) => e.toBase58()),
+        recentBlockhash: message.recentBlockhash,
+        instructions: message.compiledInstructions.map((e: any) => {
+          return {
+            programIdIndex: e.programIdIndex,
+            accounts: e.accountKeyIndexes || [],
+            data: Buffer.from(e.data, 'base64').toString('hex')
+          }
+        }),
+        innerInstructions: [],
+        addressTableLookups: message.addressTableLookups.map((e: any) => {
+          return {
+            accountKey: e.accountKey.toBase58(),
+            writableIndexes: e.writableIndexes || [],
+            readonlyIndexes: e.readonlyIndexes || []
+          }
+        }),
+        preTokenBalances,
+        postTokenBalances,
+        computeUnitsConsumed: tx.meta?.computeUnitsConsumed || 0
+      },
+      timing: {
+        listened: new Date().getTime(),
+        preprocessed: 0,
+        processed: 0,
+        send: 0
+      }
+    }
+  }
+
   /**
    * Capture sendRawTransaction error and return error separately
    * this to prevent from the bot stop unexpectedly
@@ -201,17 +252,17 @@ export class BotTransaction {
       })
       .instruction()
 
-      const cu = await this.getExpectedComputeUnitFromTransactions(connectionAlt1, [
-        ...startInstructions,
-        instruction
-      ])
+      // const cu = await this.getExpectedComputeUnitFromTransactions(connectionAlt1, [
+      //   ...startInstructions,
+      //   instruction
+      // ])
 
       let computeInstructions: TransactionInstruction[] = []
 
       if (config?.compute && config?.compute.units > 0) {
         computeInstructions.push(
           ComputeBudgetProgram.setComputeUnitLimit({
-            units: cu as number || 55000,
+            units: 55000,
             // units: 55000
           })
         )

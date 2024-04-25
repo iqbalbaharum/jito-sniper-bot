@@ -1,15 +1,50 @@
-export class BlockHashStorage {
-	block: string;
+import { StorageKeys } from "../types/storage-keys";
+import { BaseStorage } from "./base-storage";
 
-    constructor() {
-        this.block = ''
+export type BlockhashData = {
+    recentBlockhash: string
+    latestSlot: number
+    latestBlockHeight: number
+}
+
+export class BlockHashStorage extends BaseStorage {
+	recentBlockhash: string;
+    latestSlot: number
+    latestBlockHeight: number
+
+    // Redis client
+    client: any
+
+    constructor(client: any) {
+        
+        super(StorageKeys.KEY_L_BLOCKHASH)
+
+        this.latestSlot = 0
+        this.latestBlockHeight = 0
+        this.recentBlockhash = ''
+
+        this.client = client
     }
 
-    set(block: string) {
-        this.block = block
+    async set(data: BlockhashData) {
+        if(data.latestSlot - this.latestSlot > 50) {
+            this.recentBlockhash = data.recentBlockhash
+            this.latestSlot = data.latestSlot
+            this.latestBlockHeight = data.latestBlockHeight
+            await this.client.hSet(`recent`, this.key, this.serialize(data))
+        }
     }
 
-    get() {
-        this.block
+    async get() : Promise<BlockhashData> {
+        let data = await this.client.hGet('recent', this.key)
+        return this.deserialize(data)
+    }
+
+    private serialize = (data: BlockhashData) => {
+        return JSON.stringify(data)
+    }
+
+    private deserialize = (data: string) : BlockhashData => {
+        return JSON.parse(data) as BlockhashData
     }
 }

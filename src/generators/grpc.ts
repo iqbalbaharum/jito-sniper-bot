@@ -30,18 +30,22 @@ export class GrpcGenerator extends BaseGenerator {
 		commitment: CommitmentLevel.PROCESSED
 	};
 
-	private client: Client
+	private _client: Client
 	private stream: ClientDuplexStream<SubscribeRequest, SubscribeUpdate> | undefined
+
+	get client() : Client {
+		return this._client
+	}
 
 	constructor(streamName: string, geyserUrl: string, geyserApiKey: string) {
 		super(streamName)
-		this.client = new Client(geyserUrl, geyserApiKey, {
+		this._client = new Client(geyserUrl, geyserApiKey, {
 		} as ChannelOptions)
 	}
 
 	private async connect() {
 		try {
-			this.stream = await this.client.subscribe()
+			this.stream = await this._client.subscribe()
 		} catch(e:any) {
 			console.log(e.toString())
 			this.connect()
@@ -74,7 +78,7 @@ export class GrpcGenerator extends BaseGenerator {
 	}
 
 	getLatestBlockhash = (commitment: CommitmentLevel) => {
-		return this.client.getLatestBlockhash(commitment)
+		return this._client.getLatestBlockhash(commitment)
 	}
 
 	private async write() {

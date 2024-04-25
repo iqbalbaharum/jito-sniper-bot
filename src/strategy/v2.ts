@@ -23,7 +23,7 @@ import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import { ASSOCIATED_TOKEN_PROGRAM_ID, AccountLayout } from "@solana/spl-token";
 import { IxSwapBaseIn } from "../utils/coder/layout";
 import { payer } from "../adapter/payer";
-import { CountLiquidityPoolStorage, ExistingRaydiumMarketStorage, MintStorage, PoolKeysStorage, TokenChunkStorage } from "../storage";
+import { BlockHashStorage, CountLiquidityPoolStorage, ExistingRaydiumMarketStorage, MintStorage, PoolKeysStorage, TokenChunkStorage } from "../storage";
 import { mempool } from "../generators";
 import { BotgRPC } from "../services/grpc";
 import { redisClient } from "../adapter/redis";
@@ -35,6 +35,7 @@ let botTokenAccount: BotTokenAccount
 let existingMarkets: ExistingRaydiumMarketStorage
 let countLiquidityPool: CountLiquidityPoolStorage
 let trackedPoolKeys: PoolKeysStorage;
+let blockhasher: BlockHashStorage
 
 const coder = new RaydiumAmmCoder(raydiumIDL as Idl)
 
@@ -159,7 +160,8 @@ const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BN, e
     //     blockhash
     //   }
     // )
-
+    let block = await blockhasher.get()
+    console.log(block)
     const transaction = await BotLiquidity.makeSimpleSwapInstruction(
       keys,
       'in',
@@ -172,7 +174,7 @@ const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BN, e
           microLamports: 500000,
           units: 55000
         },
-        blockhash
+        blockhash: block.recentBlockhash
       }
     );
 
@@ -312,8 +314,11 @@ const burstSellAfterLP = async(ammId: PublicKey, ata: PublicKey, blockhash: stri
         },
       )
 
-      let newBlock = await connection.getLatestBlockhash(config.get('default_commitment') as Commitment)
-      blockhash = newBlock.blockhash
+      // let newBlock = await connection.getLatestBlockhash(config.get('default_commitment') as Commitment)
+      // blockhash = newBlock.blockhash
+
+      let block = await blockhasher.get()
+      blockhash = block.recentBlockhash
 
       sleep(1800)
     } 
@@ -380,9 +385,10 @@ const processInitialize2 = async (instruction: TxInstruction, txPool: TxPool, at
   await processBuy(ammId, ata, txPool.mempoolTxns.recentBlockhash)
 }
 
+
+// TODO: move to payer-listener.ts
 const updateTokenBalance = async (ammId: PublicKey, mint: PublicKey, amount: BN, lpCount: number | undefined) => {
   if(amount.isNeg()) { // SELL
-    logger.error(amount)
     const prevBalance = await tokenBalances.get(mint);
     if (prevBalance !== undefined && !prevBalance.remaining.isNeg()) {
       prevBalance.remaining = prevBalance.remaining.sub(amount.abs());
@@ -524,8 +530,8 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   // This function to calculate the latest balance token in payer wallet.
   // The getBalanceFromTransaction, can identify if the tx is BUY @ SELL call
   if(sourceTA.equals(ata) || signer.equals(payer.publicKey)) {
-    logger.info(`Token update ${ammId}`)
-    updateTokenBalance(ammId, state.mint, txAmount, count)
+    // logger.info(`Token update ${ammId}`)
+    // updateTokenBalance(ammId, state.mint, txAmount, count)
     
     return
   }
@@ -582,8 +588,8 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
 
       units = 1000000
       
-      let newBlock = await connection.getLatestBlockhash(config.get('default_commitment') as Commitment)
-      blockhash = newBlock.blockhash
+      let block = await blockhasher.get()
+      blockhash = block.recentBlockhash
 
       await processSell(
         ata,
@@ -645,6 +651,7 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
     tokenBalances = new TokenChunkStorage(redisClient, true)
     trackedPoolKeys = new PoolKeysStorage(redisClient, true)
     mints = new MintStorage(redisClient, true)
+    blockhasher = new BlockHashStorage(redisClient)
     
     const mempoolUpdates = mempool([
       RAYDIUM_AUTHORITY_V4_ADDRESS, 

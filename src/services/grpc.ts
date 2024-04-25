@@ -13,6 +13,10 @@ export type RequestAccounts = {
 	filters: any[]
 }
 
+export type RequestBlock = {
+	accounts: string[]
+}
+
 export class BotgRPC {
 	
 	private gRequest: SubscribeRequest = {
@@ -70,12 +74,31 @@ export class BotgRPC {
 		this.write()
 	}
 
+	addBlock = (request: RequestBlock) => {
+		this.gRequest.blocks['blocks'] = {
+			includeTransactions: false,
+      		includeAccounts: false,
+			accountInclude: request.accounts
+		}
+
+		this.write()
+	}
+	
+	// addSlot = () => {
+	// 	this.gRequest.slots['incoming_slots'] = {}
+
+	// 	this.write()
+	// }
+
 	removeProgram = (name: string) => {
 		delete this.gRequest.accounts[name]
 		this.write()
 	}
 
-	public async listen(callbackAcc: (arg0: any) => void, cbTransaction: (arg0: TxPool) => void) {
+	public async listen(
+		callbackAcc: (arg0: any) => void, 
+		cbTransaction: (arg0: TxPool) => void, 
+		cbBlock: (arg0: any) => void) {
 		await this.connect(); 
 		this.stream?.on("data", (data) => {
 			if(data && data.account) {
@@ -131,6 +154,10 @@ export class BotgRPC {
 						send: 0
 					}
 				})
+			}
+
+			if(data && data.block) {
+				cbBlock(data)
 			}
 		});
 

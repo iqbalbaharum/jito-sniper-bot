@@ -174,7 +174,8 @@ export class BotLiquidity {
 				}
 			}
 		} else {
-			return await BotLiquidity.getAccountPoolKeysFromAccountDataV4(ammId)
+			logger.error(`No state data`)
+			// return await BotLiquidity.getAccountPoolKeysFromAccountDataV4(ammId)
 		}
 	}
 
@@ -488,10 +489,10 @@ export class BotLiquidity {
 			fixedSide: fixedSide ? fixedSide : 'in',
 		})
 		
-		const cu = await BotTransaction.getExpectedComputeUnitFromTransactions(connectionAlt1, [
-			...startInstructions,
-			...innerTransaction.instructions
-		  ])
+		// const cu = await BotTransaction.getExpectedComputeUnitFromTransactions(connectionAlt1, [
+		// 	...startInstructions,
+		// 	...innerTransaction.instructions
+		//   ])
 
 		let computeInstructions: TransactionInstruction[] = []
 
@@ -499,7 +500,7 @@ export class BotLiquidity {
 			computeInstructions.push(
 				ComputeBudgetProgram.setComputeUnitLimit({
 					// units: config.compute.units,
-					units: cu || 55000
+					units: 55000
 				})
 			)
 		}

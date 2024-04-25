@@ -5,5 +5,7 @@ export enum StorageKeys {
     KEY_COUNTLP='storage::count_liquidity_pool',
     KEY_TOKENCHUNK = 'storage::token_chunk',
     KEY_POOLKEYS = 'storage::pool_keys',
-    KEY_MINTDETAIL = 'storage::mint_detail'
+    KEY_MINTDETAIL = 'storage::mint_detail',
+    // LISTENER
+    KEY_L_BLOCKHASH = 'listener:blockhash'
 }
