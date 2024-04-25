@@ -45,11 +45,11 @@ const updateTokenBalance = async (ammId: PublicKey, mint: PublicKey, amount: BN,
       }
     }
   } else { // BUY
-    let chuck = amount.divn(SystemConfig.get('tx_balance_chuck_division'))
+    let chunk = amount.divn(SystemConfig.get('tx_balance_chuck_division'))
     tokenBalances.set(mint, {
       total: amount,
       remaining: amount,
-      chuck,
+      chunk,
       isUsedUp: false,
       isConfirmed: true
     });
@@ -166,6 +166,12 @@ async function main() {
 
     botGrpc.listen(
       async (data) => {
+
+        // THERES BUG IN GEYSER,
+        // It return empty signature
+        if(!data.account.account.txnSignature) {
+          return
+        }
         let signature = bs58.encode(data.account.account.txnSignature)
         processTx(signature)
       },

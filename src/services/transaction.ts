@@ -179,11 +179,10 @@ export class BotTransaction {
     const rawTransaction = transaction.serialize()
 
     let signature
-    
     signature = await conn.sendRawTransaction(rawTransaction, {
-      skipPreflight: false,
+      skipPreflight: true,
       // maxRetries: 3,
-      // preflightCommitment: 'confirmed'
+      preflightCommitment: 'confirmed'
     }).catch(e => {
       logger.warn(e.toString())
       // if(e.toString().includes('Blockhash not found')) {

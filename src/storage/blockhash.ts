@@ -27,7 +27,7 @@ export class BlockHashStorage extends BaseStorage {
     }
 
     async set(data: BlockhashData) {
-        if(data.latestSlot - this.latestSlot > 50) {
+        if(data.latestSlot - this.latestSlot > 2) {
             this.recentBlockhash = data.recentBlockhash
             this.latestSlot = data.latestSlot
             this.latestBlockHeight = data.latestBlockHeight

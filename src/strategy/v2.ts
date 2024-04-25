@@ -112,22 +112,23 @@ async function processSell(
   // Check if the we have confirmed balance before
   // executing sell
   const balance = await tokenBalances.get(mint)
+  
   if(balance === undefined) { return }
 
   if(balance && !balance.remaining.isZero()) {
     if(!balance.remaining.isNeg()) {
 
-      logger.info(new Date(), `SELL | ${mint.toBase58()} ${balance?.total.toString()} | ${balance?.remaining.toString()}`)
+      logger.info(new Date(), `SELL | ${mint.toBase58()}`)
       const signature = await sellToken(
         poolKeys, 
         ata, 
-        balance.chuck,
+        balance.chunk,
         useBundle,
         config,
         expectedProfit
       )
 
-      balance.remaining = balance.remaining.sub(balance.chuck)
+      balance.remaining = balance.remaining.sub(balance.chunk)
       tokenBalances.set(mint, balance)
       logger.info(`SELL TX ${ammId} | ${signature}`)
     } else {
@@ -161,7 +162,6 @@ const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BN, e
     //   }
     // )
     let block = await blockhasher.get()
-    console.log(block)
     const transaction = await BotLiquidity.makeSimpleSwapInstruction(
       keys,
       'in',
@@ -387,36 +387,36 @@ const processInitialize2 = async (instruction: TxInstruction, txPool: TxPool, at
 
 
 // TODO: move to payer-listener.ts
-const updateTokenBalance = async (ammId: PublicKey, mint: PublicKey, amount: BN, lpCount: number | undefined) => {
-  if(amount.isNeg()) { // SELL
-    const prevBalance = await tokenBalances.get(mint);
-    if (prevBalance !== undefined && !prevBalance.remaining.isNeg()) {
-      prevBalance.remaining = prevBalance.remaining.sub(amount.abs());
+// const updateTokenBalance = async (ammId: PublicKey, mint: PublicKey, amount: BN, lpCount: number | undefined) => {
+//   if(amount.isNeg()) { // SELL
+//     const prevBalance = await tokenBalances.get(mint);
+//     if (prevBalance !== undefined && !prevBalance.remaining.isNeg()) {
+//       prevBalance.remaining = prevBalance.remaining.sub(amount.abs());
 
-      // No more balance, remove from tracking
-      if(prevBalance.remaining.isNeg()) {
-        tokenBalances.isUsedUp(ammId)
-        trackedPoolKeys.remove(ammId)
-      } else {
-        tokenBalances.set(mint, prevBalance); 
-      }
-    }
-  } else { // BUY
-    let chuck = amount.divn(SystemConfig.get('tx_balance_chuck_division'))
-    tokenBalances.set(mint, {
-      total: amount,
-      remaining: amount,
-      chuck,
-      isUsedUp: false,
-      isConfirmed: true
-    });
+//       // No more balance, remove from tracking
+//       if(prevBalance.remaining.isNeg()) {
+//         tokenBalances.isUsedUp(ammId)
+//         trackedPoolKeys.remove(ammId)
+//       } else {
+//         tokenBalances.set(mint, prevBalance); 
+//       }
+//     }
+//   } else { // BUY
+//     let chunk = amount.divn(SystemConfig.get('tx_balance_chuck_division'))
+//     tokenBalances.set(mint, {
+//       total: amount,
+//       remaining: amount,
+//       chunk,
+//       isUsedUp: false,
+//       isConfirmed: true
+//     });
 
-    if(lpCount === undefined) {
-      await countLiquidityPool.set(ammId, 1)
-    }
-  }
-  return
-}
+//     if(lpCount === undefined) {
+//       await countLiquidityPool.set(ammId, 1)
+//     }
+//   }
+//   return
+// }
 
 // Most Raydium transaction is using swapBaseIn, so the bot need to figure out if this transaction
 // is "in" @ "out" direction. This can be achieved by checking the mint token balance in transaction, 

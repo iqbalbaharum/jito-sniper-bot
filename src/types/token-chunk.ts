@@ -3,7 +3,7 @@ import BN from "bn.js"
 export type TokenChunk = {
     total: BN,
     remaining: BN,
-    chuck: BN,
+    chunk: BN,
     isConfirmed: boolean,
     isUsedUp: boolean
 }

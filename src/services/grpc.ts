@@ -74,6 +74,12 @@ export class BotgRPC {
 		this.write()
 	}
 
+	setCommitment (commitment: CommitmentLevel) {
+		this.gRequest.commitment = commitment
+
+		this.write()
+	}
+
 	addBlock = (request: RequestBlock) => {
 		this.gRequest.blocks['blocks'] = {
 			includeTransactions: false,
