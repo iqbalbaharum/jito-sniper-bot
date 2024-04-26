@@ -345,7 +345,7 @@ const processSwapBaseIn = async (
       tokenBalances.set(state.mint.toBase58(), {
         total: txAmount,
         remaining: txAmount,
-        chuck: new BN(0),
+        chunk: new BN(0),
         isConfirmed: false,
         isUsedUp: false
       });
