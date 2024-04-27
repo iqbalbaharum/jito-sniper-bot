@@ -98,7 +98,7 @@ async function processSell(
   mint: PublicKey,
   useBundle: boolean,
   config: {
-    blockhash: String
+    blockhash: string
     compute: TransactionCompute
   },
   poolKeys?: LiquidityPoolKeysV4, 
@@ -161,7 +161,7 @@ const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BN, e
     //     blockhash
     //   }
     // )
-    let block = await blockhasher.get()
+    // let block = await blockhasher.get()
     const transaction = await BotLiquidity.makeSimpleSwapInstruction(
       keys,
       'in',
@@ -172,9 +172,9 @@ const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BN, e
       {
         compute: {
           microLamports: 500000,
-          units: 55000
+          units: 60000
         },
-        blockhash: block.recentBlockhash
+        blockhash
       }
     );
 
@@ -204,7 +204,7 @@ const sellToken = async (
   amount: BN,
   useBundle: boolean,
   config: {
-    blockhash: String
+    blockhash: string
     compute: TransactionCompute
   },
   expectedProfit: BN = new BN(0)) => {
@@ -307,7 +307,7 @@ const burstSellAfterLP = async(ammId: PublicKey, ata: PublicKey, blockhash: stri
         false,
         {
           compute: {
-            units: 55000,
+            units: 35000,
             microLamports: 500000
           },
           blockhash
@@ -558,7 +558,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
     // The strategy similar as bot v3 (old). On every trade triggered,
     // burst out a number of txs (chunk)
     let blockhash = txPool.mempoolTxns.recentBlockhash
-    let units = 55000
+    let units = 35000
     let microLamports = 500000
 
     logger.warn(`Entry ${ammId} | ${state.mint.toBase58()} | ${amount} SOL`)

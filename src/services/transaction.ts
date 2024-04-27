@@ -195,11 +195,26 @@ export class BotTransaction {
     return signature
   }
 
-  static async getExpectedComputeUnitFromTransactions (conn: Connection, instructions: TransactionInstruction[]) {
-    let cu = await getSimulationComputeUnits(conn, instructions, payer.publicKey, [])
-    if(!cu) { return 0 }
+  static async getExpectedComputeUnitFromTransactions (conn: Connection, instructions: TransactionInstruction[], blockhash: string) : Promise<number> {
+    // let cu = await getSimulationComputeUnits(conn, instructions, payer.publicKey, [])
+    const simulatedMessageV0 = new TransactionMessage({
+			payerKey: payer.publicKey,
+			recentBlockhash: blockhash,
+			instructions: [
+        ...instructions,
+			],
+		}).compileToV0Message()
 
-    return Math.ceil(cu * 1.01)
+		const simTx = new VersionedTransaction(simulatedMessageV0)
+
+		let cu = await conn.simulateTransaction(simTx, {
+      replaceRecentBlockhash: true,
+      commitment: 'confirmed'
+    })
+
+    if(!cu || !cu.value.unitsConsumed) { return 0 }
+
+    return Math.ceil(cu.value.unitsConsumed * 1.01)
   }
 
   static sendToSwapProgram = async (

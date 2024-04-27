@@ -58,6 +58,7 @@ import { redisClient } from '../adapter/redis'
 import { BotMarket } from './market'
 import { logger } from '../utils/logger'
 import { BotTransaction } from './transaction'
+import { BlockHashStorage } from '../storage'
 
 const getAccountPoolKeysFromAccountDataV4 = async (
 	id: PublicKey,
@@ -422,7 +423,7 @@ export class BotLiquidity {
 		amountOut: BigNumberish,
 		fixedSide: 'in' | 'out',
 		config?: {
-			blockhash?: String
+			blockhash?: string
 			compute?: TransactionCompute
 		}
 	): Promise<VersionedTransaction> => {
@@ -489,18 +490,24 @@ export class BotLiquidity {
 			fixedSide: fixedSide ? fixedSide : 'in',
 		})
 		
-		// const cu = await BotTransaction.getExpectedComputeUnitFromTransactions(connectionAlt1, [
-		// 	...startInstructions,
-		// 	...innerTransaction.instructions
-		//   ])
+		// const cu = await BotTransaction.getExpectedComputeUnitFromTransactions(
+		// 	connectionAlt1, 
+		// 	[
+		// 		...startInstructions,
+		// 		...innerTransaction.instructions
+		// 	],
+		// 	blockhash
+		// )
+
+		// console.log(cu)
 
 		let computeInstructions: TransactionInstruction[] = []
 
 		if (config?.compute && config?.compute.units > 0) {
 			computeInstructions.push(
 				ComputeBudgetProgram.setComputeUnitLimit({
-					// units: config.compute.units,
-					units: 55000
+					// units: cu || 60000,
+					units: config.compute.units
 				})
 			)
 		}

@@ -58,7 +58,7 @@ const processBuy = async (
   ata: PublicKey, 
   amount: BN,
   config: {
-    blockhash: String
+    blockhash: string
     compute: TransactionCompute
   }) => {
   
@@ -110,7 +110,7 @@ async function processSell(
   mint: PublicKey, 
   originalAmount: BN,
   config: {
-    blockhash: String
+    blockhash: string
     compute: TransactionCompute
   },
   poolKeys?: LiquidityPoolKeysV4) {
@@ -148,7 +148,7 @@ const buyToken = async (
   ata: PublicKey, 
   amount: BigNumberish, 
   config: {
-    blockhash: String
+    blockhash: string
     compute: TransactionCompute
   }) => {
   try {
@@ -181,7 +181,7 @@ const sellToken = async (
   ata: PublicKey,
   amount: BN,
   config: {
-    blockhash: String
+    blockhash: string
     compute: TransactionCompute
   }) => {
   try {
