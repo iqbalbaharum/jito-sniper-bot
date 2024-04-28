@@ -553,6 +553,8 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   
   const amount = parseFloat(txSolAmount.abs().toString()) / LAMPORTS_PER_SOL
   
+  let block = await blockhasher.get()
+
   if(isBuyTradeAction && amount >= SystemConfig.get('min_sol_trigger')) {
     const totalChunck = SystemConfig.get('tx_balance_chuck_division')
     // The strategy similar as bot v3 (old). On every trade triggered,
@@ -580,6 +582,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
         new BN(amount * LAMPORTS_PER_SOL)
       )
 
+      blockhash = block.recentBlockhash
       sleep(2000)
     }
     
