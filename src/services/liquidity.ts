@@ -148,6 +148,7 @@ export class BotLiquidity {
 
 		if(stateData) {
 
+			
 			let state = LIQUIDITY_STATE_LAYOUT_V4.decode(Buffer.from(stateData, 'hex'))
 			
 			let mint: PublicKey
@@ -158,11 +159,12 @@ export class BotLiquidity {
 			}
 			
 			let marketData = await redisClient.hGet(`${mint.toBase58()}`, 'market')
-
+			
 			let market: MarketStateV3 | undefined
 			if(marketData) {
 				market = MARKET_STATE_LAYOUT_V3.decode(Buffer.from(marketData, 'hex'));
 			} else {
+				logger.info(`Read market from JSON RPC`)
 				market = await BotMarket.getMarketV3(state.marketId)
 			}
 

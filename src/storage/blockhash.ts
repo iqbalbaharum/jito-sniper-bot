@@ -38,23 +38,23 @@ export class BlockHashStorage extends BaseStorage {
     }
 
     async get() : Promise<BlockhashData> {
-        // let data = await this.client.hGet('recent', this.key)
-        // return this.deserialize(data)
+        let data = await this.client.hGet('recent', this.key)
+        return this.deserialize(data)
 
-        let currSlot = await connection.getSlot('confirmed')
-        if(currSlot - this.latestSlot > 50) {
-            let block = await connection.getLatestBlockhashAndContext('confirmed')
+        // let currSlot = await connection.getSlot('confirmed')
+        // if(currSlot - this.latestSlot > 50) {
+        //     let block = await connection.getLatestBlockhashAndContext('confirmed')
             
-            this.recentBlockhash = block.value.blockhash
-            this.latestBlockHeight = block.value.lastValidBlockHeight
-            this.latestSlot = block.context.slot
-        }
-        
-        return {
-            recentBlockhash: this.recentBlockhash,
-            latestBlockHeight: this.latestBlockHeight,
-            latestSlot: this.latestSlot
-        }
+        //     this.recentBlockhash = block.value.blockhash
+        //     this.latestBlockHeight = block.value.lastValidBlockHeight
+        //     this.latestSlot = block.context.slot
+        // }
+
+        // return {
+        //     recentBlockhash: this.recentBlockhash,
+        //     latestBlockHeight: this.latestBlockHeight,
+        //     latestSlot: this.latestSlot
+        // }
     }
 
     private serialize = (data: BlockhashData) => {

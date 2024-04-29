@@ -33,7 +33,6 @@ const processBuy = async (ammId: PublicKey, ata: PublicKey, blockhash: string) =
   const poolKeys = await BotLiquidity.getAccountPoolKeys(ammId)
 
   if(!poolKeys) { return }
-  
   // Check the pool open time before proceed,
   // If the pool is not yet open, then sleep before proceeding
   // At configuration to check if for how long the system willing to wait
@@ -52,7 +51,7 @@ const processBuy = async (ammId: PublicKey, ata: PublicKey, blockhash: string) =
   // Cancel process if pair is not WSOL
   if(info.mint === undefined) { return }
   
-  if(!poolKeys) { return }
+  // if(!poolKeys) { return }
   
   logger.info(new Date(), `BUY ${ammId.toBase58()} | ${info.mint.toBase58()}`)
   
@@ -306,7 +305,7 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
 
 const processInitialize2 = async (instruction: TxInstruction, txPool: TxPool, ata: PublicKey) => {
   const tx = txPool.mempoolTxns
-
+  
   const accountIndexes: number[] = instruction.accounts || []
   const lookupsForAccountKeyIndex: LookupIndex[] = BotLookupTable.generateTableLookup(tx.addressTableLookups)
 
