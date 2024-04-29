@@ -106,7 +106,7 @@ const process = async (tx: TxPool, instruction: TxInstruction) => {
 }
 
 const getTransaction = async (signature: string) : Promise<TxPool> => {
-  
+  logger.info(`Incoming signature: ${signature}`)
   // fetch transaction
   let transaction = null
   while(transaction === null) {
@@ -118,7 +118,7 @@ const getTransaction = async (signature: string) : Promise<TxPool> => {
   }
 
   let txPool = BotTransaction.formatTransactionToTxPool('payer_wallet_tx', transaction)
-  
+  console.log(txPool.mempoolTxns.err)
   return txPool
 }
 
@@ -166,6 +166,7 @@ async function processTx(signature: string) {
     console.log(e)
   }
 }
+
 async function main() {
     let botGrpc = new BotgRPC(GRPC_URL, GRPC_TOKEN)
     botGrpc.addAccount({

@@ -1,5 +1,6 @@
 import { connection } from "../adapter/rpc";
 import { StorageKeys } from "../types/storage-keys";
+import { logger } from "../utils/logger";
 import { BaseStorage } from "./base-storage";
 
 export type BlockhashData = {
@@ -39,11 +40,20 @@ export class BlockHashStorage extends BaseStorage {
     async get() : Promise<BlockhashData> {
         // let data = await this.client.hGet('recent', this.key)
         // return this.deserialize(data)
-        let block = await connection.getLatestBlockhashAndContext('confirmed')
+
+        let currSlot = await connection.getSlot('confirmed')
+        if(currSlot - this.latestSlot > 50) {
+            let block = await connection.getLatestBlockhashAndContext('confirmed')
+            
+            this.recentBlockhash = block.value.blockhash
+            this.latestBlockHeight = block.value.lastValidBlockHeight
+            this.latestSlot = block.context.slot
+        }
+        
         return {
-            recentBlockhash: block.value.blockhash,
-            latestBlockHeight: block.value.lastValidBlockHeight,
-            latestSlot: block.context.slot
+            recentBlockhash: this.recentBlockhash,
+            latestBlockHeight: this.latestBlockHeight,
+            latestSlot: this.latestSlot
         }
     }
 

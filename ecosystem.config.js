@@ -24,6 +24,13 @@ module.exports = {
       autorestart: true,
       watch: false,
     },
+    {
+      name: 'openbook',
+      script: './build/src/tools/openbook-listener.js',
+      instances: 1,
+      autorestart: true,
+      watch: false,
+    },
     // {
     //   name: 'blockhasher',
     //   script: './build/src/tools/blockhasher.js',
@@ -44,6 +51,6 @@ module.exports = {
       instances: 1,
       autorestart: true,
       watch: false,
-    },
+    }
   ]
 }

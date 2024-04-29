@@ -152,6 +152,16 @@ const buyToken = async (
     compute: TransactionCompute
   }) => {
   try {
+
+    let alts: AddressLookupTableAccount[] = []
+    let raydiumAlt = SystemConfig.get('raydium_alt')
+    if(raydiumAlt) {
+      let alt = await lookupTable.getLookupTable(new PublicKey(raydiumAlt))
+      if(alt) {
+        alts.push(alt)
+      }
+    }
+
     const transaction = await BotLiquidity.makeSimpleSwapInstruction(
       keys,
       'in',
@@ -159,7 +169,10 @@ const buyToken = async (
       amount,
       0,
       'in',
-      config
+      {
+        ...config,
+        alts
+      }
     );
     
     // const arb: ArbIdea = {
@@ -185,6 +198,16 @@ const sellToken = async (
     compute: TransactionCompute
   }) => {
   try {
+
+    let alts: AddressLookupTableAccount[] = []
+    let raydiumAlt = SystemConfig.get('raydium_alt')
+    if(raydiumAlt) {
+      let alt = await lookupTable.getLookupTable(new PublicKey(raydiumAlt))
+      if(alt) {
+        alts.push(alt)
+      }
+    }
+
     const transaction = await BotLiquidity.makeSimpleSwapInstruction(
       keys,
       'out',
@@ -192,7 +215,10 @@ const sellToken = async (
       amount,
       0,
       'in',
-      config
+      {
+        ...config,
+        alts
+      }
     );
     
     // const arb: ArbIdea = {

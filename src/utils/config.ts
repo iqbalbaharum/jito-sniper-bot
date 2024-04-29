@@ -209,6 +209,12 @@ const config = convict({
         format: String,
         default: 'queueName',
         env: 'QUEUE_NAME'
+    },
+    // ALT
+    raydium_alt: {
+        format: String,
+        default: '',
+        env: 'RAYDIUM_ALT'
     }
 })
 

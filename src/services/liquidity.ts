@@ -17,25 +17,20 @@ import {
 	MAINNET_PROGRAM_ID,
 	MARKET_STATE_LAYOUT_V3,
 	Market,
-	MarketStateLayoutV3,
 	MarketStateV3,
 	ONE,
 	Percent,
 	Price,
-	StableModelLayout,
 	Token,
 	TokenAmount,
 	ZERO,
-	getDxByDyBaseIn,
-	getDyByDxBaseIn,
-	getStablePrice,
-	parseBigNumberish,
 } from '@raydium-io/raydium-sdk'
 import { connection, connectionAlt1 } from '../adapter/rpc'
 import { MINIMAL_MARKET_STATE_LAYOUT_V3, MinimalMarketLayoutV3 } from '../types/market'
 import { config } from '../utils/config'
 import {
   AccountInfo,
+	AddressLookupTableAccount,
 	Commitment,
 	ComputeBudgetProgram,
 	LAMPORTS_PER_SOL,
@@ -59,6 +54,8 @@ import { BotMarket } from './market'
 import { logger } from '../utils/logger'
 import { BotTransaction } from './transaction'
 import { BlockHashStorage } from '../storage'
+import { lookupTable } from '../adapter/storage'
+import { config as SystemConfig } from "../utils";
 
 const getAccountPoolKeysFromAccountDataV4 = async (
 	id: PublicKey,
@@ -423,8 +420,9 @@ export class BotLiquidity {
 		amountOut: BigNumberish,
 		fixedSide: 'in' | 'out',
 		config?: {
-			blockhash?: string
-			compute?: TransactionCompute
+			blockhash?: string,
+			compute?: TransactionCompute,
+			alts: AddressLookupTableAccount[]
 		}
 	): Promise<VersionedTransaction> => {
 		let tokenAccountIn
@@ -528,7 +526,7 @@ export class BotLiquidity {
 				...startInstructions,
 				...innerTransaction.instructions,
 			],
-		}).compileToV0Message()
+		}).compileToV0Message(config?.alts ?? [])
 
 		const transaction = new VersionedTransaction(messageV0)
 

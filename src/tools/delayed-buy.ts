@@ -2,12 +2,12 @@ import { Job, Worker } from "bullmq"
 import { config as SystemConfig } from "../utils"
 import { logger } from "../utils/logger";
 import { BotLiquidity, setupWSOLTokenAccount } from "../services";
-import { Connection, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
+import { AddressLookupTableAccount, Connection, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
 import { BotTransaction } from "../services/transaction";
 import { connection, lite_rpc } from "../adapter/rpc";
 import { LiquidityPoolKeysV4 } from "@raydium-io/raydium-sdk";
-import { blockhasher, existingMarkets, mints, trackedPoolKeys } from "../adapter/storage";
+import { blockhasher, existingMarkets, lookupTable, mints, trackedPoolKeys } from "../adapter/storage";
 
 const processBuy = async (ammId: PublicKey, ata: PublicKey) => {
   
@@ -48,6 +48,16 @@ const processBuy = async (ammId: PublicKey, ata: PublicKey) => {
 
 const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BN) => {
   try {
+
+		let alts: AddressLookupTableAccount[] = []
+    let raydiumAlt = SystemConfig.get('raydium_alt')
+    if(raydiumAlt) {
+      let alt = await lookupTable.getLookupTable(new PublicKey(raydiumAlt))
+      if(alt) {
+        alts.push(alt)
+      }
+    }
+
     let block = await blockhasher.get()
     const transaction = await BotLiquidity.makeSimpleSwapInstruction(
       keys,
@@ -61,7 +71,8 @@ const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BN) =
           microLamports: 500000,
           units: 60000
         },
-        blockhash: block.recentBlockhash
+        blockhash: block.recentBlockhash,
+				alts
       }
     );
 

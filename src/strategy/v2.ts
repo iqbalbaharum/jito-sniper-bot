@@ -113,8 +113,7 @@ async function processSell(
         ata, 
         balance.chunk,
         useBundle,
-        config,
-        expectedProfit
+        config
       )
 
       balance.remaining = balance.remaining.sub(balance.chunk)
@@ -128,29 +127,16 @@ async function processSell(
 
 const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BN, expectedProfit: BN, blockhash?: string) => {
   try {
-    // const {sourceAccountIn, destinationAccountIn, startInstructions} = await BotLiquidity.getSourceDestinationTokenAccount(
-    //   keys,
-    //   'in',
-    //   ata
-    // )
 
-    // return await BotTransaction.sendToSwapProgram(
-    //   connection,
-    //   keys,
-    //   sourceAccountIn,
-    //   destinationAccountIn,
-    //   amount,
-    //   new BN(0),
-    //   startInstructions,
-    //   {
-    //     compute: {
-    //       microLamports: 500000,
-    //       units: 55000
-    //     },
-    //     blockhash
-    //   }
-    // )
-    // let block = await blockhasher.get()
+    let alts: AddressLookupTableAccount[] = []
+    let raydiumAlt = SystemConfig.get('raydium_alt')
+    if(raydiumAlt) {
+      let alt = await lookupTable.getLookupTable(new PublicKey(raydiumAlt))
+      if(alt) {
+        alts.push(alt)
+      }
+    }
+
     const transaction = await BotLiquidity.makeSimpleSwapInstruction(
       keys,
       'in',
@@ -161,9 +147,10 @@ const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BN, e
       {
         compute: {
           microLamports: 500000,
-          units: 60000
+          units: 60000,
         },
-        blockhash
+        blockhash,
+        alts
       }
     );
 
@@ -195,28 +182,17 @@ const sellToken = async (
   config: {
     blockhash: string
     compute: TransactionCompute
-  },
-  expectedProfit: BN = new BN(0)) => {
+  }) => {
   try {
 
-    // const {sourceAccountIn, destinationAccountIn, startInstructions} = await BotLiquidity.getSourceDestinationTokenAccount(
-    //   keys,
-    //   'out',
-    //   ata
-    // )
-
-    // return await BotTransaction.sendToSwapProgram(
-    //   connection,
-    //   keys,
-    //   sourceAccountIn,
-    //   destinationAccountIn,
-    //   amount,
-    //   new BN(0),
-    //   startInstructions,
-    //   {
-    //     compute: config.compute,
-    //   }
-    // )
+    let alts: AddressLookupTableAccount[] = []
+    let raydiumAlt = SystemConfig.get('raydium_alt')
+    if(raydiumAlt) {
+      let alt = await lookupTable.getLookupTable(new PublicKey(raydiumAlt))
+      if(alt) {
+        alts.push(alt)
+      }
+    }
 
     const transaction = await BotLiquidity.makeSimpleSwapInstruction(
       keys,
@@ -225,25 +201,12 @@ const sellToken = async (
       amount,
       0,
       'in',
-      config
+      {
+        ...config,
+        alts
+      }
     );
-    
-    // if(useBundle) {
-    //   let expected = new BN(0)
-    //   if(!expectedProfit.isZero()) {
-    //     expected = expectedProfit
-    //   }
-    
-    //   const arb: ArbIdea = {
-    //     vtransaction: transaction,
-    //     expectedProfit: expected
-    //   }
-
-    //   return await submitBundle(arb)
-    // } else {
-    //   return await BotTransaction.sendTransaction(transaction, SystemConfig.get('default_commitment') as Commitment)
-    // }
-
+  
     let selectedConnection: Connection = connection
     if(SystemConfig.get('use_lite_rpc')) {
       selectedConnection = lite_rpc

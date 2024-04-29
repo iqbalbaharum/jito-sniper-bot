@@ -1,4 +1,4 @@
-import { AddressLookupTableAccount, PublicKey } from "@solana/web3.js";
+import { AddressLookupTableAccount, AddressLookupTableProgram, PublicKey } from "@solana/web3.js";
 import { BaseStorage } from "./base-storage";
 import { StorageKeys } from "../types/storage-keys";
 

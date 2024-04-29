@@ -207,7 +207,7 @@ export class BotTransaction {
 		}).compileToV0Message()
 
 		const simTx = new VersionedTransaction(simulatedMessageV0)
-
+    
 		let cu = await conn.simulateTransaction(simTx, {
       replaceRecentBlockhash: true,
       commitment: 'confirmed'
