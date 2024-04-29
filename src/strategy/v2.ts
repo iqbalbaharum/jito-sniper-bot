@@ -8,7 +8,7 @@ import BN from "bn.js";
 import { JUPITER_ADDRESS, OPENBOOK_V1_ADDRESS, RAYDIUM_AUTHORITY_V4_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, WSOL_ADDRESS } from "../utils/const";
 import { config as SystemConfig, config } from "../utils/config";
 import { BotTokenAccount, setupWSOLTokenAccount } from "../services/token-account";
-import { BotLiquidity, BotLookupTable, getLiquidityMintState, getTokenInWallet } from "../services";
+import { BotLiquidity, BotLookupTable, BotMarket, getLiquidityMintState, getTokenInWallet } from "../services";
 import sleep from "atomic-sleep";
 import { submitBundle } from "../services/bundle";
 import { mainSearcherClient } from "../adapter/jito";
@@ -23,19 +23,8 @@ import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import { ASSOCIATED_TOKEN_PROGRAM_ID, AccountLayout } from "@solana/spl-token";
 import { IxSwapBaseIn } from "../utils/coder/layout";
 import { payer } from "../adapter/payer";
-import { BlockHashStorage, CountLiquidityPoolStorage, ExistingRaydiumMarketStorage, MintStorage, PoolKeysStorage, TokenChunkStorage } from "../storage";
 import { mempool } from "../generators";
-import { BotgRPC } from "../services/grpc";
-import { redisClient } from "../adapter/redis";
-
-let mints: MintStorage
-let tokenBalances: TokenChunkStorage
-let lookupTable: BotLookupTable
-let botTokenAccount: BotTokenAccount
-let existingMarkets: ExistingRaydiumMarketStorage
-let countLiquidityPool: CountLiquidityPoolStorage
-let trackedPoolKeys: PoolKeysStorage;
-let blockhasher: BlockHashStorage
+import { blockhasher, countLiquidityPool, existingMarkets, lookupTable, mints, tokenBalances, trackedPoolKeys } from "../adapter/storage";
 
 const coder = new RaydiumAmmCoder(raydiumIDL as Idl)
 
@@ -52,7 +41,8 @@ const processBuy = async (ammId: PublicKey, ata: PublicKey, blockhash: string) =
   if (different > 0) {
     logger.warn(`Sleep ${ammId} | ${different} ms`)
     if (different <= SystemConfig.get('pool_opentime_wait_max')) {
-      await sleep(different);
+      // await sleep(different);
+      BotMarket.addDelayedMarket(ammId, different)
     } else {
       return;
     }
@@ -372,13 +362,6 @@ const processInitialize2 = async (instruction: TxInstruction, txPool: TxPool, at
 
   if(!ammId) { return }
 
-  // if(!countLiquidityPool.has(ammId.toBase58())) {
-  //   countLiquidityPool.set(ammId.toBase58(), 1)
-  //   logger.warn(`LP ${ammId} | ${1} | ${txPool.mempoolTxns.signature}`)
-  // } else {
-  //   let count: number = countLiquidityPool.get(ammId.toBase58()) || 0
-  //   logger.warn(`LP ${ammId} | ${count} | ${txPool.mempoolTxns.signature}`)
-  // }
   if(await existingMarkets.isExisted(ammId)) {
     return
   }
@@ -387,39 +370,6 @@ const processInitialize2 = async (instruction: TxInstruction, txPool: TxPool, at
   // await processBuy(ammId, ata, txPool.mempoolTxns.recentBlockhash)
   await processBuy(ammId, ata, block.recentBlockhash)
 }
-
-
-// TODO: move to payer-listener.ts
-// const updateTokenBalance = async (ammId: PublicKey, mint: PublicKey, amount: BN, lpCount: number | undefined) => {
-//   if(amount.isNeg()) { // SELL
-//     const prevBalance = await tokenBalances.get(mint);
-//     if (prevBalance !== undefined && !prevBalance.remaining.isNeg()) {
-//       prevBalance.remaining = prevBalance.remaining.sub(amount.abs());
-
-//       // No more balance, remove from tracking
-//       if(prevBalance.remaining.isNeg()) {
-//         tokenBalances.isUsedUp(ammId)
-//         trackedPoolKeys.remove(ammId)
-//       } else {
-//         tokenBalances.set(mint, prevBalance); 
-//       }
-//     }
-//   } else { // BUY
-//     let chunk = amount.divn(SystemConfig.get('tx_balance_chuck_division'))
-//     tokenBalances.set(mint, {
-//       total: amount,
-//       remaining: amount,
-//       chunk,
-//       isUsedUp: false,
-//       isConfirmed: true
-//     });
-
-//     if(lpCount === undefined) {
-//       await countLiquidityPool.set(ammId, 1)
-//     }
-//   }
-//   return
-// }
 
 // Most Raydium transaction is using swapBaseIn, so the bot need to figure out if this transaction
 // is "in" @ "out" direction. This can be achieved by checking the mint token balance in transaction, 
@@ -653,15 +603,6 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
       return 
     }
 
-    lookupTable = new BotLookupTable(redisClient, false)
-    botTokenAccount = new BotTokenAccount(redisClient, true)
-    existingMarkets = new ExistingRaydiumMarketStorage(redisClient, true)
-    countLiquidityPool = new CountLiquidityPoolStorage(redisClient, true)
-    tokenBalances = new TokenChunkStorage(redisClient, true)
-    trackedPoolKeys = new PoolKeysStorage(redisClient, true)
-    mints = new MintStorage(redisClient, true)
-    blockhasher = new BlockHashStorage(redisClient)
-    
     const mempoolUpdates = mempool([
       RAYDIUM_AUTHORITY_V4_ADDRESS, 
       payer.publicKey.toBase58(),

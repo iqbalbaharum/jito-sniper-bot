@@ -3,6 +3,7 @@ import { MARKET_STATE_LAYOUT_V3, MarketStateV3 } from '@raydium-io/raydium-sdk';
 import { MINIMAL_MARKET_STATE_LAYOUT_V3, MinimalMarketLayoutV3 } from '../types';
 import { connection } from '../adapter/rpc';
 import { config } from '../utils';
+import { delayedQueue } from '../adapter/queue';
 
 export class BotMarket {
   static async getMinimalMarketV3(
@@ -39,7 +40,9 @@ export class BotMarket {
     }
   }
 
-  static deserializeMarket(market: string) {
-    
+  // Add delayed market
+  // Because of the nature of NodeJS scheduling, we add 100 ms delayed
+  static async addDelayedMarket(ammId: PublicKey, delayInMs: number) {
+    await delayedQueue.add(config.get('queue_name'), ammId.toBase58(), { delay: delayInMs + 100 })
   }
 }

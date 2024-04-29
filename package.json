@@ -13,6 +13,7 @@
     "listener:market": "ts-node src/tools/market-listener.ts",
     "tool:blockhasher": "ts-node src/tools/blockhasher.ts",
     "tool:payer": "ts-node src/tools/payer-listener.ts",
+    "tool:delayedbuy": "ts-node src/tools/delayed-buy.ts",
     "listener:ammnetflow": "ts-node src/tools/amm-netflow-listener.ts",
     "build": "tsc -p tsconfig.json",
     "start_server": "pm2 start ecosystem.config.js"

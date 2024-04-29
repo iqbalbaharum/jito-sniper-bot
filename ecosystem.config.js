@@ -38,5 +38,12 @@ module.exports = {
       autorestart: true,
       watch: false,
     },
+    {
+      name: 'delayed-buy',
+      script: './build/src/tools/delayed-buy.js',
+      instances: 1,
+      autorestart: true,
+      watch: false,
+    },
   ]
 }

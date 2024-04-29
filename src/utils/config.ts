@@ -192,6 +192,23 @@ const config = convict({
         format: String,
         default: '',
         env: 'GRPC_2_TOKEN'
+    },
+    // REDIS
+    redis_host: {
+        format: String,
+        default: 'localhost',
+        env: 'REDIS_HOST'
+    },
+    redis_port: {
+        format: Number,
+        default: 6379,
+        env: 'REDIS_PORT'
+    },
+    // QUEUE
+    queue_name: {
+        format: String,
+        default: 'queueName',
+        env: 'QUEUE_NAME'
     }
 })
 
