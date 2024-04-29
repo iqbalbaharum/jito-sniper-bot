@@ -81,7 +81,20 @@ const process = async (tx: TxPool, instruction: TxInstruction) => {
 
   let ammId = await getAmmId(tx, instruction)
   if(!ammId) { return }
+  
   logger.info(`Processing ${ammId} | ${tx.mempoolTxns.signature}`)
+
+  if(tx.mempoolTxns.err !== undefined && tx.mempoolTxns.err && tx.mempoolTxns.err > 0) {
+    logger.warn(`Token used up ${ammId}`)
+    switch(tx.mempoolTxns.err) {
+      case 40:
+        tokenBalances.isUsedUp(ammId)
+        trackedPoolKeys.remove(ammId)
+        break;
+    }
+    return
+  }
+
   const state = await mints.get(ammId!)
   if(!state) { return }
 
@@ -93,7 +106,6 @@ const process = async (tx: TxPool, instruction: TxInstruction) => {
 }
 
 const getTransaction = async (signature: string) : Promise<TxPool> => {
-
   
   // fetch transaction
   let transaction = null
@@ -106,7 +118,7 @@ const getTransaction = async (signature: string) : Promise<TxPool> => {
   }
 
   let txPool = BotTransaction.formatTransactionToTxPool('payer_wallet_tx', transaction)
-
+  
   return txPool
 }
 
@@ -156,7 +168,6 @@ async function processTx(signature: string) {
 }
 async function main() {
     let botGrpc = new BotgRPC(GRPC_URL, GRPC_TOKEN)
-
     botGrpc.addAccount({
       name: 'my_wallet',
       owner: [],

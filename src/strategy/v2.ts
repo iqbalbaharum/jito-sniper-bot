@@ -41,8 +41,8 @@ const processBuy = async (ammId: PublicKey, ata: PublicKey, blockhash: string) =
   if (different > 0) {
     logger.warn(`Sleep ${ammId} | ${different} ms`)
     if (different <= SystemConfig.get('pool_opentime_wait_max')) {
-      // await sleep(different);
       BotMarket.addDelayedMarket(ammId, different)
+      return
     } else {
       return;
     }
@@ -486,9 +486,6 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   // This function to calculate the latest balance token in payer wallet.
   // The getBalanceFromTransaction, can identify if the tx is BUY @ SELL call
   if(sourceTA.equals(ata) || signer.equals(payer.publicKey)) {
-    // logger.info(`Token update ${ammId}`)
-    // updateTokenBalance(ammId, state.mint, txAmount, count)
-    
     return
   }
 

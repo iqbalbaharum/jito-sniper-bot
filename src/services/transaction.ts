@@ -1,7 +1,7 @@
 import { LiquidityPoolKeysV4, LiquidityStateV4, TxVersion } from "@raydium-io/raydium-sdk"
 import { connection, lite_rpc, httpOnlyRpcs, connectionAlt1 } from "../adapter/rpc"
 import { RAYDIUM_AUTHORITY_V4_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, USDC_ADDRESS, WSOL_ADDRESS, config as SystemConfig } from "../utils";
-import { BlockhashWithExpiryBlockHeight, Commitment, ComputeBudgetProgram, Connection, PublicKey, RpcResponseAndContext, TransactionInstruction, TransactionMessage, Version, VersionedMessage, VersionedTransaction, VersionedTransactionResponse, sendAndConfirmRawTransaction } from "@solana/web3.js";
+import { BlockhashWithExpiryBlockHeight, Commitment, ComputeBudgetProgram, Connection, PublicKey, RpcResponseAndContext, TransactionError, TransactionInstruction, TransactionMessage, Version, VersionedMessage, VersionedTransaction, VersionedTransactionResponse, sendAndConfirmRawTransaction } from "@solana/web3.js";
 import { BotLiquidity } from "./liquidity";
 import BN from "bn.js";
 import { TransactionCompute, TxBalance, TxPool } from "../types";
@@ -157,7 +157,8 @@ export class BotTransaction {
         }),
         preTokenBalances,
         postTokenBalances,
-        computeUnitsConsumed: tx.meta?.computeUnitsConsumed || 0
+        computeUnitsConsumed: tx.meta?.computeUnitsConsumed || 0,
+        err: (tx.meta?.err! as any)?.InstructionError[1].Custom ?? undefined
       },
       timing: {
         listened: new Date().getTime(),

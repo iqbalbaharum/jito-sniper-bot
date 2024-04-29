@@ -24,13 +24,13 @@ module.exports = {
       autorestart: true,
       watch: false,
     },
-    {
-      name: 'blockhasher',
-      script: './build/src/tools/blockhasher.js',
-      instances: 1,
-      autorestart: true,
-      watch: false,
-    },
+    // {
+    //   name: 'blockhasher',
+    //   script: './build/src/tools/blockhasher.js',
+    //   instances: 1,
+    //   autorestart: true,
+    //   watch: false,
+    // },
     {
       name: 'payer',
       script: './build/src/tools/payer-listener.js',

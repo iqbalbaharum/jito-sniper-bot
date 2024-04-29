@@ -43,7 +43,8 @@ export type MempoolTransaction = {
 	addressTableLookups: TxAddressLookupTable[],
 	preTokenBalances: TxBalance[]
 	postTokenBalances: TxBalance[]
-	computeUnitsConsumed: number
+	computeUnitsConsumed: number,
+	err?: number | null
 }
 
 export type LookupIndex = {
