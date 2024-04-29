@@ -41,6 +41,7 @@
     "@types/redis": "^4.0.11",
     "atomic-sleep": "^1.0.0",
     "bs58": "^5.0.0",
+    "bullmq": "^5.7.6",
     "convict": "^6.2.4",
     "decimal.js": "^10.4.3",
     "dotenv": "^16.4.4",

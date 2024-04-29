@@ -32,7 +32,7 @@ let countLiquidityPool = new CountLiquidityPoolStorage(redisClient, true)
 
 const updateTokenBalance = async (ammId: PublicKey, mint: PublicKey, amount: BN, lpCount: number | undefined) => {
   if(amount.isNeg()) { // SELL
-    const prevBalance = await tokenBalances.get(mint);
+    const prevBalance = await tokenBalances.get(ammId);
     if (prevBalance !== undefined && !prevBalance.remaining.isNeg()) {
       prevBalance.remaining = prevBalance.remaining.sub(amount.abs());
 
@@ -41,12 +41,12 @@ const updateTokenBalance = async (ammId: PublicKey, mint: PublicKey, amount: BN,
         tokenBalances.isUsedUp(ammId)
         trackedPoolKeys.remove(ammId)
       } else {
-        tokenBalances.set(mint, prevBalance); 
+        tokenBalances.set(ammId, prevBalance); 
       }
     }
   } else { // BUY
     let chunk = amount.divn(SystemConfig.get('tx_balance_chuck_division'))
-    tokenBalances.set(mint, {
+    tokenBalances.set(ammId, {
       total: amount,
       remaining: amount,
       chunk,

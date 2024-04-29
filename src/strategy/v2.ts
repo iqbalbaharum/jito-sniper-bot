@@ -111,10 +111,9 @@ async function processSell(
 
   // Check if the we have confirmed balance before
   // executing sell
-  const balance = await tokenBalances.get(mint)
-  
+  const balance = await tokenBalances.get(ammId)
   if(balance === undefined) { return }
-
+  
   if(balance && !balance.remaining.isZero()) {
     if(!balance.remaining.isNeg()) {
 
@@ -337,8 +336,10 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
     if(await existingMarkets.isExisted(ammId)) {
       return
     }
-
-    await processBuy(ammId, ata, txPool.mempoolTxns.recentBlockhash)
+    
+    let block = await blockhasher.get()
+    // await processBuy(ammId, ata, txPool.mempoolTxns.recentBlockhash)
+    await processBuy(ammId, ata, block.recentBlockhash)
     await countLiquidityPool.set(ammId, 0)
   } else {
     await countLiquidityPool.set(ammId, count - 1)
@@ -382,7 +383,9 @@ const processInitialize2 = async (instruction: TxInstruction, txPool: TxPool, at
     return
   }
 
-  await processBuy(ammId, ata, txPool.mempoolTxns.recentBlockhash)
+  let block = await blockhasher.get()
+  // await processBuy(ammId, ata, txPool.mempoolTxns.recentBlockhash)
+  await processBuy(ammId, ata, block.recentBlockhash)
 }
 
 
@@ -456,7 +459,10 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
     let isNewlyActive = await BotLiquidity.isLiquidityPoolNewlyActive(ammId, 1000)
     if(isNewlyActive) {
       existingMarkets.add(ammId)
-      await processBuy(ammId, ata, txPool.mempoolTxns.recentBlockhash) 
+
+      let block = await blockhasher.get()
+      // await processBuy(ammId, ata, txPool.mempoolTxns.recentBlockhash) 
+      await processBuy(ammId, ata, block.recentBlockhash)
     }
 
     return
@@ -563,7 +569,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
     let units = 35000
     let microLamports = 500000
 
-    logger.warn(`Entry ${ammId} | ${state.mint.toBase58()} | ${amount} SOL`)
+    logger.warn(`Potential entry ${ammId} | ${amount} SOL`)
 
     for(let i=0; i < Math.floor(totalChunck/ 5); i++) {
       await processSell(

@@ -20,7 +20,7 @@ async function main() {
 
     botGrpc.addBlock({accounts: []})
     botGrpc.setCommitment(CommitmentLevel.CONFIRMED)
-    
+
     botGrpc.listen(
       () => {},
       () => {},

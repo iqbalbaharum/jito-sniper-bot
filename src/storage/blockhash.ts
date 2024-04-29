@@ -1,3 +1,4 @@
+import { connection } from "../adapter/rpc";
 import { StorageKeys } from "../types/storage-keys";
 import { BaseStorage } from "./base-storage";
 
@@ -36,8 +37,14 @@ export class BlockHashStorage extends BaseStorage {
     }
 
     async get() : Promise<BlockhashData> {
-        let data = await this.client.hGet('recent', this.key)
-        return this.deserialize(data)
+        // let data = await this.client.hGet('recent', this.key)
+        // return this.deserialize(data)
+        let block = await connection.getLatestBlockhashAndContext('confirmed')
+        return {
+            recentBlockhash: block.value.blockhash,
+            latestBlockHeight: block.value.lastValidBlockHeight,
+            latestSlot: block.context.slot
+        }
     }
 
     private serialize = (data: BlockhashData) => {
