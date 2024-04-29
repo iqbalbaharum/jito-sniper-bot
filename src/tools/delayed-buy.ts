@@ -99,7 +99,8 @@ async function main() {
 			}
 	)
 
-	delayedWorker.on('error', err => {
+	delayedWorker.on('error', (err: any) => {
+		logger.error(`Queue error`)
 		logger.error(err)
 	});
 }
