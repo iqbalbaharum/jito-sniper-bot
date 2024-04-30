@@ -11,7 +11,7 @@ module.exports = {
     },
     {
       name: 'amm',
-      script: './build/src/tools/amm-listener.js',
+      script: './build/src/services/amm.js',
       instances: 1,
       autorestart: true,
       watch: false,
@@ -19,7 +19,7 @@ module.exports = {
     },
     {
       name: 'market',
-      script: './build/src/tools/market-listener.js',
+      script: './build/src/services/market.js',
       instances: 2,
       exec_mode: 'cluster',
       autorestart: true,
@@ -44,11 +44,10 @@ module.exports = {
     },
     {
       name: 'delayed-buy',
-      script: './build/src/tools/delayed-buy.js',
+      script: './build/src/services/delayed-buy.js',
       instances: 1,
       autorestart: true,
       watch: false,
-      cron_restart: '0 * * * *',
     }
   ]
 }
