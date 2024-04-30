@@ -66,6 +66,7 @@ export class BotgRPC {
 		this.gRequest.transactions[key] = {
 			vote: request.vote,
 			failed: request.failed,
+			signature: request.signature,
 			accountInclude: request.accountInclude,
 			accountExclude: request.accountExclude,
 			accountRequired: request.accountRequired

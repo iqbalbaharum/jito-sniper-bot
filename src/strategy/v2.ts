@@ -7,13 +7,13 @@ import { BigNumberish, LIQUIDITY_STATE_LAYOUT_V4, LiquidityPoolKeys, LiquidityPo
 import BN from "bn.js";
 import { JUPITER_ADDRESS, OPENBOOK_V1_ADDRESS, RAYDIUM_AUTHORITY_V4_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, WSOL_ADDRESS } from "../utils/const";
 import { config as SystemConfig, config } from "../utils/config";
-import { BotTokenAccount, setupWSOLTokenAccount } from "../services/token-account";
-import { BotLiquidity, BotLookupTable, BotMarket, getLiquidityMintState, getTokenInWallet } from "../services";
+import { BotTokenAccount, setupWSOLTokenAccount } from "../library/token-account";
+import { BotLiquidity, BotLookupTable, BotMarket, getLiquidityMintState, getTokenInWallet } from "../library";
 import sleep from "atomic-sleep";
-import { submitBundle } from "../services/bundle";
+import { submitBundle } from "../library/bundle";
 import { mainSearcherClient } from "../adapter/jito";
 import { ArbIdea, TokenChunk, BotLiquidityState, LookupIndex, MempoolTransaction, TransactionCompute, TxInstruction, TxPool, PoolInfo } from "../types";
-import { BotTransaction, getAmmIdFromSignature } from "../services/transaction";
+import { BotTransaction, getAmmIdFromSignature } from "../library/transaction";
 import { logger } from "../utils/logger";
 import { RaydiumAmmCoder } from "../utils/coder";
 import raydiumIDL from '../idl/raydiumAmm.json'
@@ -25,6 +25,7 @@ import { IxSwapBaseIn } from "../utils/coder/layout";
 import { payer } from "../adapter/payer";
 import { mempool } from "../generators";
 import { blockhasher, countLiquidityPool, existingMarkets, lookupTable, mints, tokenBalances, trackedPoolKeys } from "../adapter/storage";
+import { BotQueue } from "../library/queue";
 
 const coder = new RaydiumAmmCoder(raydiumIDL as Idl)
 
@@ -40,7 +41,7 @@ const processBuy = async (ammId: PublicKey, ata: PublicKey, blockhash: string) =
   if (different > 0) {
     logger.warn(`Sleep ${ammId} | ${different} ms`)
     if (different <= SystemConfig.get('pool_opentime_wait_max')) {
-      BotMarket.addDelayedMarket(ammId, different)
+      BotQueue.addDelayedMarket(ammId, different)
       return
     } else {
       return;

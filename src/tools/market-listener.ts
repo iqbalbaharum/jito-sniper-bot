@@ -6,7 +6,7 @@ import { Commitment, ComputeBudgetProgram, KeyedAccountInfo, PublicKey, SystemPr
 import { redisClient } from "../adapter/redis";
 import { connection, connectionAlt1 } from "../adapter/rpc";
 import { OPENBOOK_V1_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, WSOL_ADDRESS, config } from "../utils";
-import { BotLiquidity, BotMarket, BotTokenAccount } from "../services";
+import { BotLiquidity, BotMarket, BotTokenAccount } from "../library";
 import { LIQUIDITY_STATE_LAYOUT_V4, MARKET_STATE_LAYOUT_V3 } from "@raydium-io/raydium-sdk";
 import { payer } from "../adapter/payer";
 import { logger } from "../utils/logger";

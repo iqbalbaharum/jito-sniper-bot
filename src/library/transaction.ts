@@ -134,6 +134,14 @@ export class BotTransaction {
       decimals: token.uiTokenAmount.decimals,
     })) || [];
 
+    let err = undefined
+    if(tx.meta?.err) {
+      let metaErr: any = tx.meta?.err
+      if(metaErr.InstructionError && metaErr.InstructionError.length > 0) {
+        err = metaErr.InstructionError[1].Custom
+      }
+    }
+
     return {
       mempoolTxns: {
         source: streamName,
@@ -158,7 +166,7 @@ export class BotTransaction {
         preTokenBalances,
         postTokenBalances,
         computeUnitsConsumed: tx.meta?.computeUnitsConsumed || 0,
-        err: (tx.meta?.err! as any)?.InstructionError[1].Custom ?? undefined
+        err
       },
       timing: {
         listened: new Date().getTime(),

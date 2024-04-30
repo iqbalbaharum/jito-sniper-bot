@@ -3,7 +3,7 @@ import { BaseStorage } from "./base-storage";
 import { StorageKeys } from "../types/storage-keys";
 import { LiquidityPoolKeys, LiquidityPoolKeysV4 } from "@raydium-io/raydium-sdk";
 import { PoolInfo } from "../types";
-import { BotLiquidity } from "../services";
+import { BotLiquidity } from "../library";
 
 export class PoolKeysStorage extends BaseStorage {
 	trackedPoolKeys: Map<string, LiquidityPoolKeys & PoolInfo>;

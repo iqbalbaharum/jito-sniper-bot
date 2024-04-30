@@ -8,7 +8,7 @@ import { connection, connectionAlt1 } from "../adapter/rpc";
 import { OPENBOOK_V1_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, WSOL_ADDRESS, config as SystemConfig } from "../utils";
 import { GrpcGenerator } from "../generators/grpc";
 import Client, { CommitmentLevel } from "@triton-one/yellowstone-grpc";
-import { BotgRPC } from "../services/grpc";
+import { BotgRPC } from "../library/grpc";
 import { BlockHashStorage } from "../storage";
 
 const GRPC_URL = SystemConfig.get('grpc_1_url')

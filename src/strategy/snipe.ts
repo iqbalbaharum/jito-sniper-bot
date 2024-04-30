@@ -1,5 +1,5 @@
 import { GrpcGenerator } from "../generators/grpc";
-import { BotLiquidity, BotLookupTable, setupWSOLTokenAccount } from "../services";
+import { BotLiquidity, BotLookupTable, setupWSOLTokenAccount } from "../library";
 import { CopyTrades, ExistingRaydiumMarketStorage } from "../storage";
 import { ArbIdea, LookupIndex, TxInstruction, TxPool } from "../types";
 import { logger } from "../utils/logger";
@@ -12,12 +12,12 @@ import { RaydiumAmmCoder } from "../utils/coder";
 import raydiumIDL from '../idl/raydiumAmm.json'
 import { Idl } from "@coral-xyz/anchor";
 import { BigNumberish, LIQUIDITY_STATE_LAYOUT_V4, LiquidityPoolKeysV4, LiquidityStateV4 } from "@raydium-io/raydium-sdk";
-import { submitBundle } from "../services/bundle";
+import { submitBundle } from "../library/bundle";
 import { BN } from "bn.js";
 import { mainSearcherClient } from "../adapter/jito";
 import { RaydiumLiquidityGenerator } from "../generators/state";
 import { connection } from "../adapter/rpc";
-import { SnipeList } from "../services/snipe-list";
+import { SnipeList } from "../library/snipe-list";
 import { redisClient } from "../adapter/redis";
 
 let lookupTable: BotLookupTable
@@ -62,7 +62,8 @@ const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BigNu
           microLamports: 10000,
           units: 101337
         },
-        blockhash
+        blockhash,
+        alts: []
       }
     );
     

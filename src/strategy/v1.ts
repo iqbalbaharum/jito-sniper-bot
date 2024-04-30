@@ -2,6 +2,7 @@
  * Sandwich strategy
  */
 import {
+	AddressLookupTableAccount,
 	LAMPORTS_PER_SOL,
 	PublicKey,
 	VersionedTransaction,
@@ -14,7 +15,7 @@ import {
 	BotTokenAccount,
 	getJitoTipAccount,
 	setupWSOLTokenAccount,
-} from '../services'
+} from '../library'
 import { ExistingRaydiumMarketStorage } from '../storage'
 import { LookupIndex, TxInstruction, TxPool } from '../types'
 import {
@@ -92,7 +93,8 @@ const buyTokenInstruction = async (
 					units: 101337,
 				},
 				blockhash,
-			}
+				alts: []
+			},
 		)
 
 		return transaction
@@ -122,6 +124,7 @@ const sellTokenInstruction = async (
 					units: 101337,
 				},
 				blockhash,
+				alts: []
 			}
 		)
 

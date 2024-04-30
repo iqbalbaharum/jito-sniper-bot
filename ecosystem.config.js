@@ -7,7 +7,7 @@ module.exports = {
       instances: 1,
       autorestart: true,
       watch: false,
-
+      
     },
     {
       name: 'amm',
@@ -33,14 +33,14 @@ module.exports = {
     },
     {
       name: 'blockhasher',
-      script: './build/src/tools/blockhasher.js',
+      script: './build/src/services/blockhasher.js',
       instances: 1,
       autorestart: true,
       watch: false,
     },
     {
       name: 'payer',
-      script: './build/src/tools/payer-listener.js',
+      script: './build/src/services/payer.js',
       instances: 1,
       autorestart: true,
       watch: false,

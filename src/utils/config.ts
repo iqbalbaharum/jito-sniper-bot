@@ -204,17 +204,17 @@ const config = convict({
         default: 6379,
         env: 'REDIS_PORT'
     },
-    // QUEUE
-    queue_name: {
-        format: String,
-        default: 'queueName',
-        env: 'QUEUE_NAME'
-    },
     // ALT
     raydium_alt: {
         format: String,
         default: '',
         env: 'RAYDIUM_ALT'
+    },
+    // PAYER (SERVICE),
+    payer_retrieve_txs_count: {
+        format: Number,
+        default: 20,
+        env: 'PAYER_RETRIEVE_TXS_COUNT'
     }
 })
 

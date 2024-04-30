@@ -7,13 +7,13 @@ import { BigNumberish, LIQUIDITY_STATE_LAYOUT_V4, LiquidityPoolKeys, LiquidityPo
 import BN from "bn.js";
 import { COMPUTE_BUDGET_ADDRESS, JUPITER_ADDRESS, OPENBOOK_V1_ADDRESS, RAYDIUM_AUTHORITY_V4_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, WSOL_ADDRESS } from "../utils/const";
 import { config as SystemConfig, config } from "../utils/config";
-import { BotTokenAccount, setupWSOLTokenAccount } from "../services/token-account";
-import { BotLiquidity, BotLookupTable, getAccountPoolKeysFromAccountDataV4, getLiquidityMintState, getTokenInWallet } from "../services";
+import { BotTokenAccount, setupWSOLTokenAccount } from "../library/token-account";
+import { BotLiquidity, BotLookupTable, getAccountPoolKeysFromAccountDataV4, getLiquidityMintState, getTokenInWallet } from "../library";
 import sleep from "atomic-sleep";
-import { submitBundle } from "../services/bundle";
+import { submitBundle } from "../library/bundle";
 import { mainSearcherClient } from "../adapter/jito";
 import { ArbIdea, TokenChunk, BotLiquidityState, LookupIndex, MempoolTransaction, TransactionCompute, TxInstruction, TxPool } from "../types";
-import { BotTransaction, getAmmIdFromSignature } from "../services/transaction";
+import { BotTransaction, getAmmIdFromSignature } from "../library/transaction";
 import { logger } from "../utils/logger";
 import { RaydiumAmmCoder } from "../utils/coder";
 import raydiumIDL from '../idl/raydiumAmm.json'

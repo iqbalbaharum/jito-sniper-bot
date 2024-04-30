@@ -6,7 +6,7 @@ import { Commitment, KeyedAccountInfo, PublicKey } from "@solana/web3.js";
 import { redisClient } from "../adapter/redis";
 import { connection, connectionAlt1 } from "../adapter/rpc";
 import { RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, config } from "../utils";
-import { BotLiquidity, BotMarket } from "../services";
+import { BotLiquidity, BotMarket } from "../library";
 import { LIQUIDITY_STATE_LAYOUT_V4 } from "@raydium-io/raydium-sdk";
 
 async function processAccountInfo(account: KeyedAccountInfo) {

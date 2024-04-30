@@ -1,13 +1,14 @@
 import { Job, Worker } from "bullmq"
 import { config as SystemConfig } from "../utils"
 import { logger } from "../utils/logger";
-import { BotLiquidity, setupWSOLTokenAccount } from "../services";
+import { BotLiquidity, setupWSOLTokenAccount } from "../library";
 import { AddressLookupTableAccount, Connection, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
-import { BotTransaction } from "../services/transaction";
+import { BotTransaction } from "../library/transaction";
 import { connection, lite_rpc } from "../adapter/rpc";
 import { LiquidityPoolKeysV4 } from "@raydium-io/raydium-sdk";
 import { blockhasher, existingMarkets, lookupTable, mints, trackedPoolKeys } from "../adapter/storage";
+import { QueueKey } from "../types/queue-key";
 
 const processBuy = async (ammId: PublicKey, ata: PublicKey) => {
   
@@ -97,7 +98,7 @@ async function main() {
       return 
     }
 
-	const delayedWorker = new Worker(SystemConfig.get('queue_name'), 
+	const delayedWorker = new Worker(QueueKey.Q_DELAYED, 
 			async (job: Job) => {
 				logger.info(`Executing just opened market | ${job.data}`)
 				processBuy(job.data, ata)

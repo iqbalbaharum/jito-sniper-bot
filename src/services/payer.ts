@@ -5,23 +5,26 @@
 import { redisClient } from "../adapter/redis";
 import { confirmedConnection, connection, connectionAlt1 } from "../adapter/rpc";
 import { OPENBOOK_V1_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, WSOL_ADDRESS, config as SystemConfig } from "../utils";
-import { BotgRPC } from "../services/grpc";
+import { BotgRPC } from "../library/grpc";
 import { BlockHashStorage, CountLiquidityPoolStorage, MintStorage, PoolKeysStorage, TokenChunkStorage } from "../storage";
 import { payer } from "../adapter/payer";
 import { BotLiquidityState, LookupIndex, TxInstruction, TxPool } from "../types";
-import { PublicKey, Transaction, VersionedTransactionResponse } from "@solana/web3.js";
+import { AccountChangeCallback, PublicKey, Transaction, VersionedTransactionResponse } from "@solana/web3.js";
 import { RaydiumAmmCoder } from "../utils/coder";
 import { Idl } from "@coral-xyz/anchor";
 import raydiumIDL from '../idl/raydiumAmm.json'
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import sleep from "atomic-sleep";
 import BN from "bn.js";
-import { BotTransaction } from "../services/transaction";
-import { BotLookupTable } from "../services";
+import { BotTransaction } from "../library/transaction";
+import { BotLookupTable } from "../library";
 import { logger } from "../utils/logger";
+import { ConcurrentSet } from "../utils/concurrent-set";
+import { txBalanceUpdater } from "../adapter/storage";
 
 const GRPC_URL = SystemConfig.get('grpc_1_url')
 const GRPC_TOKEN = SystemConfig.get('grpc_1_token')
+const TXS_COUNT = SystemConfig.get('payer_retrieve_txs_count')
 
 const coder = new RaydiumAmmCoder(raydiumIDL as Idl)
 let lookupTable: BotLookupTable = new BotLookupTable(redisClient, false)
@@ -85,12 +88,14 @@ const process = async (tx: TxPool, instruction: TxInstruction) => {
   logger.info(`Processing ${ammId} | ${tx.mempoolTxns.signature}`)
 
   if(tx.mempoolTxns.err !== undefined && tx.mempoolTxns.err && tx.mempoolTxns.err > 0) {
-    logger.warn(`Token used up ${ammId}`)
     switch(tx.mempoolTxns.err) {
       case 40:
+        logger.warn(`Token used up ${ammId}`)
         tokenBalances.isUsedUp(ammId)
         trackedPoolKeys.remove(ammId)
         break;
+      default:
+        break
     }
     return
   }
@@ -106,7 +111,6 @@ const process = async (tx: TxPool, instruction: TxInstruction) => {
 }
 
 const getTransaction = async (signature: string) : Promise<TxPool> => {
-  logger.info(`Incoming signature: ${signature}`)
   // fetch transaction
   let transaction = null
   while(transaction === null) {
@@ -118,7 +122,7 @@ const getTransaction = async (signature: string) : Promise<TxPool> => {
   }
 
   let txPool = BotTransaction.formatTransactionToTxPool('payer_wallet_tx', transaction)
-  console.log(txPool.mempoolTxns.err)
+  
   return txPool
 }
 
@@ -167,7 +171,42 @@ async function processTx(signature: string) {
   }
 }
 
+async function getLatestTransactionInWallet() {
+  const txs = await connection.getSignaturesForAddress(payer.publicKey, {
+    limit: TXS_COUNT
+  }, 'confirmed')
+
+  for(const tx of txs) {
+    if(!await txBalanceUpdater.exist(tx.signature)) {
+      logger.info(`Missing signature: ${tx.signature}`)
+      await txBalanceUpdater.set(tx.signature)
+      await processTx(tx.signature)
+    }
+  }
+}
+
+async function run(data: any) {
+  if(!data.account.account.txnSignature) {
+    await getLatestTransactionInWallet()
+    return
+  }
+
+  let signature = bs58.encode(data.account.account.txnSignature)
+  if(!await txBalanceUpdater.exist(signature)) {
+    logger.info(`Incoming signature: ${signature}`)
+    await txBalanceUpdater.set(signature)
+    processTx(signature)
+  }
+}
+
+// THERES BUG IN GEYSER - Return empty signature on failed transaction
+// As a temporary fix, read the latest 10 signatures of the wallet, and check
+// with the pool, if the signature does not exists, and execute the code
 async function main() {
+
+    // As start check the grpc
+    await getLatestTransactionInWallet()
+    
     let botGrpc = new BotgRPC(GRPC_URL, GRPC_TOKEN)
     botGrpc.addAccount({
       name: 'my_wallet',
@@ -177,20 +216,10 @@ async function main() {
     })
 
     botGrpc.listen(
-      async (data) => {
-
-        // THERES BUG IN GEYSER,
-        // It return empty signature
-        if(!data.account.account.txnSignature) {
-          return
-        }
-        let signature = bs58.encode(data.account.account.txnSignature)
-        processTx(signature)
-      },
+      run,
       () => {},
       () => {}
     )
-    
 }
 
 

@@ -1,5 +1,6 @@
-import { BotLookupTable, BotTokenAccount } from "../services"
+import { BotLookupTable, BotTokenAccount } from "../library"
 import { BlockHashStorage, CountLiquidityPoolStorage, ExistingRaydiumMarketStorage, MintStorage, PoolKeysStorage, TokenChunkStorage } from "../storage"
+import { TransactionSignatureBalanceUpdateStorage } from "../storage/tx-balance-update"
 import { redisClient } from "./redis"
 
 let lookupTable = new BotLookupTable(redisClient, false)
@@ -10,6 +11,7 @@ let tokenBalances = new TokenChunkStorage(redisClient, true)
 let trackedPoolKeys = new PoolKeysStorage(redisClient, true)
 let mints = new MintStorage(redisClient, true)
 let blockhasher = new BlockHashStorage(redisClient)
+let txBalanceUpdater = new TransactionSignatureBalanceUpdateStorage(redisClient)
 
 export {
     lookupTable,
@@ -19,5 +21,7 @@ export {
     tokenBalances,
     trackedPoolKeys,
     mints,
-    blockhasher
+    blockhasher,
+    // tx
+    txBalanceUpdater
 }

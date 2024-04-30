@@ -1,4 +1,4 @@
-import { BotLookupTable, setupWSOLTokenAccount } from "../services";
+import { BotLookupTable, setupWSOLTokenAccount } from "../library";
 import { blockhasher } from "../adapter/storage";
 import { logger } from "../utils/logger";
 import { connection } from "../adapter/rpc";

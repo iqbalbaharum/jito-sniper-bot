@@ -39,10 +39,4 @@ export class BotMarket {
       return undefined
     }
   }
-
-  // Add delayed market
-  // Because of the nature of NodeJS scheduling, we add 100 ms delayed
-  static async addDelayedMarket(ammId: PublicKey, delayInMs: number) {
-    await delayedQueue.add(config.get('queue_name'), ammId.toBase58(), { delay: delayInMs + 100 })
-  }
 }
