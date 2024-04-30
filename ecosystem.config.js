@@ -15,6 +15,7 @@ module.exports = {
       instances: 1,
       autorestart: true,
       watch: false,
+      cron_restart: '0 * * * *',
     },
     {
       name: 'market',
@@ -23,13 +24,7 @@ module.exports = {
       exec_mode: 'cluster',
       autorestart: true,
       watch: false,
-    },
-    {
-      name: 'openbook',
-      script: './build/src/tools/openbook-listener.js',
-      instances: 1,
-      autorestart: true,
-      watch: false,
+      cron_restart: '0 * * * *',
     },
     {
       name: 'blockhasher',
@@ -37,6 +32,7 @@ module.exports = {
       instances: 1,
       autorestart: true,
       watch: false,
+      cron_restart: '0 * * * *',
     },
     {
       name: 'payer',
@@ -44,6 +40,7 @@ module.exports = {
       instances: 1,
       autorestart: true,
       watch: false,
+      cron_restart: '0 * * * *',
     },
     {
       name: 'delayed-buy',
@@ -51,6 +48,7 @@ module.exports = {
       instances: 1,
       autorestart: true,
       watch: false,
+      cron_restart: '0 * * * *',
     }
   ]
 }
