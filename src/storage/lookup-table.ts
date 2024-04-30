@@ -21,27 +21,14 @@ export class LookupTableStorage extends BaseStorage {
         this.useRedis = useRedis
 	}
 
-	// async getLookupTable(lutAddress: PublicKey) : Promise<AddressLookupTableAccount | undefined> {
-	// 	const lutAddressStr = lutAddress.toBase58();
-    
-	// 	if (this.lookupTables.has(lutAddressStr)) {
-  //     return this.lookupTables.get(lutAddressStr);
-  //   }
-
-	// 	const lut = await connection.getAddressLookupTable(lutAddress);
-	// 	if (!lut.value) {
-	// 		return undefined;
-	// 	}
-
-	// 	this.updateCache(lutAddress, lut.value);
-
-  // 	return lut.value;
-	// }
-
 	public async get(lutAddress: PublicKey) : Promise<AddressLookupTableAccount | undefined> {
 		if(this.useRedis) {
             let data = await this.client.hGet(`${lutAddress.toBase58()}`, this.key)
-			return JSON.parse(data) as AddressLookupTableAccount
+			if(data) {
+				return this.deserialize(data)
+			} else {
+				return undefined
+			}
         } else {
             this.lookupTables.get(lutAddress.toBase58());
         }
@@ -55,7 +42,7 @@ export class LookupTableStorage extends BaseStorage {
 	) {
 
 		if(this.useRedis) {
-            this.client.hSet(`${lutAddress.toBase58()}`, this.key, JSON.stringify(lutAccount))
+            this.client.hSet(`${lutAddress.toBase58()}`, this.key, this.serialize(lutAccount))
         } else {
             this.lookupTables.set(lutAddress.toBase58(), lutAccount);
         }
@@ -71,4 +58,32 @@ export class LookupTableStorage extends BaseStorage {
 			this.lookupTablesForAddress.get(addressStr)?.add(lutAddress.toBase58());
 		}
 	}
+
+	private serialize(state: AddressLookupTableAccount) : string {
+        let str = JSON.stringify(state, (key, value) => {
+			if(key === 'deactivationSlot') {
+				return value.toString()
+			}
+			return value
+		})
+
+		return str
+    }
+
+    private deserialize(lutString: string) : AddressLookupTableAccount | undefined {
+        if(!lutString) { return }
+
+		let d = JSON.parse(lutString)
+		
+		return new AddressLookupTableAccount({
+			key: new PublicKey(d.key),
+			state: {
+				deactivationSlot: BigInt(d.state.deactivationSlot),
+				lastExtendedSlot: d.state.lastExtendedSlot,
+				lastExtendedSlotStartIndex: d.state.lastExtendedSlotStartIndex,
+				authority: new PublicKey(d.state.authority),
+				addresses: d.state.addresses.map((e:any) => new PublicKey(e))
+			}
+		})
+    }
 }

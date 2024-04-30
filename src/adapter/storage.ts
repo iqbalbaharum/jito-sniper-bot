@@ -3,7 +3,7 @@ import { BlockHashStorage, CountLiquidityPoolStorage, ExistingRaydiumMarketStora
 import { TransactionSignatureBalanceUpdateStorage } from "../storage/tx-balance-update"
 import { redisClient } from "./redis"
 
-let lookupTable = new BotLookupTable(redisClient, false)
+let lookupTable = new BotLookupTable(redisClient, true)
 let botTokenAccount = new BotTokenAccount(redisClient, true)
 let existingMarkets = new ExistingRaydiumMarketStorage(redisClient, true)
 let countLiquidityPool = new CountLiquidityPoolStorage(redisClient, true)
