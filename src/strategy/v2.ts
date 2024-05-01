@@ -41,7 +41,7 @@ const processBuy = async (tradeId: string, ammId: PublicKey) => {
   if (different > 0) {
     logger.warn(`Sleep ${ammId} | ${different} ms`)
     if (different <= SystemConfig.get('pool_opentime_wait_max')) {
-      BotQueue.addDelayedMarket(ammId, different)
+      BotTrade.execute(tradeId, different)
       return
     } else {
       return;
@@ -69,6 +69,8 @@ const processBuy = async (tradeId: string, ammId: PublicKey) => {
     new BN(SystemConfig.get('token_purchase_in_sol') * LAMPORTS_PER_SOL),
     new BN(0 * LAMPORTS_PER_SOL)
   )
+
+  BotTrade.execute(tradeId)
 }
 
 async function processSell(tradeId: string, ammId: PublicKey, execCount: number = 1, execInterval: number = 1000) {

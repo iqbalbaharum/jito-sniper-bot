@@ -71,8 +71,6 @@ export class BotTrade {
 			trade.timing.processed = new Date().getTime()
 			trader.set(uuid, trade)
 
-			await txQueue.add(QueueKey.Q_TX, uuid)
-
 			logger.info(`${trade.ammId?.toBase58()} | ${action.toUpperCase()} | ${uuid}`)
 		}
 	}
@@ -97,6 +95,17 @@ export class BotTrade {
 		if(trade) {
 			trade.timing.completed = new Date().getTime()
 			trader.set(uuid, trade)
+		}
+	}
+
+	static async execute(tradeId: string, delay: number = 0) {
+		let trade = await trader.get(tradeId)
+		if(trade) {
+			if(delay > 0) {
+				await txQueue.add(QueueKey.Q_TX, tradeId, { delay: delay + 100 })
+			} else {
+				await txQueue.add(QueueKey.Q_TX, tradeId)
+			}
 		}
 	}
 }
