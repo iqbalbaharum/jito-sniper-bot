@@ -116,11 +116,6 @@ const config = convict({
         default: 0.001,
         env: 'MAX_TIP_IN_SOL'
     },
-    jito_bundle_min_threshold: {
-        format: Number,
-        default: 0.001,
-        env: 'JITO_BUNDLE_MIN_THRESHOLD'
-    },
     tx_balance_chuck_division: {
         format: Number,
         default: 4,

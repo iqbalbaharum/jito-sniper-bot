@@ -193,7 +193,7 @@ async function run(data: any) {
 
   let signature = bs58.encode(data.account.account.txnSignature)
   if(!await txBalanceUpdater.exist(signature)) {
-    logger.info(`Incoming signature: ${signature}`)
+    logger.info(`Incoming  signature: ${signature}`)
     await txBalanceUpdater.set(signature)
     processTx(signature)
   }

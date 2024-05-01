@@ -174,8 +174,8 @@ export class BotLiquidity {
 				}
 			}
 		} else {
-			logger.error(`No state data`)
-			// return await BotLiquidity.getAccountPoolKeysFromAccountDataV4(ammId)
+			// logger.error(`No state data`)
+			return await BotLiquidity.getAccountPoolKeysFromAccountDataV4(ammId)
 		}
 	}
 

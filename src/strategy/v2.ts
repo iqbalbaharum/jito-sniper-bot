@@ -18,18 +18,18 @@ import { logger } from "../utils/logger";
 import { RaydiumAmmCoder } from "../utils/coder";
 import raydiumIDL from '../idl/raydiumAmm.json'
 import { Idl } from "@coral-xyz/anchor";
-import { BotError } from "../types/error";
-import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
-import { ASSOCIATED_TOKEN_PROGRAM_ID, AccountLayout } from "@solana/spl-token";
 import { IxSwapBaseIn } from "../utils/coder/layout";
 import { payer } from "../adapter/payer";
 import { mempool } from "../generators";
 import { blockhasher, countLiquidityPool, existingMarkets, lookupTable, mints, tokenBalances, trackedPoolKeys } from "../adapter/storage";
 import { BotQueue } from "../library/queue";
+import { BotTrade } from "../library/trade";
+import { TradeEntry } from "../types/trade";
+import { BotgRPC } from "../library/grpc";
 
 const coder = new RaydiumAmmCoder(raydiumIDL as Idl)
 
-const processBuy = async (ammId: PublicKey, ata: PublicKey, blockhash: string) => {
+const processBuy = async (tradeId: string, ammId: PublicKey) => {
   
   const poolKeys = await BotLiquidity.getAccountPoolKeys(ammId)
 
@@ -51,22 +51,6 @@ const processBuy = async (ammId: PublicKey, ata: PublicKey, blockhash: string) =
   const info = BotLiquidity.getMintInfoFromWSOLPair(poolKeys)
   // Cancel process if pair is not WSOL
   if(info.mint === undefined) { return }
-  
-  // if(!poolKeys) { return }
-  
-  logger.info(new Date(), `BUY ${ammId.toBase58()} | ${info.mint.toBase58()}`)
-  
-  let signature = await buyToken(
-    poolKeys, 
-    ata,
-    new BN(SystemConfig.get('token_purchase_in_sol') * LAMPORTS_PER_SOL),
-    new BN(0 * LAMPORTS_PER_SOL),
-    blockhash
-  )
-
-  if(!signature) { return }
-  
-  logger.info(`BUY TX ${ammId} | ${signature}`)
 
   await trackedPoolKeys.set(ammId, poolKeys)
   await mints.set(ammId, {
@@ -79,26 +63,16 @@ const processBuy = async (ammId: PublicKey, ata: PublicKey, blockhash: string) =
   // add into the record
   existingMarkets.add(ammId)
 
-  return signature
+  await BotTrade.processed(
+    tradeId, 
+    'buy',
+    new BN(SystemConfig.get('token_purchase_in_sol') * LAMPORTS_PER_SOL),
+    new BN(0 * LAMPORTS_PER_SOL)
+  )
 }
 
-async function processSell(
-  ata: PublicKey,
-  ammId: PublicKey,
-  mint: PublicKey,
-  useBundle: boolean,
-  config: {
-    blockhash: string
-    compute: TransactionCompute
-  },
-  poolKeys?: LiquidityPoolKeysV4, 
-  expectedProfit: BN = new BN(0)) {
+async function processSell(tradeId: string, ammId: PublicKey, execCount: number = 1, execInterval: number = 1000) {
   
-  if(!poolKeys) {
-    poolKeys = await trackedPoolKeys.get(ammId!)
-    if(!poolKeys) { return }
-  }
-
   // Check if the we have confirmed balance before
   // executing sell
   const balance = await tokenBalances.get(ammId)
@@ -107,114 +81,28 @@ async function processSell(
   if(balance && !balance.remaining.isZero()) {
     if(!balance.remaining.isNeg()) {
 
-      logger.info(new Date(), `SELL | ${mint.toBase58()}`)
-      const signature = await sellToken(
-        poolKeys, 
-        ata, 
-        balance.chunk,
-        useBundle,
-        config
-      )
+      let amountIn = new BN(0)
 
-      balance.remaining = balance.remaining.sub(balance.chunk)
-      tokenBalances.set(mint, balance)
-      logger.info(`SELL TX ${ammId} | ${signature}`)
-    } else {
-      tokenBalances.isUsedUp(ammId)
-    }
-  }
-}
-
-const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BN, expectedProfit: BN, blockhash?: string) => {
-  try {
-
-    let alts: AddressLookupTableAccount[] = []
-    let raydiumAlt = SystemConfig.get('raydium_alt')
-    if(raydiumAlt) {
-      let alt = await lookupTable.getLookupTable(new PublicKey(raydiumAlt))
-      if(alt) {
-        alts.push(alt)
+      // Check if balance.chunk is lower than remaining.
+      if(balance.remaining.gt(balance.chunk)) {
+        amountIn = balance.chunk
+      } else {
+        amountIn = balance.remaining
       }
-    }
 
-    const transaction = await BotLiquidity.makeSimpleSwapInstruction(
-      keys,
-      'in',
-      ata,
-      amount,
-      0,
-      'in',
-      {
-        compute: {
+      await BotTrade.processed(
+        tradeId, 
+        'sell', 
+        amountIn, 
+        new BN(0), 
+        {
+          execCount,
+          execInterval,
           microLamports: 500000,
-          units: 60000,
-        },
-        blockhash,
-        alts
-      }
-    );
-
-    // const arb: ArbIdea = {
-    //   vtransaction: transaction,
-    //   expectedProfit: new BN(0)
-    // }
-
-    // return await submitBundle(arb)
-
-    let selectedConnection : Connection = connection
-    if(SystemConfig.get('use_lite_rpc')) {
-      selectedConnection = lite_rpc
+          units: 35000
+        }
+      )
     }
-
-    return BotTransaction.sendAutoRetryTransaction(selectedConnection, transaction)
-  } catch(e: any) {
-    logger.error(`TEST: ` + e.toString())
-    console.log(e)
-    return ''
-  }
-}
-
-const sellToken = async (
-  keys: LiquidityPoolKeysV4,
-  ata: PublicKey,
-  amount: BN,
-  useBundle: boolean,
-  config: {
-    blockhash: string
-    compute: TransactionCompute
-  }) => {
-  try {
-
-    let alts: AddressLookupTableAccount[] = []
-    let raydiumAlt = SystemConfig.get('raydium_alt')
-    if(raydiumAlt) {
-      let alt = await lookupTable.getLookupTable(new PublicKey(raydiumAlt))
-      if(alt) {
-        alts.push(alt)
-      }
-    }
-
-    const transaction = await BotLiquidity.makeSimpleSwapInstruction(
-      keys,
-      'out',
-      ata,
-      amount,
-      0,
-      'in',
-      {
-        ...config,
-        alts
-      }
-    );
-  
-    let selectedConnection: Connection = connection
-    if(SystemConfig.get('use_lite_rpc')) {
-      selectedConnection = lite_rpc
-    }
-
-    return BotTransaction.sendAutoRetryTransaction(selectedConnection, transaction)
-  } catch(e) {
-    console.log(e)
   }
 }
 
@@ -245,54 +133,35 @@ const getAmmIdFromMempoolTx = async (tx: MempoolTransaction, instruction: TxInst
  * @param blockhash 
  * @returns 
  */
-const burstSellAfterLP = async(ammId: PublicKey, ata: PublicKey, blockhash: string) => {
+const burstSellAfterLP = async(tradeId: string, ammId: PublicKey) => {
   logger.info(`Burst TXs | ${ammId.toBase58()}`)
     const state = await mints.get(ammId!)
     if(!state) { return }
     const totalChunck = SystemConfig.get('tx_balance_chuck_division')
-
-    for(let i = 0; i < Math.floor(totalChunck / 4); i++) {
-      await processSell(
-        ata,
-        ammId,
-        state.mint, 
-        false,
-        {
-          compute: {
-            units: 35000,
-            microLamports: 500000
-          },
-          blockhash
-        },
-      )
-
-      // let newBlock = await connection.getLatestBlockhash(config.get('default_commitment') as Commitment)
-      // blockhash = newBlock.blockhash
-
-      let block = await blockhasher.get()
-      blockhash = block.recentBlockhash
-
-      sleep(1800)
-    } 
+    processSell(tradeId, ammId, Math.floor(totalChunck/ 4), 1800)
 }
 
 const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: PublicKey) => {
   const tx = txPool.mempoolTxns
+
+  let tradeId = await BotTrade.listen(TradeEntry.WITHDRAW)
+
   let ammId: PublicKey | undefined = await getAmmIdFromMempoolTx(tx, instruction)
   if(!ammId) { return }
   
+  await BotTrade.preprocessed(tradeId, ammId)
+
   // If the token is not available, then buy the token. This to cover use cases:
   // 1. Didnt buy token initially
   // 2. Buy failed 
   let count: number | undefined = await countLiquidityPool.get(ammId)
   if(count === undefined || count === null) {
     if(await existingMarkets.isExisted(ammId)) {
+      await BotTrade.abandoned(tradeId)
       return
     }
     
-    let block = await blockhasher.get()
-    // await processBuy(ammId, ata, txPool.mempoolTxns.recentBlockhash)
-    await processBuy(ammId, ata, block.recentBlockhash)
+    await processBuy(tradeId, ammId)
     await countLiquidityPool.set(ammId, 0)
   } else {
     await countLiquidityPool.set(ammId, count - 1)
@@ -300,13 +169,15 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
 
   // Burst sell transaction, if rugpull detected
   if(count && count - 1 === 0) {
-    burstSellAfterLP(ammId, ata, txPool.mempoolTxns.recentBlockhash)
+    await burstSellAfterLP(tradeId, ammId)
   }
 }
 
 const processInitialize2 = async (instruction: TxInstruction, txPool: TxPool, ata: PublicKey) => {
   const tx = txPool.mempoolTxns
   
+  const tradeId = await BotTrade.listen(TradeEntry.INITIAILIZE2)
+
   const accountIndexes: number[] = instruction.accounts || []
   const lookupsForAccountKeyIndex: LookupIndex[] = BotLookupTable.generateTableLookup(tx.addressTableLookups)
 
@@ -325,13 +196,13 @@ const processInitialize2 = async (instruction: TxInstruction, txPool: TxPool, at
 
   if(!ammId) { return }
 
+  await BotTrade.preprocessed(tradeId, ammId)
+
   if(await existingMarkets.isExisted(ammId)) {
     return
   }
 
-  let block = await blockhasher.get()
-  // await processBuy(ammId, ata, txPool.mempoolTxns.recentBlockhash)
-  await processBuy(ammId, ata, block.recentBlockhash)
+  await processBuy(tradeId, ammId)
 }
 
 // Most Raydium transaction is using swapBaseIn, so the bot need to figure out if this transaction
@@ -362,24 +233,26 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   }
 
   if(!ammId) { return }
-  
+
   // TODO: Effect: Multiple purchase of same token
   // Check, if the ammId is not tracked, and the swapBaseIn/swapBaseOut is still zero
   // then it's a newly opened pool.
   // For this liquidity, add to market list before the buy complete, this to prevent
   // multiple purchase of the same token.
-  if(!existingMarkets.isExisted(ammId)) {
-    let isNewlyActive = await BotLiquidity.isLiquidityPoolNewlyActive(ammId, 1000)
-    if(isNewlyActive) {
-      existingMarkets.add(ammId)
+  // TODO BUGFIXES: This logic is executed before the buy process completed, which
+  // resulting to multiple token purchase
+  // if(!existingMarkets.isExisted(ammId)) {
+  //   let isNewlyActive = await BotLiquidity.isLiquidityPoolNewlyActive(ammId, 1000)
+  //   if(isNewlyActive) {
+  //     existingMarkets.add(ammId)
 
-      let block = await blockhasher.get()
-      // await processBuy(ammId, ata, txPool.mempoolTxns.recentBlockhash) 
-      await processBuy(ammId, ata, block.recentBlockhash)
-    }
+  //     let block = await blockhasher.get()
+  //     // await processBuy(ammId, ata, txPool.mempoolTxns.recentBlockhash) 
+  //     await processBuy(tradeId, ammId, ata, block.recentBlockhash)
+  //   }
 
-    return
-  }
+  //   return
+  // }
   
   // BUG: There's another method for Raydium swap which move the array positions
   // to differentiate which position, check the position of OPENBOOK program Id in accountKeys
@@ -468,72 +341,29 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   if(txAmount.isNeg()) { isBuyTradeAction = false } else { isBuyTradeAction = true }
   
   const amount = parseFloat(txSolAmount.abs().toString()) / LAMPORTS_PER_SOL
-  
-  let block = await blockhasher.get()
 
-  if(isBuyTradeAction && amount >= SystemConfig.get('min_sol_trigger')) {
-    const totalChunck = SystemConfig.get('tx_balance_chuck_division')
-    // The strategy similar as bot v3 (old). On every trade triggered,
-    // burst out a number of txs (chunk)
-    let blockhash = txPool.mempoolTxns.recentBlockhash
-    let units = 35000
-    let microLamports = 500000
-
-    logger.warn(`Potential entry ${ammId} | ${amount} SOL`)
-
-    for(let i=0; i < Math.floor(totalChunck/ 5); i++) {
-      await processSell(
-        ata,
-        ammId,
-        state.mint,
-        false,
-        {
-          compute: {
-            units,
-            microLamports
-          },
-          blockhash,
-        },
-        poolKeys,
-        new BN(amount * LAMPORTS_PER_SOL)
-      )
-
-      blockhash = block.recentBlockhash
-      sleep(2000)
-    }
-    
-    // If send as bundle, send tx as pairing as well
-    if(amount > SystemConfig.get('jito_bundle_min_threshold')) {
-
-      units = 1000000
-      
-      let block = await blockhasher.get()
-      blockhash = block.recentBlockhash
-
-      await processSell(
-        ata,
-        ammId,
-        state.mint,
-        false,
-        {
-          compute: {
-            units,
-            microLamports
-          },
-          blockhash,
-        },
-        undefined,
-        new BN(amount * LAMPORTS_PER_SOL)
-      ) 
-    }
+  if(!isBuyTradeAction || (isBuyTradeAction && amount < SystemConfig.get('min_sol_trigger'))) {
+    return 
   }
+
+  let tradeId = await BotTrade.listen(TradeEntry.SWAPBASEIN)
+  await BotTrade.preprocessed(tradeId, ammId)
+
+  const totalChunck = SystemConfig.get('tx_balance_chuck_division')
+  // The strategy similar as bot v3 (old). On every trade triggered,
+  // burst out a number of txs (chunk)
+  // let blockhash = txPool.mempoolTxns.recentBlockhash
+  // let units = 35000
+  // let microLamports = 500000
+
+  logger.warn(`Potential entry ${ammId} | ${amount} SOL`)
+  processSell(tradeId, ammId, Math.floor(totalChunck/ 5), 2000)
 }
 
 const processTx = async (tx: TxPool, ata: PublicKey) => {
   for(const ins of tx.mempoolTxns.instructions) {
     const programId = tx.mempoolTxns.accountKeys[ins.programIdIndex]
     if(programId === RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS) {
-
       try {
         let dataBuffer = Buffer.from(ins.data)
         const decodedIx = coder.instruction.decode(dataBuffer)
@@ -564,8 +394,7 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
     }
 
     const mempoolUpdates = mempool([
-      RAYDIUM_AUTHORITY_V4_ADDRESS, 
-      payer.publicKey.toBase58(),
+      RAYDIUM_AUTHORITY_V4_ADDRESS,
       '7YttLkHDoNj9wyDur5pM1ejNaAvT9X4eqaYcHQqtj2G5'
     ])
     
@@ -590,7 +419,8 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
 
     // botGrpc.listen(
     //   () => {},
-    //   (update) => processTx(update, ata) 
+    //   (update: TxPool) => processTx(update, ata),
+    //   () => {}
     // )
   } catch(e) {
     console.log(e)

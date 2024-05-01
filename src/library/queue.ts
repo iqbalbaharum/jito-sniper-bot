@@ -4,9 +4,8 @@ import { QueueKey } from "../types/queue-key";
 
 export class BotQueue {
 
-	// Add transaction signature
-	static async addTx(signature: string) {
-		await txQueue.add(QueueKey.Q_TX, signature)
+	static async addTrade(tradeId: string) {
+		await txQueue.add(QueueKey.Q_TX, tradeId)
 	}
 
   // Add delayed market
