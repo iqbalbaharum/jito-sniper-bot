@@ -544,7 +544,7 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
       '7YttLkHDoNj9wyDur5pM1ejNaAvT9X4eqaYcHQqtj2G5'
     ])
     
-    logger.info(`Starting bot V2`)
+    logger.info(`Starting bot V1`)
 
     for await (const update of mempoolUpdates) {
       processTx(update, ata) // You can process the updates as needed

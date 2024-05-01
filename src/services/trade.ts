@@ -87,7 +87,7 @@ const swap = async (tradeId: string, trade: Trade, keys: LiquidityPoolKeysV4, at
         {
           compute: {
             microLamports: trade.opts?.microLamports || 500000,
-            units: trade.opts?.units || 100000
+            units: trade.opts?.units || 60000
           },
           blockhash: block.recentBlockhash,
           alts
