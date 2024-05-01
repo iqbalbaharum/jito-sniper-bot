@@ -1,6 +1,15 @@
 module.exports = {
   apps : [
     {
+      name: 'v1',
+      script: './build/src/strategy/v1.js',
+      args: '--max-old-space-size=6144',
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      cron_restart: '0 * * * *',
+    },
+    {
       name: 'v2',
       script: './build/src/strategy/v2.js',
       args: '--max-old-space-size=6144',

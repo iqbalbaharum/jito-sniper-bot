@@ -16,7 +16,8 @@
     "listener:ammnetflow": "ts-node src/tools/amm-netflow-listener.ts",
     "tool:createalt": "ts-node src/tools/create-lookup-table.ts",
     "build": "tsc -p tsconfig.json",
-    "server:start": "pm2 start ecosystem.config.js"
+    "start:v1": "pm2 start ecosystem.config.js --only 'v1,amm,blockhasher,market,payer,delayed-buy'",
+    "start:v2": "pm2 start ecosystem.config.js --only 'v2,trade,amm,blockhasher,market,payer'"
   },
   "keywords": [],
   "author": "",
