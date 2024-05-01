@@ -4,10 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "bot:v1a": "ts-node src/strategy/v1a.ts",
+    "bot:v1": "ts-node src/strategy/v1.ts",
     "bot:v2": "ts-node src/strategy/v2.ts",
-    "bot:v3": "ts-node src/strategy/v3.ts",
-    "bot:v4a": "ts-node src/strategy/v4a.ts",
     "bot:snipe": "ts-node src/strategy/snipe.ts",
     "service:amm": "ts-node src/services/amm.ts",
     "service:market": "ts-node src/services/market.ts",

@@ -1,5 +1,5 @@
 /**
- * Removed LP strategy
+ * Microservices trade
  */
 import { AddressLookupTableAccount, Commitment, Connection, LAMPORTS_PER_SOL, Logs, MessageAccountKeys, PublicKey, VersionedTransaction } from "@solana/web3.js";
 import { confirmedConnection, connection, lite_rpc } from "../adapter/rpc";
