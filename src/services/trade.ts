@@ -1,13 +1,13 @@
 import { Job, Worker } from "bullmq"
 import { config as SystemConfig } from "../utils"
 import { logger } from "../utils/logger";
-import { BotLiquidity, setupWSOLTokenAccount } from "../library";
+import { BotLiquidity, BotLookupTable, setupWSOLTokenAccount } from "../library";
 import { AddressLookupTableAccount, Connection, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
 import { BotTransaction } from "../library/transaction";
 import { connection, lite_rpc } from "../adapter/rpc";
 import { LiquidityPoolKeysV4 } from "@raydium-io/raydium-sdk";
-import { blockhasher, existingMarkets, lookupTable, mints, trackedPoolKeys, trader } from "../adapter/storage";
+import { blockhasher, existingMarkets, mints, trackedPoolKeys, trader } from "../adapter/storage";
 import { QueueKey } from "../types/queue-key";
 import { Trade } from "../types/trade";
 import { BotTrade } from "../library/trade";
@@ -58,7 +58,7 @@ const swap = async (tradeId: string, trade: Trade, keys: LiquidityPoolKeysV4, at
   try {
     let raydiumAlt = SystemConfig.get('raydium_alt')
     if(raydiumAlt) {
-      let alt = await lookupTable.getLookupTable(new PublicKey(raydiumAlt))
+      let alt = await BotLookupTable.getLookupTable(new PublicKey(raydiumAlt))
       if(alt) {
         alts.push(alt)
       }

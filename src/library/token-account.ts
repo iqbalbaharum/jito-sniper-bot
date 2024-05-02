@@ -6,6 +6,7 @@ import { SPL_ACCOUNT_LAYOUT } from '@raydium-io/raydium-sdk';
 import { config } from '../utils/config';
 import { TokenAccountStorage } from '../storage';
 import { redisClient } from '../adapter/redis';
+import { tokenAccountStore } from '../adapter/storage';
 
 export type BotTA = {
   ata: PublicKey,
@@ -13,13 +14,6 @@ export type BotTA = {
 }
 
 export class BotTokenAccount {
-
-  storage: TokenAccountStorage
-
-  constructor(client: any, useRedis: boolean) {
-    this.storage = new TokenAccountStorage(client, useRedis)
-  }
-  
   /**
    * Get associated token account under TOKEN_PROGRAM_ID
    * Optionally able to create new token account if it does not existed
@@ -74,14 +68,14 @@ export class BotTokenAccount {
     return a
   }
 
-  static getTokenAccountInfo = async (ata: PublicKey) => {
-    const info = connection.getParsedAccountInfo(ata)
-    if(!info) {
-      return 
-    }
+  // static getTokenAccountInfo = async (ata: PublicKey) => {
+  //   const info = connection.getParsedAccountInfo(ata)
+  //   if(!info) {
+  //     return 
+  //   }
     
-    return info
-  }
+  //   return info
+  // }
 
   /**
    * Get copy of the token account info from the cache memory.
@@ -91,18 +85,18 @@ export class BotTokenAccount {
    * @returns 
    */
   public getTokenAccountInfo = async (ata: PublicKey) : Promise<RawAccount | undefined> => {
-    let buffer = await this.storage.get(ata)
+    let buffer = await tokenAccountStore.get(ata)
     if(!buffer) {
     
       const info = await connection.fetchAccountInfo(ata)
 
       if (!info) {
-        this.storage.set(ata, Buffer.alloc(0));
+        tokenAccountStore.set(ata, Buffer.alloc(0));
         return undefined;
       }
 
       buffer = info.data
-      this.storage.set(ata, info.data);
+      tokenAccountStore.set(ata, info.data);
     }
 
     if(!buffer || buffer.length === 0) { return undefined }
@@ -111,7 +105,7 @@ export class BotTokenAccount {
   }
 
   public isAtaExist = async (ata: PublicKey) : Promise<Boolean> => {
-    return await this.storage.exist(ata)
+    return await tokenAccountStore.exist(ata)
   }
 }
 

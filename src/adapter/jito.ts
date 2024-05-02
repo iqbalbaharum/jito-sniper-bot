@@ -23,3 +23,50 @@ for (const url of BLOCK_ENGINE_URLS) {
 const mainSearcherClient = searcherClients[0]
 
 export { mainSearcherClient, searcherClients }
+
+// Send Transaction
+
+export type JitoRegion = 'mainnet' | 'amsterdam' | 'frankfurt' | 'ny' | 'tokyo';
+
+export const JitoEndpoints = {
+    mainnet: 'https://mainnet.block-engine.jito.wtf',
+    amsterdam: 'https://amsterdam.mainnet.block-engine.jito.wtf',
+    frankfurt: 'https://frankfurt.mainnet.block-engine.jito.wtf',
+    ny: 'https://ny.mainnet.block-engine.jito.wtf',
+    tokyo: 'https://tokyo.mainnet.block-engine.jito.wtf',
+};
+
+export function getJitoEndpoint(region: JitoRegion) {
+    return JitoEndpoints[region];
+}
+
+export async function sendTxUsingJito({
+    serializedTx,
+    region = 'mainnet'
+}: {
+    serializedTx: Uint8Array | Buffer | number[];
+    region: JitoRegion;
+}) {
+    let rpcEndpoint = getJitoEndpoint(region);
+    let encodedTx = bs58.encode(serializedTx);
+    let payload = {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "sendTransaction",
+        params: [encodedTx]
+    };
+
+    let res = await fetch(`${rpcEndpoint}/api/v1/transactions?bundleOnly=true`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+        headers: { 'Content-Type': 'application/json' }
+    });
+
+    let json = await res.json();
+
+    if (json.error) {
+        throw new Error(json.error.message);
+    }
+    
+    return json;
+}

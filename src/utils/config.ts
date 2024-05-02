@@ -96,6 +96,18 @@ const config = convict({
         default: 0.0001,
         env: 'MIN_SOL_TRIGGER'
     },
+    // Config
+    send_tx_method: {
+        format: String,
+        default: 'rpc',
+        env: 'SEND_TX_METHOD'
+    },
+    blockhash_method: {
+        format: String,
+        default: 'rpc',
+        env: 'BLOCKHASH_METHOD'
+    },
+    //
     tip_percent_min: {
         format: Number,
         default: 1,

@@ -20,18 +20,13 @@ import { BotTransaction } from "../library/transaction";
 import { BotLookupTable } from "../library";
 import { logger } from "../utils/logger";
 import { ConcurrentSet } from "../utils/concurrent-set";
-import { txBalanceUpdater } from "../adapter/storage";
+import { countLiquidityPool, mints, tokenBalances, trackedPoolKeys, txBalanceUpdater } from "../adapter/storage";
 
 const GRPC_URL = SystemConfig.get('grpc_1_url')
 const GRPC_TOKEN = SystemConfig.get('grpc_1_token')
 const TXS_COUNT = SystemConfig.get('payer_retrieve_txs_count')
 
 const coder = new RaydiumAmmCoder(raydiumIDL as Idl)
-let lookupTable: BotLookupTable = new BotLookupTable(redisClient, false)
-let mints: MintStorage = new MintStorage(redisClient, true)
-let tokenBalances: TokenChunkStorage = new TokenChunkStorage(redisClient, true)
-let trackedPoolKeys = new PoolKeysStorage(redisClient, true)
-let countLiquidityPool = new CountLiquidityPoolStorage(redisClient, true)
 
 const updateTokenBalance = async (ammId: PublicKey, mint: PublicKey, amount: BN, lpCount: number | undefined) => {
   if(amount.isNeg()) { // SELL
@@ -94,6 +89,8 @@ const process = async (tx: TxPool, instruction: TxInstruction) => {
         tokenBalances.isUsedUp(ammId)
         trackedPoolKeys.remove(ammId)
         break;
+      case 38:
+        trackedPoolKeys.remove(ammId)
       default:
         break
     }
@@ -137,7 +134,7 @@ const getAmmId = async (txPool: TxPool, instruction: TxInstruction) => {
   if(ammIdAccountIndex >= tx.accountKeys.length) {
     const lookupIndex = ammIdAccountIndex - tx.accountKeys.length
     const lookup = lookupsForAccountKeyIndex[lookupIndex]
-    const table = await lookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
+    const table = await BotLookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
     ammId = table?.state.addresses[lookup?.lookupTableIndex]
   } else {
     ammId = new PublicKey(tx.accountKeys[ammIdAccountIndex])

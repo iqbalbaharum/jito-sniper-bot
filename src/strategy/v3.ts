@@ -156,7 +156,7 @@ const buyToken = async (
     let alts: AddressLookupTableAccount[] = []
     let raydiumAlt = SystemConfig.get('raydium_alt')
     if(raydiumAlt) {
-      let alt = await lookupTable.getLookupTable(new PublicKey(raydiumAlt))
+      let alt = await BotLookupTable.getLookupTable(new PublicKey(raydiumAlt))
       if(alt) {
         alts.push(alt)
       }
@@ -202,7 +202,7 @@ const sellToken = async (
     let alts: AddressLookupTableAccount[] = []
     let raydiumAlt = SystemConfig.get('raydium_alt')
     if(raydiumAlt) {
-      let alt = await lookupTable.getLookupTable(new PublicKey(raydiumAlt))
+      let alt = await BotLookupTable.getLookupTable(new PublicKey(raydiumAlt))
       if(alt) {
         alts.push(alt)
       }
@@ -304,7 +304,7 @@ const processSwapBaseIn = async (
   if(ammIdAccountIndex >= tx.accountKeys.length) {
     const lookupIndex = ammIdAccountIndex - tx.accountKeys.length
     const lookup = lookupsForAccountKeyIndex[lookupIndex]
-    const table = await lookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
+    const table = await BotLookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
     ammId = table?.state.addresses[lookup?.lookupTableIndex]
   } else {
     ammId = new PublicKey(tx.accountKeys[ammIdAccountIndex])
@@ -318,7 +318,7 @@ const processSwapBaseIn = async (
   if(serumAccountIndex >= tx.accountKeys.length) {
     const lookupIndex = serumAccountIndex - tx.accountKeys.length
     const lookup = lookupsForAccountKeyIndex[lookupIndex]
-    const table = await lookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
+    const table = await BotLookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
     serumProgramId = table?.state.addresses[lookup?.lookupTableIndex]
   } else {
     serumProgramId = new PublicKey(tx.accountKeys[serumAccountIndex])
@@ -337,7 +337,7 @@ const processSwapBaseIn = async (
   if(sourceAccountIndex >= tx.accountKeys.length) {
     const lookupIndex = sourceAccountIndex - tx.accountKeys.length
     const lookup = lookupsForAccountKeyIndex[lookupIndex]
-    const table = await lookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
+    const table = await BotLookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
     sourceTA = table?.state.addresses[lookup?.lookupTableIndex]
   } else {
     sourceTA = new PublicKey(tx.accountKeys[sourceAccountIndex])
@@ -347,7 +347,7 @@ const processSwapBaseIn = async (
   if(signerAccountIndex >= tx.accountKeys.length) {
     const lookupIndex = signerAccountIndex - tx.accountKeys.length
     const lookup = lookupsForAccountKeyIndex[lookupIndex]
-    const table = await lookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
+    const table = await BotLookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
     signer = table?.state.addresses[lookup?.lookupTableIndex]
   } else {
     signer = new PublicKey(tx.accountKeys[signerAccountIndex])
@@ -513,7 +513,7 @@ const onBundleResult = () => {
       return 
     }
 
-    lookupTable = new BotLookupTable(redisClient, true)
+    // lookupTable = new BotLookupTable(redisClient, true)
     copyTrades =  new CopyTrades()
 
     const generators: AsyncGenerator<TxPool>[] = [];

@@ -10,43 +10,11 @@ import { BotLiquidity, BotMarket, BotTokenAccount } from "../library";
 import { LIQUIDITY_STATE_LAYOUT_V4, MARKET_STATE_LAYOUT_V3 } from "@raydium-io/raydium-sdk";
 import { payer } from "../adapter/payer";
 import { logger } from "../utils/logger";
-
-// Create Token Account before executing swap,
-// It has 20 seconds confirmation time
-// Futher studies is needed
-// async function createTA(mint: PublicKey) {
-// 	// Check Token Account
-// 	const { ata, instructions } = await BotTokenAccount.getOrCreateTokenAccountInstruction(
-// 		mint,
-// 		true
-// 	)
-	
-// 	if(instructions.length > 0) {
-// 		const blockResponse = await connection.getLatestBlockhashAndContext('confirmed')
-	
-// 		const messageV0 = new TransactionMessage({
-// 			payerKey: payer.publicKey,
-// 			recentBlockhash: blockResponse.value.blockhash as string,
-// 			instructions: [
-// 				ComputeBudgetProgram.setComputeUnitLimit({
-// 					units: 22000
-// 				}),
-// 				...instructions
-// 			],
-
-// 		}).compileToV0Message()
-
-// 		const transaction = new VersionedTransaction(messageV0)
-// 		transaction.sign([payer])
-// 		logger.info(`Send Raw TX`)
-// 		let signature = await connection.sendRawTransaction(transaction.serialize())
-// 		logger.info(`Signature: ${signature}`)
-// 	}
-// }
+import { openbookMarket } from "../adapter/storage";
 
 async function processAccountInfo(account: KeyedAccountInfo) {
 	try {
-		const market = await redisClient.hGet(`${account.accountId.toBase58()}`, 'market')
+		const market = await openbookMarket.get(account.accountId)
 		if(!market) {
 			let market = MARKET_STATE_LAYOUT_V3.decode(account.accountInfo.data);
 
@@ -57,7 +25,7 @@ async function processAccountInfo(account: KeyedAccountInfo) {
 				mint = market.baseMint
 			}
 
-			redisClient.hSet(`${mint.toBase58()}`, 'market', account.accountInfo.data.toString('hex'))
+			await openbookMarket.set(mint, account.accountInfo.data.toString('hex'))
 		}
 	} catch(e:any) {
 		console.log(e.toString())
@@ -65,12 +33,6 @@ async function processAccountInfo(account: KeyedAccountInfo) {
 }
 
 function main() {
-	// connectionAlt1.onProgramAccountChange(
-	// 	new PublicKey(OPENBOOK_V1_ADDRESS),
-	// 	processAccountInfo,
-	// 	config.get('default_commitment') as Commitment
-	// )
-	
 	connection.onProgramAccountChange(
 		new PublicKey(OPENBOOK_V1_ADDRESS),
 		processAccountInfo,

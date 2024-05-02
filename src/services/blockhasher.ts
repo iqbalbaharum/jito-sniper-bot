@@ -19,7 +19,7 @@ async function main() {
     let blockhashStorage = new BlockHashStorage(redisClient)
 
     botGrpc.addBlock({accounts: []})
-    botGrpc.setCommitment(CommitmentLevel.FINALIZED)
+    botGrpc.setCommitment(CommitmentLevel.CONFIRMED)
 
     botGrpc.listen(
       () => {},

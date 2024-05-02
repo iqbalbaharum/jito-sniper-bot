@@ -3,18 +3,13 @@ import { LookupTableStorage } from "../storage";
 import { LookupIndex, TxAddressLookupTable } from "../types";
 import { connection } from "../adapter/rpc";
 import { payer } from "../adapter/payer";
+import { lookupTableStore } from "../adapter/storage";
 
 export class BotLookupTable {
 
-  storage: LookupTableStorage
-
-  constructor(client: any, useRedis: boolean) {
-    this.storage = new LookupTableStorage(client, useRedis)
-  }
-
-  async getLookupTable(lutAddress: PublicKey) : Promise<AddressLookupTableAccount | undefined> {
+  static async getLookupTable(lutAddress: PublicKey) : Promise<AddressLookupTableAccount | undefined> {
     
-    let lut = await this.storage.get(lutAddress)
+    let lut = await lookupTableStore.get(lutAddress)
     if(lut) {
       return lut
     }
@@ -27,7 +22,7 @@ export class BotLookupTable {
       return undefined;
     }
 
-    this.storage.set(lutAddress, res.value);
+    lookupTableStore.set(lutAddress, res.value);
 
     return res.value;
   }

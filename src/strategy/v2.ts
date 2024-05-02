@@ -12,7 +12,7 @@ import { BotLiquidity, BotLookupTable, BotMarket, getLiquidityMintState, getToke
 import sleep from "atomic-sleep";
 import { submitBundle } from "../library/bundle";
 import { mainSearcherClient } from "../adapter/jito";
-import { ArbIdea, TokenChunk, BotLiquidityState, LookupIndex, MempoolTransaction, TransactionCompute, TxInstruction, TxPool, PoolInfo } from "../types";
+import { LookupIndex, MempoolTransaction, TxInstruction, TxPool, PoolInfo } from "../types";
 import { BotTransaction, getAmmIdFromSignature } from "../library/transaction";
 import { logger } from "../utils/logger";
 import { RaydiumAmmCoder } from "../utils/coder";
@@ -21,7 +21,7 @@ import { Idl } from "@coral-xyz/anchor";
 import { IxSwapBaseIn } from "../utils/coder/layout";
 import { payer } from "../adapter/payer";
 import { mempool } from "../generators";
-import { blockhasher, countLiquidityPool, existingMarkets, lookupTable, mints, tokenBalances, trackedPoolKeys } from "../adapter/storage";
+import { blockhasher, countLiquidityPool, existingMarkets, mints, tokenBalances, trackedPoolKeys } from "../adapter/storage";
 import { BotQueue } from "../library/queue";
 import { BotTrade } from "../library/trade";
 import { TradeEntry } from "../types/trade";
@@ -119,7 +119,7 @@ const getAmmIdFromMempoolTx = async (tx: MempoolTransaction, instruction: TxInst
   if(accountIndex >= tx.accountKeys.length) {
     const lookupIndex = accountIndex - tx.accountKeys.length
     const lookup = lookupsForAccountKeyIndex[lookupIndex]
-    const table = await lookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
+    const table = await BotLookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
     ammId = table?.state.addresses[lookup?.lookupTableIndex]
   } else {
     ammId = new PublicKey(tx.accountKeys[accountIndex])
@@ -190,7 +190,7 @@ const processInitialize2 = async (instruction: TxInstruction, txPool: TxPool, at
   if(accountIndex >= tx.accountKeys.length) {
     const lookupIndex = accountIndex - tx.accountKeys.length
     const lookup = lookupsForAccountKeyIndex[lookupIndex]
-    const table = await lookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
+    const table = await BotLookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
     ammId = table?.state.addresses[lookup?.lookupTableIndex]
   } else {
     ammId = new PublicKey(tx.accountKeys[accountIndex])
@@ -228,7 +228,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   if(ammIdAccountIndex >= tx.accountKeys.length) {
     const lookupIndex = ammIdAccountIndex - tx.accountKeys.length
     const lookup = lookupsForAccountKeyIndex[lookupIndex]
-    const table = await lookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
+    const table = await BotLookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
     ammId = table?.state.addresses[lookup?.lookupTableIndex]
   } else {
     ammId = new PublicKey(tx.accountKeys[ammIdAccountIndex])
@@ -262,7 +262,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   if(serumAccountIndex >= tx.accountKeys.length) {
     const lookupIndex = serumAccountIndex - tx.accountKeys.length
     const lookup = lookupsForAccountKeyIndex[lookupIndex]
-    const table = await lookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
+    const table = await BotLookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
     serumProgramId = table?.state.addresses[lookup?.lookupTableIndex]
   } else {
     serumProgramId = new PublicKey(tx.accountKeys[serumAccountIndex])
@@ -285,7 +285,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   if(signerAccountIndex >= tx.accountKeys.length) {
     const lookupIndex = signerAccountIndex - tx.accountKeys.length
     const lookup = lookupsForAccountKeyIndex[lookupIndex]
-    const table = await lookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
+    const table = await BotLookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
     signer = table?.state.addresses[lookup?.lookupTableIndex]
   } else {
     signer = new PublicKey(tx.accountKeys[signerAccountIndex])
@@ -295,7 +295,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   if(sourceAccountIndex >= tx.accountKeys.length) {
     const lookupIndex = sourceAccountIndex - tx.accountKeys.length
     const lookup = lookupsForAccountKeyIndex[lookupIndex]
-    const table = await lookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
+    const table = await BotLookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
     sourceTA = table?.state.addresses[lookup?.lookupTableIndex]
   } else {
     sourceTA = new PublicKey(tx.accountKeys[sourceAccountIndex])
@@ -305,7 +305,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   if(destinationAccountIndex >= tx.accountKeys.length) {
     const lookupIndex = destinationAccountIndex - tx.accountKeys.length
     const lookup = lookupsForAccountKeyIndex[lookupIndex]
-    const table = await lookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
+    const table = await BotLookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
     destTA = table?.state.addresses[lookup?.lookupTableIndex]
   } else {
     destTA = new PublicKey(tx.accountKeys[destinationAccountIndex])

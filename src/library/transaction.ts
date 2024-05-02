@@ -1,6 +1,6 @@
 import { LiquidityPoolKeysV4, LiquidityStateV4, TxVersion } from "@raydium-io/raydium-sdk"
 import { connection, lite_rpc, httpOnlyRpcs, connectionAlt1 } from "../adapter/rpc"
-import { RAYDIUM_AUTHORITY_V4_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, USDC_ADDRESS, WSOL_ADDRESS, config as SystemConfig } from "../utils";
+import { RAYDIUM_AUTHORITY_V4_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, USDC_ADDRESS, WSOL_ADDRESS, config as SystemConfig, config } from "../utils";
 import { BlockhashWithExpiryBlockHeight, Commitment, ComputeBudgetProgram, Connection, PublicKey, RpcResponseAndContext, TransactionError, TransactionInstruction, TransactionMessage, Version, VersionedMessage, VersionedTransaction, VersionedTransactionResponse, sendAndConfirmRawTransaction } from "@solana/web3.js";
 import { BotLiquidity } from "./liquidity";
 import BN from "bn.js";
@@ -14,6 +14,7 @@ import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
 import idl from '../idl/amm_proxy.json'
 import sleep from "atomic-sleep";
 import { getSimulationComputeUnits } from "@solana-developers/helpers";
+import { sendTxUsingJito } from "../adapter/jito";
 
 export const getAmmIdFromSignature = async (signature: string) : Promise<PublicKey | undefined> => {
   const response = await connection.getTransaction(signature, {
@@ -186,10 +187,35 @@ export class BotTransaction {
    */
   static sendAutoRetryTransaction =  async(conn: Connection, transaction: VersionedTransaction) : Promise<string> => {
     const rawTransaction = transaction.serialize()
+  
+    let method = config.get('send_tx_method')
+    let signature
+    switch(method) {
+      case 'bundle':
+        let bundle = await sendTxUsingJito({
+          serializedTx: transaction.serialize(),
+          region: 'mainnet'
+        })
 
-    let signature = await conn.sendRawTransaction(rawTransaction, {
-      skipPreflight: true,
-      preflightCommitment: 'confirmed'
+        signature = bundle.result
+        break
+      case 'rpc':
+      default:
+        signature = await conn.sendRawTransaction(rawTransaction, {
+          skipPreflight: true,
+          preflightCommitment: 'confirmed'
+        })
+        break
+    }
+    
+    return signature
+  }
+
+  static sendJitoTransaction =  async(transaction: VersionedTransaction) : Promise<string> => {
+
+    let signature = await sendTxUsingJito({
+      serializedTx: transaction.serialize(),
+      region: 'mainnet'
     })
     
     return signature

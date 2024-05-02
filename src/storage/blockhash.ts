@@ -1,5 +1,6 @@
 import { connection } from "../adapter/rpc";
 import { StorageKeys } from "../types/storage-keys";
+import { config } from "../utils";
 import { logger } from "../utils/logger";
 import { BaseStorage } from "./base-storage";
 
@@ -38,23 +39,35 @@ export class BlockHashStorage extends BaseStorage {
     }
 
     async get() : Promise<BlockhashData> {
-        let data = await this.client.hGet('recent', this.key)
-        return this.deserialize(data)
 
-        // let currSlot = await connection.getSlot('confirmed')
-        // if(currSlot - this.latestSlot > 50) {
-        //     let block = await connection.getLatestBlockhashAndContext('confirmed')
-            
-        //     this.recentBlockhash = block.value.blockhash
-        //     this.latestBlockHeight = block.value.lastValidBlockHeight
-        //     this.latestSlot = block.context.slot
-        // }
+        const method = config.get('blockhash_method')
+        
+        let d
+        switch(method) {
+            case 'service':
+                let data = await this.client.hGet('recent', this.key)
+                d = this.deserialize(data)
+                break;
+            case 'rpc':
+            default:
+                let currSlot = await connection.getSlot('confirmed')
+                if(currSlot - this.latestSlot > 50) {
+                    let block = await connection.getLatestBlockhashAndContext('confirmed')
+                    
+                    this.recentBlockhash = block.value.blockhash
+                    this.latestBlockHeight = block.value.lastValidBlockHeight
+                    this.latestSlot = block.context.slot
+                }
 
-        // return {
-        //     recentBlockhash: this.recentBlockhash,
-        //     latestBlockHeight: this.latestBlockHeight,
-        //     latestSlot: this.latestSlot
-        // }
+                d = {
+                    recentBlockhash: this.recentBlockhash,
+                    latestBlockHeight: this.latestBlockHeight,
+                    latestSlot: this.latestSlot
+                }
+                break
+        }
+        
+        return d
     }
 
     private serialize = (data: BlockhashData) => {

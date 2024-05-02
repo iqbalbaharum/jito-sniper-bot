@@ -35,6 +35,7 @@ import {
 	ComputeBudgetProgram,
 	LAMPORTS_PER_SOL,
 	PublicKey,
+	SystemProgram,
 	TransactionInstruction,
 	TransactionMessage,
 	VersionedTransaction,
@@ -54,8 +55,9 @@ import { BotMarket } from './market'
 import { logger } from '../utils/logger'
 import { BotTransaction } from './transaction'
 import { BlockHashStorage } from '../storage'
-import { lookupTable } from '../adapter/storage'
+import { ammState, openbookMarket } from '../adapter/storage'
 import { config as SystemConfig } from "../utils";
+import { getJitoTipAccount } from './jito'
 
 const getAccountPoolKeysFromAccountDataV4 = async (
 	id: PublicKey,
@@ -144,11 +146,8 @@ export { getAccountPoolKeysFromAccountDataV4 }
 export class BotLiquidity {
 
 	static async getAccountPoolKeys (ammId: PublicKey): Promise<LiquidityPoolKeysV4 & PoolInfo | undefined> {
-		let stateData = await redisClient.hGet(`${ammId.toBase58()}`, 'state')
-
+		let stateData = await ammState.get(ammId)
 		if(stateData) {
-
-			
 			let state = LIQUIDITY_STATE_LAYOUT_V4.decode(Buffer.from(stateData, 'hex'))
 			
 			let mint: PublicKey
@@ -158,7 +157,7 @@ export class BotLiquidity {
 				mint = state.baseMint
 			}
 			
-			let marketData = await redisClient.hGet(`${mint.toBase58()}`, 'market')
+			let marketData = await openbookMarket.get(mint)
 			
 			let market: MarketStateV3 | undefined
 			if(marketData) {
@@ -425,7 +424,7 @@ export class BotLiquidity {
 			blockhash?: string,
 			compute?: TransactionCompute,
 			alts: AddressLookupTableAccount[]
-		}
+		},
 	): Promise<VersionedTransaction> => {
 		let tokenAccountIn
 		let tokenAccountOut
@@ -433,6 +432,7 @@ export class BotLiquidity {
 		let blockhash = config?.blockhash
 
 		let startInstructions: TransactionInstruction[] = []
+		let endInstructions: TransactionInstruction[] = []
 
 		if (!blockhash) {
 			const block = await connection.getLatestBlockhash({
@@ -489,6 +489,15 @@ export class BotLiquidity {
 			amountOut: amountOut,
 			fixedSide: fixedSide ? fixedSide : 'in',
 		})
+
+		
+		if(SystemConfig.get('send_tx_method') === 'bundle') {
+			endInstructions.push(SystemProgram.transfer({
+				fromPubkey: payer.publicKey,
+				toPubkey: new PublicKey(await getJitoTipAccount()),
+				lamports: 500000
+			}))
+		}
 		
 		// const cu = await BotTransaction.getExpectedComputeUnitFromTransactions(
 		// 	connectionAlt1, 
@@ -511,8 +520,8 @@ export class BotLiquidity {
 				})
 			)
 		}
-
-		if (config?.compute && config?.compute.units > 0) {
+		
+		if (config?.compute && config?.compute.microLamports > 0) {
 			computeInstructions.push(
 				ComputeBudgetProgram.setComputeUnitPrice({
 					microLamports: config.compute.microLamports,
@@ -527,6 +536,7 @@ export class BotLiquidity {
 				...computeInstructions,
 				...startInstructions,
 				...innerTransaction.instructions,
+				...endInstructions
 			],
 		}).compileToV0Message(config?.alts ?? [])
 

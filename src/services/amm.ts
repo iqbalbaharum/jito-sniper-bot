@@ -8,12 +8,14 @@ import { connection, connectionAlt1 } from "../adapter/rpc";
 import { RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, config } from "../utils";
 import { BotLiquidity, BotMarket } from "../library";
 import { LIQUIDITY_STATE_LAYOUT_V4 } from "@raydium-io/raydium-sdk";
+import { ammState } from "../adapter/storage";
 
 async function processAccountInfo(account: KeyedAccountInfo) {
 	try {
-		const state = await redisClient.hGet(`${account.accountId.toBase58()}`, 'state')
+		const state = await ammState.get(account.accountId)
+		console.log(state)
 		if(!state) {
-			redisClient.hSet(`${account.accountId.toBase58()}`, 'state', account.accountInfo.data.toString('hex'))
+			await ammState.set(account.accountId, account.accountInfo.data.toString('hex'))
 		}
 	} catch(e:any) {
 		console.log(e.toString())

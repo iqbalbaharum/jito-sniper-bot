@@ -1,16 +1,16 @@
 /**
  * No microservices trade
  */
-import { AddressLookupTableAccount, Commitment, Connection, LAMPORTS_PER_SOL, Logs, MessageAccountKeys, PublicKey, VersionedTransaction } from "@solana/web3.js";
+import { AddressLookupTableAccount, Commitment, Connection, LAMPORTS_PER_SOL, Logs, MessageAccountKeys, PublicKey, SystemProgram, VersionedTransaction } from "@solana/web3.js";
 import { confirmedConnection, connection, lite_rpc } from "../adapter/rpc";
 import { BigNumberish, LIQUIDITY_STATE_LAYOUT_V4, LiquidityPoolKeys, LiquidityPoolKeysV4, LiquidityState, LiquidityStateV4, Logger, MARKET_STATE_LAYOUT_V3, getMultipleAccountsInfo, parseBigNumberish } from "@raydium-io/raydium-sdk";
 import BN from "bn.js";
 import { JUPITER_ADDRESS, OPENBOOK_V1_ADDRESS, RAYDIUM_AUTHORITY_V4_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, WSOL_ADDRESS } from "../utils/const";
 import { config as SystemConfig, config } from "../utils/config";
 import { BotTokenAccount, setupWSOLTokenAccount } from "../library/token-account";
-import { BotLiquidity, BotLookupTable, BotMarket, getLiquidityMintState, getTokenInWallet } from "../library";
+import { BotLiquidity, BotLookupTable, BotMarket, getJitoTipAccount, getLiquidityMintState, getTokenInWallet } from "../library";
 import sleep from "atomic-sleep";
-import { submitBundle } from "../library/bundle";
+import { onDefaultBundleResult, submitBundle } from "../library/bundle";
 import { mainSearcherClient } from "../adapter/jito";
 import { ArbIdea, TokenChunk, BotLiquidityState, LookupIndex, MempoolTransaction, TransactionCompute, TxInstruction, TxPool, PoolInfo } from "../types";
 import { BotTransaction, getAmmIdFromSignature } from "../library/transaction";
@@ -24,7 +24,7 @@ import { ASSOCIATED_TOKEN_PROGRAM_ID, AccountLayout } from "@solana/spl-token";
 import { IxSwapBaseIn } from "../utils/coder/layout";
 import { payer } from "../adapter/payer";
 import { mempool } from "../generators";
-import { blockhasher, countLiquidityPool, existingMarkets, lookupTable, mints, tokenBalances, trackedPoolKeys } from "../adapter/storage";
+import { blockhasher, countLiquidityPool, existingMarkets, mints, tokenBalances, trackedPoolKeys } from "../adapter/storage";
 import { BotQueue } from "../library/queue";
 
 const coder = new RaydiumAmmCoder(raydiumIDL as Idl)
@@ -32,7 +32,7 @@ const coder = new RaydiumAmmCoder(raydiumIDL as Idl)
 const processBuy = async (ammId: PublicKey, ata: PublicKey, blockhash: string) => {
   
   const poolKeys = await BotLiquidity.getAccountPoolKeys(ammId)
-
+	
   if(!poolKeys) { return }
   // Check the pool open time before proceed,
   // If the pool is not yet open, then sleep before proceeding
@@ -91,8 +91,7 @@ async function processSell(
     blockhash: string
     compute: TransactionCompute
   },
-  poolKeys?: LiquidityPoolKeysV4, 
-  expectedProfit: BN = new BN(0)) {
+  poolKeys?: LiquidityPoolKeysV4) {
   
   if(!poolKeys) {
     poolKeys = await trackedPoolKeys.get(ammId!)
@@ -131,7 +130,7 @@ const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BN, e
     let alts: AddressLookupTableAccount[] = []
     let raydiumAlt = SystemConfig.get('raydium_alt')
     if(raydiumAlt) {
-      let alt = await lookupTable.getLookupTable(new PublicKey(raydiumAlt))
+      let alt = await BotLookupTable.getLookupTable(new PublicKey(raydiumAlt))
       if(alt) {
         alts.push(alt)
       }
@@ -146,27 +145,22 @@ const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BN, e
       'in',
       {
         compute: {
-          microLamports: 500000,
+          microLamports: 0,
           units: 60000,
         },
         blockhash,
         alts
-      }
+      },
     );
-
-    // const arb: ArbIdea = {
-    //   vtransaction: transaction,
-    //   expectedProfit: new BN(0)
-    // }
-
-    // return await submitBundle(arb)
 
     let selectedConnection : Connection = connection
     if(SystemConfig.get('use_lite_rpc')) {
       selectedConnection = lite_rpc
     }
 
+
     return BotTransaction.sendAutoRetryTransaction(selectedConnection, transaction)
+	// return BotTransaction.sendJitoTransaction(transaction)
   } catch(e: any) {
     logger.error(`TEST: ` + e.toString())
     console.log(e)
@@ -188,7 +182,7 @@ const sellToken = async (
     let alts: AddressLookupTableAccount[] = []
     let raydiumAlt = SystemConfig.get('raydium_alt')
     if(raydiumAlt) {
-      let alt = await lookupTable.getLookupTable(new PublicKey(raydiumAlt))
+      let alt = await BotLookupTable.getLookupTable(new PublicKey(raydiumAlt))
       if(alt) {
         alts.push(alt)
       }
@@ -229,7 +223,7 @@ const getAmmIdFromMempoolTx = async (tx: MempoolTransaction, instruction: TxInst
   if(accountIndex >= tx.accountKeys.length) {
     const lookupIndex = accountIndex - tx.accountKeys.length
     const lookup = lookupsForAccountKeyIndex[lookupIndex]
-    const table = await lookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
+    const table = await BotLookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
     ammId = table?.state.addresses[lookup?.lookupTableIndex]
   } else {
     ammId = new PublicKey(tx.accountKeys[accountIndex])
@@ -317,7 +311,7 @@ const processInitialize2 = async (instruction: TxInstruction, txPool: TxPool, at
   if(accountIndex >= tx.accountKeys.length) {
     const lookupIndex = accountIndex - tx.accountKeys.length
     const lookup = lookupsForAccountKeyIndex[lookupIndex]
-    const table = await lookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
+    const table = await BotLookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
     ammId = table?.state.addresses[lookup?.lookupTableIndex]
   } else {
     ammId = new PublicKey(tx.accountKeys[accountIndex])
@@ -355,7 +349,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   if(ammIdAccountIndex >= tx.accountKeys.length) {
     const lookupIndex = ammIdAccountIndex - tx.accountKeys.length
     const lookup = lookupsForAccountKeyIndex[lookupIndex]
-    const table = await lookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
+    const table = await BotLookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
     ammId = table?.state.addresses[lookup?.lookupTableIndex]
   } else {
     ammId = new PublicKey(tx.accountKeys[ammIdAccountIndex])
@@ -387,7 +381,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   if(serumAccountIndex >= tx.accountKeys.length) {
     const lookupIndex = serumAccountIndex - tx.accountKeys.length
     const lookup = lookupsForAccountKeyIndex[lookupIndex]
-    const table = await lookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
+    const table = await BotLookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
     serumProgramId = table?.state.addresses[lookup?.lookupTableIndex]
   } else {
     serumProgramId = new PublicKey(tx.accountKeys[serumAccountIndex])
@@ -410,7 +404,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   if(signerAccountIndex >= tx.accountKeys.length) {
     const lookupIndex = signerAccountIndex - tx.accountKeys.length
     const lookup = lookupsForAccountKeyIndex[lookupIndex]
-    const table = await lookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
+    const table = await BotLookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
     signer = table?.state.addresses[lookup?.lookupTableIndex]
   } else {
     signer = new PublicKey(tx.accountKeys[signerAccountIndex])
@@ -420,7 +414,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   if(sourceAccountIndex >= tx.accountKeys.length) {
     const lookupIndex = sourceAccountIndex - tx.accountKeys.length
     const lookup = lookupsForAccountKeyIndex[lookupIndex]
-    const table = await lookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
+    const table = await BotLookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
     sourceTA = table?.state.addresses[lookup?.lookupTableIndex]
   } else {
     sourceTA = new PublicKey(tx.accountKeys[sourceAccountIndex])
@@ -430,7 +424,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   if(destinationAccountIndex >= tx.accountKeys.length) {
     const lookupIndex = destinationAccountIndex - tx.accountKeys.length
     const lookup = lookupsForAccountKeyIndex[lookupIndex]
-    const table = await lookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
+    const table = await BotLookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
     destTA = table?.state.addresses[lookup?.lookupTableIndex]
   } else {
     destTA = new PublicKey(tx.accountKeys[destinationAccountIndex])
@@ -494,8 +488,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
           },
           blockhash,
         },
-        poolKeys,
-        new BN(amount * LAMPORTS_PER_SOL)
+        poolKeys
       )
 
       blockhash = block.recentBlockhash
@@ -545,6 +538,8 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
     ])
     
     logger.info(`Starting bot V1`)
+
+	onDefaultBundleResult()
 
     for await (const update of mempoolUpdates) {
       processTx(update, ata) // You can process the updates as needed

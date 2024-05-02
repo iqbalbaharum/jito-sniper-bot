@@ -145,7 +145,7 @@ const processTx = async (accountInfo: KeyedAccountInfo, ata: PublicKey) => {
         return 
       }
   
-      lookupTable = new BotLookupTable(redisClient, true)
+      // lookupTable = new BotLookupTable(redisClient, true)
 			existingMarkets = new ExistingRaydiumMarketStorage(redisClient, true)
   
       const generators: AsyncGenerator<any>[] = [];

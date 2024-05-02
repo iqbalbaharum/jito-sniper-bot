@@ -12,7 +12,9 @@ export class TransactionSignatureBalanceUpdateStorage extends BaseStorage {
     }
 
     async set(signature: string) {
-        await this.client.hSet(signature, this.key, 'ok')
+        await this.client.hSet(signature, this.key, 'ok', {
+            EX: 60
+        })
     }
 
     async exist(signature: string) : Promise<Boolean> {
