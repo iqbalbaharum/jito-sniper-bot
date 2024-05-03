@@ -489,7 +489,6 @@ export class BotLiquidity {
 			amountOut: amountOut,
 			fixedSide: fixedSide ? fixedSide : 'in',
 		})
-
 		
 		if(SystemConfig.get('send_tx_method') === 'bundle') {
 			endInstructions.push(SystemProgram.transfer({
@@ -545,67 +544,6 @@ export class BotLiquidity {
 		transaction.sign([payer, ...innerTransaction.signers])
 
 		return transaction
-	}
-
-	static makeAmmSwapAccounts = async (
-		poolKeys: LiquidityPoolKeysV4,
-		direction: 'in' | 'out',
-		wsolTokenAccount: PublicKey,
-		amountIn: BigNumberish,
-		amountOut: BigNumberish,
-		config?: {
-			blockhash?: String
-			compute?: TransactionCompute
-	}) => {
-		let tokenAccountIn
-		let tokenAccountOut
-		let accountInDecimal
-		let blockhash = config?.blockhash
-
-		if (!blockhash) {
-			const block = await connection.getLatestBlockhash({
-				commitment: 'confirmed',
-			})
-			blockhash = block.blockhash
-		}
-
-		if (direction === 'in') {
-			let accountOut
-			if (poolKeys.baseMint.toString() === WSOL_ADDRESS) {
-				accountOut = poolKeys.quoteMint
-			} else {
-				accountOut = poolKeys.baseMint
-			}
-
-			const { ata, instructions } =
-				await BotTokenAccount.getOrCreateTokenAccountInstruction(
-					accountOut,
-					true
-				)
-
-			tokenAccountIn = wsolTokenAccount
-			tokenAccountOut = ata
-		} else {
-			let accountIn: PublicKey
-
-			if (poolKeys.baseMint.toString() === WSOL_ADDRESS) {
-				accountIn = poolKeys.quoteMint
-				accountInDecimal = poolKeys.quoteDecimals
-			} else {
-				accountIn = poolKeys.baseMint
-				accountInDecimal = poolKeys.baseDecimals
-			}
-
-			const { ata } = await BotTokenAccount.getOrCreateTokenAccountInstruction(
-				accountIn,
-				false
-			)
-
-			tokenAccountIn = ata
-			tokenAccountOut = wsolTokenAccount
-		}
-
-
 	}
 
 	/**

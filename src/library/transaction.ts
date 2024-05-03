@@ -15,6 +15,7 @@ import idl from '../idl/amm_proxy.json'
 import sleep from "atomic-sleep";
 import { getSimulationComputeUnits } from "@solana-developers/helpers";
 import { sendTxUsingJito } from "../adapter/jito";
+import { toBuffer } from "../utils/instruction";
 
 export const getAmmIdFromSignature = async (signature: string) : Promise<PublicKey | undefined> => {
   const response = await connection.getTransaction(signature, {
@@ -199,6 +200,9 @@ export class BotTransaction {
 
         signature = bundle.result
         break
+      case 'base64':
+        signature = await BotTransaction.sendBase64Transaction(transaction)
+        break;
       case 'rpc':
       default:
         signature = await conn.sendRawTransaction(rawTransaction, {
@@ -209,6 +213,31 @@ export class BotTransaction {
     }
     
     return signature
+  }
+
+  static async sendBase64Transaction(transaction: VersionedTransaction) : Promise<string> {
+    const resp = await fetch(config.get('http_rpc_url'), {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json;charset=UTF-8',
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "sendTransaction",
+        params: [
+          toBuffer(transaction.serialize()).toString('base64'),
+          {
+            encoding: "base64",
+            skipPreflight: true,
+            maxRetries: 1,
+            preflightCommitment: "confirmed"
+          }
+        ]
+      })
+    })
+    const json = await resp.json();
+    return json.result
   }
 
   static sendJitoTransaction =  async(transaction: VersionedTransaction) : Promise<string> => {
