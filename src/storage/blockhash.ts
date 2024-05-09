@@ -51,7 +51,7 @@ export class BlockHashStorage extends BaseStorage {
             case 'rpc':
             default:
                 let currSlot = await connection.getSlot('confirmed')
-                if(currSlot - this.latestSlot > 50) {
+                if(currSlot - this.latestSlot > 20) {
                     let block = await connection.getLatestBlockhashAndContext('confirmed')
                     
                     this.recentBlockhash = block.value.blockhash

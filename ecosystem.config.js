@@ -61,7 +61,7 @@ module.exports = {
     {
       name: 'trade',
       script: './build/src/services/trade.js',
-      instances: 1,
+      instances: 5,
       autorestart: true,
       watch: false,
     }

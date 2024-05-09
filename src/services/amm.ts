@@ -13,7 +13,6 @@ import { ammState } from "../adapter/storage";
 async function processAccountInfo(account: KeyedAccountInfo) {
 	try {
 		const state = await ammState.get(account.accountId)
-		console.log(state)
 		if(!state) {
 			await ammState.set(account.accountId, account.accountInfo.data.toString('hex'))
 		}

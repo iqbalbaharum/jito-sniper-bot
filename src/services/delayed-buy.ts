@@ -102,7 +102,7 @@ async function main() {
 			async (job: Job) => {
 				logger.info(`Executing just opened market | ${job.data}`)
 				processBuy(job.data, ata)
-			}, 
+			},
 			{
 				connection: {
 						host: SystemConfig.get('redis_host'),

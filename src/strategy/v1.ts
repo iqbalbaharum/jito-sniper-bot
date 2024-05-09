@@ -10,7 +10,7 @@ import { config as SystemConfig, config } from "../utils/config";
 import { BotTokenAccount, setupWSOLTokenAccount } from "../library/token-account";
 import { BotLiquidity, BotLookupTable, BotMarket, getJitoTipAccount, getLiquidityMintState, getTokenInWallet } from "../library";
 import sleep from "atomic-sleep";
-import { onDefaultBundleResult, submitBundle } from "../library/bundle";
+import { onDefaultBundleResult } from "../library/bundle";
 import { mainSearcherClient } from "../adapter/jito";
 import { ArbIdea, TokenChunk, BotLiquidityState, LookupIndex, MempoolTransaction, TransactionCompute, TxInstruction, TxPool, PoolInfo } from "../types";
 import { BotTransaction, getAmmIdFromSignature } from "../library/transaction";
@@ -157,7 +157,6 @@ const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BN, e
     if(SystemConfig.get('use_lite_rpc')) {
       selectedConnection = lite_rpc
     }
-
 
     return BotTransaction.sendAutoRetryTransaction(selectedConnection, transaction)
 	// return BotTransaction.sendJitoTransaction(transaction)

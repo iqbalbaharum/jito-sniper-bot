@@ -16,6 +16,7 @@ import sleep from "atomic-sleep";
 import { getSimulationComputeUnits } from "@solana-developers/helpers";
 import { sendTxUsingJito } from "../adapter/jito";
 import { toBuffer } from "../utils/instruction";
+import { BotBundle } from "./bundle";
 
 export const getAmmIdFromSignature = async (signature: string) : Promise<PublicKey | undefined> => {
   const response = await connection.getTransaction(signature, {
@@ -186,19 +187,29 @@ export class BotTransaction {
    * @param transaction 
    * @param blockhashResult 
    */
-  static sendAutoRetryTransaction =  async(conn: Connection, transaction: VersionedTransaction) : Promise<string> => {
+  static sendAutoRetryTransaction =  async(conn: Connection, transaction: VersionedTransaction, jitoTipAmount: BN = new BN(0)) : Promise<string> => {
     const rawTransaction = transaction.serialize()
   
     let method = config.get('send_tx_method')
     let signature
+
     switch(method) {
-      case 'bundle':
+      case 'jito_send_tx':
         let bundle = await sendTxUsingJito({
           serializedTx: transaction.serialize(),
-          region: 'mainnet'
+          region: 'random'
         })
 
         signature = bundle.result
+        break
+      case 'jito_send_bundle':
+        let bundleId = await BotBundle.submitBundle({
+          vtransaction: transaction,
+          expectedProfit: new BN(0),
+          tipAmount: jitoTipAmount
+        })
+
+        signature = bundleId
         break
       case 'base64':
         signature = await BotTransaction.sendBase64Transaction(transaction)
@@ -248,6 +259,31 @@ export class BotTransaction {
     })
     
     return signature
+  }
+  
+  static async runSimulation (conn: Connection, instructions: TransactionInstruction[], blockhash: string) : Promise<RpcResponseAndContext<anchor.web3.SimulatedTransactionResponse>> {
+    // let cu = await getSimulationComputeUnits(conn, instructions, payer.publicKey, [])
+    const simulatedMessageV0 = new TransactionMessage({
+			payerKey: payer.publicKey,
+			recentBlockhash: blockhash,
+			instructions: [
+        ...instructions,
+			],
+		}).compileToV0Message()
+
+		const simTx = new VersionedTransaction(simulatedMessageV0)
+    
+    let simulate = await conn.simulateTransaction(simTx, {
+      replaceRecentBlockhash: true,
+      commitment: 'confirmed'
+    }) 
+    
+    if(simulate.value.err) {
+      logger.error(simulate.value.err)
+      throw new Error(`Simulation error: ${simulate.value.err}`)
+    }
+
+    return simulate
   }
 
   static async getExpectedComputeUnitFromTransactions (conn: Connection, instructions: TransactionInstruction[], blockhash: string) : Promise<number> {

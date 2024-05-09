@@ -3,5 +3,6 @@ import BN from "bn.js"
 
 export type ArbIdea = {
     vtransaction: VersionedTransaction,
-    expectedProfit: BN
+    expectedProfit: BN,
+    tipAmount: BN
 }

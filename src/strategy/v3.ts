@@ -1,511 +1,216 @@
 /**
- * Technique: Copy trade (ooo5qMf4R5ExWmnjGsb8ZD33UkmqBAnTtyN9D5Ne4Kn) + Reverse Dollar Cost Averaging (RDCA)
+ * Microservices trade
  */
-import { AddressLookupTableAccount, Commitment, ComputeBudgetInstruction, LAMPORTS_PER_SOL, Logs, MessageAccountKeys, PublicKey, TransactionInstruction, VersionedTransaction } from "@solana/web3.js";
-import { confirmedConnection, connection } from "../adapter/rpc";
-import { BigNumberish, LIQUIDITY_STATE_LAYOUT_V4, LiquidityPoolKeys, LiquidityPoolKeysV4, LiquidityState, LiquidityStateV4, Logger, MARKET_STATE_LAYOUT_V3, getMultipleAccountsInfo, parseBigNumberish, struct, u32, u8 } from "@raydium-io/raydium-sdk";
+import { AddressLookupTableAccount, Commitment, Connection, LAMPORTS_PER_SOL, Logs, MessageAccountKeys, PublicKey, VersionedTransaction } from "@solana/web3.js";
+import { confirmedConnection, connection, lite_rpc } from "../adapter/rpc";
+import { BigNumberish, LIQUIDITY_STATE_LAYOUT_V4, LiquidityPoolKeys, LiquidityPoolKeysV4, LiquidityState, LiquidityStateV4, Logger, MARKET_STATE_LAYOUT_V3, getMultipleAccountsInfo, parseBigNumberish } from "@raydium-io/raydium-sdk";
 import BN from "bn.js";
-import { COMPUTE_BUDGET_ADDRESS, JUPITER_ADDRESS, OPENBOOK_V1_ADDRESS, RAYDIUM_AUTHORITY_V4_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, WSOL_ADDRESS } from "../utils/const";
+import { JUPITER_ADDRESS, OPENBOOK_V1_ADDRESS, RAYDIUM_AUTHORITY_V4_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, WSOL_ADDRESS } from "../utils/const";
 import { config as SystemConfig, config } from "../utils/config";
 import { BotTokenAccount, setupWSOLTokenAccount } from "../library/token-account";
-import { BotLiquidity, BotLookupTable, getAccountPoolKeysFromAccountDataV4, getLiquidityMintState, getTokenInWallet } from "../library";
+import { BotLiquidity, BotLookupTable, BotMarket, getLiquidityMintState, getTokenInWallet } from "../library";
 import sleep from "atomic-sleep";
-import { submitBundle } from "../library/bundle";
 import { mainSearcherClient } from "../adapter/jito";
-import { ArbIdea, TokenChunk, BotLiquidityState, LookupIndex, MempoolTransaction, TransactionCompute, TxInstruction, TxPool } from "../types";
+import { LookupIndex, MempoolTransaction, TxInstruction, TxPool, PoolInfo } from "../types";
 import { BotTransaction, getAmmIdFromSignature } from "../library/transaction";
 import { logger } from "../utils/logger";
 import { RaydiumAmmCoder } from "../utils/coder";
 import raydiumIDL from '../idl/raydiumAmm.json'
 import { Idl } from "@coral-xyz/anchor";
-import { BotError } from "../types/error";
-import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
-import { ASSOCIATED_TOKEN_PROGRAM_ID, AccountLayout } from "@solana/spl-token";
 import { IxSwapBaseIn } from "../utils/coder/layout";
 import { payer } from "../adapter/payer";
-import { CopyTrades, ExistingRaydiumMarketStorage } from "../storage";
-import { fuseGenerators, mempool } from "../generators";
-import { GrpcGenerator } from "../generators/grpc";
-import { SignatureGenerator } from "../generators/signature";
-import { redisClient } from "../adapter/redis";
-
-// let trackedLiquidityPool: Set<string> = new Set<string>()
-let tokenBalances: Map<string, TokenChunk> = new Map<string, TokenChunk>()
-let rdcaTimers: Map<string, NodeJS.Timeout> = new Map()
-let trackedPoolKeys: Map<string, LiquidityPoolKeys> = new Map<
-  string,
-  LiquidityPoolKeys>();
-let mints: Map<string, BotLiquidityState> = new Map<
-  string,
-  BotLiquidityState
->();
-
-let lookupTable: BotLookupTable
-let copyTrades: CopyTrades
+import { mempool } from "../generators";
+import { blockhasher, countLiquidityPool, existingMarkets, mints, tokenBalances, trackedPoolKeys } from "../adapter/storage";
+import { BotQueue } from "../library/queue";
+import { BotTrade, BotTradeType } from "../library/trade";
+import { TradeEntry } from "../types/trade";
+import { BotgRPC } from "../library/grpc";
 
 const coder = new RaydiumAmmCoder(raydiumIDL as Idl)
 
-/**
- * Execute buy function
- * @param ammId 
- * @param ata 
- * @param amount 
- * @param blockhash 
- * @returns 
- */
-const processBuy = async (
-  ammId: PublicKey, 
-  ata: PublicKey, 
-  amount: BN,
-  config: {
-    blockhash: string
-    compute: TransactionCompute
-  }) => {
+const processBuy = async (tradeId: string, ammId: PublicKey) => {
   
-  const poolKeys = await BotLiquidity.getAccountPoolKeysFromAccountDataV4(ammId)
+  const poolKeys = await BotLiquidity.getAccountPoolKeys(ammId)
 
   if(!poolKeys) { return }
+  // Check the pool open time before proceed,
+  // If the pool is not yet open, then sleep before proceeding
+  // At configuration to check if for how long the system willing to wait
+  let different = poolKeys.poolOpenTime * 1000 - new Date().getTime();
+  if (different > 0) {
+    logger.warn(`Sleep ${ammId} | ${different} ms`)
+    if (different <= SystemConfig.get('pool_opentime_wait_max')) {
+      BotTrade.execute(tradeId, different)
+      return
+    } else {
+      return;
+    }
+  }
 
   const info = BotLiquidity.getMintInfoFromWSOLPair(poolKeys)
-  
   // Cancel process if pair is not WSOL
   if(info.mint === undefined) { return }
 
-  if(!poolKeys) { return }
-  
-  logger.info(new Date(), `BUY ${info.mint.toBase58()}`)
-  
-  let adjustedAmount = amount.mul(new BN(SystemConfig.get('adjusted_percentage'))).div(new BN(100))
-
-  let signature = await buyToken(
-    poolKeys, 
-    ata,
-    adjustedAmount,
-    config
-  )
-
-  if(!signature) { return }
-  
-  logger.info(`Buy TX send: ${signature}`)
-  
-  copyTrades.set(ammId, {
-    originalAmount: amount,
-    adjustedAmount
-  })
-
-  trackedPoolKeys.set(ammId.toBase58(), poolKeys)
-  mints.set(ammId.toBase58(), {
+  await trackedPoolKeys.set(ammId, poolKeys)
+  await mints.set(ammId, {
     ammId,
     mint: info.mint,
     mintDecimal: info.decimal,
     isMintBase: info.isMintBase
   })
 
-  return signature
-}
+  // add into the record
+  existingMarkets.add(ammId)
 
-async function processSell(
-  ata: PublicKey,
-  ammId: PublicKey,
-  mint: PublicKey, 
-  originalAmount: BN,
-  config: {
-    blockhash: string
-    compute: TransactionCompute
-  },
-  poolKeys?: LiquidityPoolKeysV4) {
-  
-  if(!poolKeys) {
-    poolKeys = trackedPoolKeys.get(ammId!.toBase58())
-    if(!poolKeys) { return }
-  }
-
-  const balance = tokenBalances.get(mint.toBase58())
-  if(balance === undefined) { return }
-  
-  if(originalAmount === undefined || originalAmount.isZero()) { return }
-
-  let copyTradeData = copyTrades.get(ammId)
-  
-  if(copyTradeData === undefined || copyTradeData.adjustedAmount.isZero()) { return }
-
-  const adjustedAmount = copyTradeData.adjustedAmount.mul(originalAmount).div(copyTradeData.originalAmount);
-
-  const signature = await sellToken(
-    poolKeys, 
-    ata, 
-    adjustedAmount,
-    config
+  await BotTrade.processed(
+    tradeId, 
+    'buy',
+    new BN(SystemConfig.get('token_purchase_in_sol') * LAMPORTS_PER_SOL),
+    new BN(0 * LAMPORTS_PER_SOL),
+    {}
   )
-  
-  logger.info(new Date(), `SELL ${signature} | ${mint.toBase58()} ${originalAmount.toString()} | ${adjustedAmount.toString()}`)
 
-  return signature
+  // delayed buy to make sure we the buy confirmation
+  BotTrade.execute(tradeId, 5 * 1000)
 }
 
-const buyToken = async (
-  keys: LiquidityPoolKeysV4, 
-  ata: PublicKey, 
-  amount: BigNumberish, 
-  config: {
-    blockhash: string
-    compute: TransactionCompute
-  }) => {
-  try {
-
-    let alts: AddressLookupTableAccount[] = []
-    let raydiumAlt = SystemConfig.get('raydium_alt')
-    if(raydiumAlt) {
-      let alt = await BotLookupTable.getLookupTable(new PublicKey(raydiumAlt))
-      if(alt) {
-        alts.push(alt)
-      }
+async function processSell(tradeId: string, ammId: PublicKey, execCount: number = 1, execInterval: number = 1000) {
+  await BotTrade.processed(
+    tradeId, 
+    'sell', 
+    new BN(0), 
+    new BN(5000000), 
+    {
+      microLamports: 1000000,
+      units: 45000,
+      refetchBalance: true,
+      jitoTipAmount: new BN(1000000) 
     }
+  )
 
-    const transaction = await BotLiquidity.makeSimpleSwapInstruction(
-      keys,
-      'in',
-      ata,
-      amount,
-      0,
-      'in',
-      {
-        ...config,
-        alts
-      }
-    );
-    
-    // const arb: ArbIdea = {
-    //   vtransaction: transaction,
-    //   expectedProfit: new BN(0)
-    // }
-
-    // return await submitBundle(arb)
-
-    return await BotTransaction.sendTransactionToMultipleRpcs(transaction)
-  } catch(e: any) {
-    logger.error(e.toString())
-    return ''
-  }
+  await BotTrade.execute(tradeId, BotTradeType.REPEAT, 0, { every: execCount, limit: execInterval})
 }
 
-const sellToken = async (
-  keys: LiquidityPoolKeysV4,
-  ata: PublicKey,
-  amount: BN,
-  config: {
-    blockhash: string
-    compute: TransactionCompute
-  }) => {
-  try {
-
-    let alts: AddressLookupTableAccount[] = []
-    let raydiumAlt = SystemConfig.get('raydium_alt')
-    if(raydiumAlt) {
-      let alt = await BotLookupTable.getLookupTable(new PublicKey(raydiumAlt))
-      if(alt) {
-        alts.push(alt)
-      }
-    }
-
-    const transaction = await BotLiquidity.makeSimpleSwapInstruction(
-      keys,
-      'out',
-      ata,
-      amount,
-      0,
-      'in',
-      {
-        ...config,
-        alts
-      }
-    );
-    
-    // const arb: ArbIdea = {
-    //   vtransaction: transaction,
-    //   expectedProfit: new BN(0)
-    // }
-
-    // return await submitBundle(arb)
-    return await BotTransaction.sendTransactionToMultipleRpcs(transaction)
-  } catch(e) {
-    console.log(e)
-  }
-}
-
-// Using Rever Dollar Cost Averaging technique, the bot would auto sell the token at specific interval
-// over time. The first sell would always be 25%, and subsequent sell at 10%
-// TODO:  Implement price tracker to decide how much subsequent token should be sold linearly. 
-const startRDCA = async (
-  ammId: PublicKey,
-  mint: PublicKey,
-  ata: PublicKey) => {
-  const id = setInterval(async () => {
-
-    const balance = tokenBalances.get(mint.toBase58());
-
-    if(balance === undefined || balance.remaining.isNeg()) {
-      const id = rdcaTimers.get(mint.toBase58())
-      clearInterval(id)
-    }
-
-    if(balance !== undefined) {
-      let percentage = 0
-
-      if(balance.total.eq(balance.remaining)) {
-        percentage = SystemConfig.get('rdca_1st_percentage')
-      } else {
-        percentage = SystemConfig.get('rdca_default_percentage')
-      }
-
-      logger.info(`Starting RDCA ${ammId}`)
-      const sellAmount = balance.remaining.sub(balance.remaining.muln(percentage).divn(100));
-    
-      await processSell(
-          ata,
-          ammId,
-          mint,
-          sellAmount,
-          {
-            blockhash: '',
-            compute: {
-              microLamports: 0,
-              units: 0
-            }
-          }
-        ) 
-    }
-  }, SystemConfig.get('rdca_sell_interval'))
-
-  rdcaTimers.set(mint.toBase58(), id)
-}
-
-// Most Raydium transaction is using swapBaseIn, so the bot need to figure out if this transaction
-// is "in" @ "out" direction. This can be achieved by checking the mint token balance in transaction, 
-// if mint token is negative, then it is sell, and if positive value it's buy
-const processSwapBaseIn = async (
-  accountIndexes: number[],
-  txPool: TxPool,
-  ata: PublicKey,
-  computeUnits: number,
-  computeMicroLamport: number
-) => {
-  
-  const tx = txPool.mempoolTxns
- 
+const getAmmIdFromMempoolTx = async (tx: MempoolTransaction, instruction: TxInstruction) => {
+  const accountIndexes: number[] = instruction.accounts || []
   const lookupsForAccountKeyIndex: LookupIndex[] = BotLookupTable.generateTableLookup(tx.addressTableLookups)
-  let ammId: PublicKey | undefined
-  let sourceTA: PublicKey | undefined
-  let serumProgramId: PublicKey | undefined
-  let signer: PublicKey | undefined
 
-  // ammId
-  const ammIdAccountIndex = accountIndexes[1]
-  if(ammIdAccountIndex >= tx.accountKeys.length) {
-    const lookupIndex = ammIdAccountIndex - tx.accountKeys.length
+  let ammId: PublicKey | undefined
+
+  const accountIndex = accountIndexes[1]
+  
+  if(accountIndex >= tx.accountKeys.length) {
+    const lookupIndex = accountIndex - tx.accountKeys.length
     const lookup = lookupsForAccountKeyIndex[lookupIndex]
     const table = await BotLookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
     ammId = table?.state.addresses[lookup?.lookupTableIndex]
   } else {
-    ammId = new PublicKey(tx.accountKeys[ammIdAccountIndex])
+    ammId = new PublicKey(tx.accountKeys[accountIndex])
+  }
+
+  return ammId
+}
+
+/**
+ * Burst sell trade based on balance chuck
+ * @param ammId 
+ * @param ata 
+ * @param blockhash 
+ * @returns 
+ */
+const burstSellAfterLP = async(tradeId: string, ammId: PublicKey) => {
+  
+}
+
+const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: PublicKey) => {
+  const tx = txPool.mempoolTxns
+
+  let tradeId = await BotTrade.listen(TradeEntry.WITHDRAW)
+
+  let ammId: PublicKey | undefined = await getAmmIdFromMempoolTx(tx, instruction)
+  if(!ammId) { return }
+  
+  await BotTrade.preprocessed(tradeId, ammId)
+
+  // If the token is not available, then buy the token. This to cover use cases:
+  // 1. Didnt buy token initially
+  // 2. Buy failed 
+  let count: number | undefined = await countLiquidityPool.get(ammId)
+  if(count === undefined || count === null) {
+    if(await existingMarkets.isExisted(ammId)) {
+      await BotTrade.abandoned(tradeId)
+      return
+    }
+    
+    let buyTradeId = await BotTrade.duplicate(tradeId)
+    if(buyTradeId) {
+      await processBuy(buyTradeId, ammId)
+      await countLiquidityPool.set(ammId, 0)
+    }
+  } else {
+    await countLiquidityPool.set(ammId, count - 1)
+  }
+
+  processSell(tradeId, ammId, 2000000, 500)
+}
+
+const processInitialize2 = async (instruction: TxInstruction, txPool: TxPool, ata: PublicKey) => {
+  const tx = txPool.mempoolTxns
+
+  const tradeId = await BotTrade.listen(TradeEntry.INITIAILIZE2)
+
+  const accountIndexes: number[] = instruction.accounts || []
+  const lookupsForAccountKeyIndex: LookupIndex[] = BotLookupTable.generateTableLookup(tx.addressTableLookups)
+
+  let ammId: PublicKey | undefined
+
+  const accountIndex = accountIndexes[4]
+  
+  if(accountIndex >= tx.accountKeys.length) {
+    const lookupIndex = accountIndex - tx.accountKeys.length
+    const lookup = lookupsForAccountKeyIndex[lookupIndex]
+    const table = await BotLookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
+    ammId = table?.state.addresses[lookup?.lookupTableIndex]
+  } else {
+    ammId = new PublicKey(tx.accountKeys[accountIndex])
   }
 
   if(!ammId) { return }
 
-  // BUG: There's another method for Raydium swap which move the array positions
-  // to differentiate which position, check the position of OPENBOOK program Id in accountKeys
-  const serumAccountIndex = accountIndexes[7]
-  if(serumAccountIndex >= tx.accountKeys.length) {
-    const lookupIndex = serumAccountIndex - tx.accountKeys.length
-    const lookup = lookupsForAccountKeyIndex[lookupIndex]
-    const table = await BotLookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
-    serumProgramId = table?.state.addresses[lookup?.lookupTableIndex]
-  } else {
-    serumProgramId = new PublicKey(tx.accountKeys[serumAccountIndex])
-  }
+  await BotTrade.preprocessed(tradeId, ammId)
 
-  let sourceAccountIndex
-  let signerAccountIndex
-  if(serumProgramId?.toBase58() === OPENBOOK_V1_ADDRESS) {
-    sourceAccountIndex = accountIndexes[15]
-    signerAccountIndex = accountIndexes[17]
-  } else {
-    sourceAccountIndex = accountIndexes[14]
-    signerAccountIndex = accountIndexes[16]
-  }
-
-  if(sourceAccountIndex >= tx.accountKeys.length) {
-    const lookupIndex = sourceAccountIndex - tx.accountKeys.length
-    const lookup = lookupsForAccountKeyIndex[lookupIndex]
-    const table = await BotLookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
-    sourceTA = table?.state.addresses[lookup?.lookupTableIndex]
-  } else {
-    sourceTA = new PublicKey(tx.accountKeys[sourceAccountIndex])
-  }
-
-  // signer
-  if(signerAccountIndex >= tx.accountKeys.length) {
-    const lookupIndex = signerAccountIndex - tx.accountKeys.length
-    const lookup = lookupsForAccountKeyIndex[lookupIndex]
-    const table = await BotLookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
-    signer = table?.state.addresses[lookup?.lookupTableIndex]
-  } else {
-    signer = new PublicKey(tx.accountKeys[signerAccountIndex])
-  }
-  
-  if(!sourceTA || !ammId || !signer) { return }
-
-  let txSolAmount = BotTransaction.getBalanceFromTransaction(tx.preTokenBalances, tx.postTokenBalances, new PublicKey(WSOL_ADDRESS))
-
-  // Listening to own wallet, to get balance confirmation.
-  // Retrieve mint balance in the tx, and store in memory
-  // Then, start RDCA process.
-  // Everytime read from the payer wallet, update the balance of the token in wallet
-  if(sourceTA.equals(ata) || signer.equals(payer.publicKey)) {
-    const state = mints.get(ammId!.toBase58())
-    if(!state) { return }
-
-    let txAmount = BotTransaction.getBalanceFromTransaction(tx.preTokenBalances, tx.postTokenBalances, state.mint)
-    
-    if(txAmount.isNeg()) { // WSOL swap to token
-      tokenBalances.set(state.mint.toBase58(), {
-        total: txAmount,
-        remaining: txAmount,
-        chunk: new BN(0),
-        isConfirmed: false,
-        isUsedUp: false
-      });
-
-      startRDCA(ammId, state.mint, ata)
-    } else { // token swap to WSOL
-      const prevBalance = tokenBalances.get(state.mint.toBase58());
-      if (prevBalance !== undefined && !prevBalance.remaining.isNeg()) {
-        prevBalance.remaining = prevBalance.remaining.sub(txAmount.abs());
-        if(prevBalance.remaining.isNeg()) {
-          const id = rdcaTimers.get(state.mint.toBase58())
-          clearInterval(id)
-          tokenBalances.delete(ammId.toBase58())
-        } else {
-          tokenBalances.set(state.mint.toBase58(), prevBalance); 
-        }
-      }
-    }
+  if(await existingMarkets.isExisted(ammId)) {
     return
   }
 
-  let compute = {
-    compute: {
-      units: computeUnits,
-      microLamports: computeMicroLamport
-    },
-    blockhash: txPool.mempoolTxns.recentBlockhash
-  }
-
-  let isBuyTradeAction = false
-
-  if(txSolAmount.isNeg()) { isBuyTradeAction = true } else { isBuyTradeAction = false }
-
-  // Only listening on buy trade event only from the target account
-  if(isBuyTradeAction) {
-    logger.info(`BUY ${ammId}`)
-    const signature = await processBuy(
-      ammId,
-      ata,
-      txSolAmount.abs(),
-      compute)
-  }
+  await processBuy(tradeId, ammId)
 }
 
 const processTx = async (tx: TxPool, ata: PublicKey) => {
-  try {
-    let continueProcessing = false
-    let computeUnit = 0
-    let computeMicroLamport = 0
-    let accountIndexes: number[] = []
-    
-    if(!tx.mempoolTxns.filter) { return }
-    
-    if(tx.mempoolTxns.filter.includes('oooEYsNtbAnQnkx6SMtVui9iwP4Eu3KuTGC6NAp2gk2_tx')) {
-      if(tx.mempoolTxns.innerInstructions.length < 1) { return }
-      for(const ins of tx.mempoolTxns.innerInstructions[0].instructions) {
-        const programId = tx.mempoolTxns.accountKeys[ins.programIdIndex]
-        if(programId === RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS) {
-
-          const decodedIx = coder.instruction.decode(Buffer.from(ins.data))
-          if(decodedIx.hasOwnProperty('swapBaseIn')) {
-            continueProcessing = true
-            accountIndexes = Array.from(ins.accounts)
-          }
+  for(const ins of tx.mempoolTxns.instructions) {
+    const programId = tx.mempoolTxns.accountKeys[ins.programIdIndex]
+    if(programId === RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS) {
+      try {
+        let dataBuffer = Buffer.from(ins.data)
+        const decodedIx = coder.instruction.decode(dataBuffer)
+        
+        if(decodedIx.hasOwnProperty('withdraw')) { // remove liquidity
+          logger.info(`Withdraw ${tx.mempoolTxns.signature}`)
+          await processWithdraw(ins, tx, ata)
+        } else if(decodedIx.hasOwnProperty('initialize2')) {
+          sleep(5000)
+          logger.info(`Initialize2 ${tx.mempoolTxns.signature}`)
+          await processInitialize2(ins, tx, ata)
         }
-      }
-
-      for(const ins of tx.mempoolTxns.instructions) {
-        const programId = tx.mempoolTxns.accountKeys[ins.programIdIndex]
-
-        if(programId === COMPUTE_BUDGET_ADDRESS) {
-          const unitLayout = struct([u8("instruction"), u32("value")])
-          const d = unitLayout.decode(ins.data as Buffer)
-          if(d.instruction === 2) {
-            computeUnit = d.value
-          }
-
-          if(d.instruction === 3) {
-            computeMicroLamport = d.value
-          }
-        }
-      }
-
-      if(continueProcessing) {
-        console.log(`Signature: ${tx.mempoolTxns.signature}`)
-        await processSwapBaseIn(accountIndexes, tx, ata, computeUnit, computeMicroLamport)
+      } catch(e:any) {
+        console.log(tx.mempoolTxns.signature, e)
       }
     }
-
-    if(tx.mempoolTxns.filter.includes('wallet_tx')) {
-      for(const ins of tx.mempoolTxns.instructions) {
-        const programId = tx.mempoolTxns.accountKeys[ins.programIdIndex]
-        if(programId === RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS) {
-          const decodedIx = coder.instruction.decode(Buffer.from(ins.data))
-          
-          if(decodedIx.hasOwnProperty('swapBaseIn')) {
-            console.log(`My wallet: ${tx.mempoolTxns.signature}`)
-            await processSwapBaseIn(Array.from(ins.accounts), tx, ata, 0, 0)
-          }
-        }
-      }
-    }
-
-  } catch(e) {
-    console.log(e)
   }
 }
 
-const onBundleResult = () => {
-  mainSearcherClient.onBundleResult(
-    (bundleResult) => {
-      const bundleId = bundleResult.bundleId;
-      const isAccepted = bundleResult.accepted;
-      const isRejected = bundleResult.rejected;
-      
-      if (isAccepted) {
-        logger.info(
-          `Bundle ${bundleId} accepted in slot ${bundleResult.accepted?.slot}`,
-        );
-      }
-
-      if (isRejected) {
-        logger.warn(bundleResult.rejected, `Bundle ${bundleId} rejected:`);
-      }
-    },
-    (error) => {
-      logger.error(error);
-    },
-  );
-};
-
 (async () => {
   try {
-
     const { ata } = await setupWSOLTokenAccount(true, 0.3)
     
     if(!ata) { 
@@ -513,46 +218,35 @@ const onBundleResult = () => {
       return 
     }
 
-    // lookupTable = new BotLookupTable(redisClient, true)
-    copyTrades =  new CopyTrades()
+    const mempoolUpdates = mempool([
+      RAYDIUM_AUTHORITY_V4_ADDRESS,
+      '7YttLkHDoNj9wyDur5pM1ejNaAvT9X4eqaYcHQqtj2G5'
+    ])
+    
+    logger.info(`Starting bot V3`)
 
-    const generators: AsyncGenerator<TxPool>[] = [];
-
-    const geyserPool: GrpcGenerator = new GrpcGenerator('geyser', config.get('grpc_1_url'), config.get('grpc_1_token'))
-    geyserPool.addTransaction('oooEYsNtbAnQnkx6SMtVui9iwP4Eu3KuTGC6NAp2gk2_tx', {
-      vote: false,
-      failed: false,
-      accountInclude: ['oooEYsNtbAnQnkx6SMtVui9iwP4Eu3KuTGC6NAp2gk2'],
-      accountExclude: [],
-      accountRequired: [],
-    })
-
-    geyserPool.addTransaction('wallet_tx', {
-      vote: false,
-      failed: false,
-      accountInclude: [payer.publicKey.toBase58()],
-      accountExclude: [],
-      accountRequired: [],
-    })
-
-    try {
-      generators.push(geyserPool.listen())
-    } catch(e: any) {
-      console.log(e.toString())
+    for await (const update of mempoolUpdates) {
+      processTx(update, ata) // You can process the updates as needed
     }
 
-    const updates = fuseGenerators(generators)
+    // let botGrpc = new BotgRPC(SystemConfig.get('grpc_1_url'), SystemConfig.get('grpc_1_token'))
+    // botGrpc.addTransaction('raydium_tx', {
+    //   vote: false,
+    //   failed: false,
+    //   accountInclude: [
+    //     RAYDIUM_AUTHORITY_V4_ADDRESS, 
+    //     payer.publicKey.toBase58(),
+    //     '7YttLkHDoNj9wyDur5pM1ejNaAvT9X4eqaYcHQqtj2G5'
+    //   ],
+    //   accountExclude: [],
+    //   accountRequired: [],
+    // })
 
-    // if(config.get('mode') === 'development') {
-    //   onBundleResult()
-    // }
-
-    for await (const update of updates) {
-      if(update) {
-        processTx(update, ata)
-      }
-    }
-
+    // botGrpc.listen(
+    //   () => {},
+    //   (update: TxPool) => processTx(update, ata),
+    //   () => {}
+    // )
   } catch(e) {
     console.log(e)
   }

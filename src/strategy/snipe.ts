@@ -12,13 +12,13 @@ import { RaydiumAmmCoder } from "../utils/coder";
 import raydiumIDL from '../idl/raydiumAmm.json'
 import { Idl } from "@coral-xyz/anchor";
 import { BigNumberish, LIQUIDITY_STATE_LAYOUT_V4, LiquidityPoolKeysV4, LiquidityStateV4 } from "@raydium-io/raydium-sdk";
-import { submitBundle } from "../library/bundle";
 import { BN } from "bn.js";
 import { mainSearcherClient } from "../adapter/jito";
 import { RaydiumLiquidityGenerator } from "../generators/state";
 import { connection } from "../adapter/rpc";
 import { SnipeList } from "../library/snipe-list";
 import { redisClient } from "../adapter/redis";
+import { BotBundle } from "../library/bundle";
 
 let lookupTable: BotLookupTable
 let existingMarkets: ExistingRaydiumMarketStorage
@@ -69,10 +69,11 @@ const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BigNu
     
     const arb: ArbIdea = {
       vtransaction: transaction,
-      expectedProfit: new BN(0)
+      expectedProfit: new BN(0),
+      tipAmount: new BN(0)
     }
     
-    return await submitBundle(arb)
+    return await BotBundle.submitBundle(arb)
   } catch(e: any) {
     logger.error(e.toString())
     return ''

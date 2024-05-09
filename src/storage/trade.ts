@@ -17,9 +17,13 @@ export class TradeStorage extends BaseStorage {
         await this.client.hSet(uuid, this.key, this.serialize(trade))
     }
 
-    async get(uuid: string) : Promise<Trade> {
+    async get(uuid: string) : Promise<Trade | undefined> {
         let str = await this.client.hGet(uuid, this.key)
-        return this.deserialize(str)
+        if(str) {
+           return this.deserialize(str)
+        }
+
+        return undefined
     }
 
     async remove(uuid: string) {
@@ -31,7 +35,7 @@ export class TradeStorage extends BaseStorage {
     }
 
     private deserialize(tradeStr: string) : Trade {
-        let d = JSON.parse(tradeStr) 
+        let d = JSON.parse(tradeStr)
         return {
             ammId: d.ammId ? new PublicKey(d.ammId) : undefined,
             amountIn: new BN(d.amountIn, 16),

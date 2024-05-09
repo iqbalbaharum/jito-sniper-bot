@@ -9,16 +9,18 @@ export type TradeTiming = {
 }
 
 export type TradeOptions = {
-    execCount?: number,
-    execInterval?: number,
     microLamports?: number,
-    units?: number
+    units?: number,
+    refetchBalance?: boolean,
+    expectedProfit?: BN,
+    jitoTipAmount?: BN,
+    runSimulation?: boolean
 }
 
 export type TradeSignature = {
     signature: string,
     timestamp: number,
-    err?: string
+    err?: string,
 }
 
 export enum TradeEntry {

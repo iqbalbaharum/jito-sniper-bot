@@ -1,5 +1,5 @@
 import { Job, Worker } from "bullmq"
-import { config as SystemConfig } from "../utils"
+import { config as SystemConfig, config } from "../utils"
 import { logger } from "../utils/logger";
 import { BotLiquidity, BotLookupTable, setupWSOLTokenAccount } from "../library";
 import { AddressLookupTableAccount, Connection, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
@@ -7,7 +7,7 @@ import BN from "bn.js";
 import { BotTransaction } from "../library/transaction";
 import { connection, lite_rpc } from "../adapter/rpc";
 import { LiquidityPoolKeysV4 } from "@raydium-io/raydium-sdk";
-import { blockhasher, existingMarkets, mints, trackedPoolKeys, trader } from "../adapter/storage";
+import { blockhasher, existingMarkets, mints, tokenBalances, trackedPoolKeys, trader } from "../adapter/storage";
 import { QueueKey } from "../types/queue-key";
 import { Trade } from "../types/trade";
 import { BotTrade } from "../library/trade";
@@ -21,7 +21,6 @@ const process = async (tradeId: string, trade: Trade, ata: PublicKey) => {
   }
 
   const poolKeys = await trackedPoolKeys.get(trade.ammId)
-
   if(!poolKeys) { 
     BotTrade.abandoned(tradeId)
     return
@@ -53,6 +52,9 @@ const process = async (tradeId: string, trade: Trade, ata: PublicKey) => {
  * @returns 
  */
 const swap = async (tradeId: string, trade: Trade, keys: LiquidityPoolKeysV4, ata: PublicKey) => {
+
+  if(!trade.ammId) { return }
+
   let alts: AddressLookupTableAccount[] = []
 
   try {
@@ -71,42 +73,53 @@ const swap = async (tradeId: string, trade: Trade, keys: LiquidityPoolKeysV4, at
   // set the swap direction
   let direction : 'in' | 'out' = trade.action === 'buy' ? 'in' : 'out'
 
-  let count = trade.opts?.execCount || 1
-  let sleepTime = trade.opts?.execInterval || 1
+  let amount = trade.amountIn
   
-  for(let i = 0; i < count; i++) {
-    try {
-      let block = await blockhasher.get()
-      const transaction = await BotLiquidity.makeSimpleSwapInstruction(
-        keys,
-        direction,
-        ata,
-        trade.amountIn,
-        trade.amountOut,
-        'in',
-        {
-          compute: {
-            microLamports: trade.opts?.microLamports || 500000,
-            units: trade.opts?.units || 60000
-          },
-          blockhash: block.recentBlockhash,
-          alts
-        }
-      );
+  // Update the balance chunk from database
+  if(trade.opts?.refetchBalance) {
+    const balance = await tokenBalances.get(trade.ammId)
+    amount = balance?.chunk || trade.amountIn
+  }
 
-      let selectedConnection : Connection = connection
-      if(SystemConfig.get('use_lite_rpc')) {
-        selectedConnection = lite_rpc
+  if(amount.isZero()) { 
+    // logger.error(`Amount In cannot be in zero`)
+    return
+  }
+  
+  try {
+    let block = await blockhasher.get()
+    let tip = trade.opts?.jitoTipAmount ? trade.opts.jitoTipAmount : new BN(0)
+
+    const transaction = await BotLiquidity.makeSimpleSwapInstruction(
+      keys,
+      direction,
+      ata,
+      amount,
+      trade.amountOut,
+      'in',
+      {
+        compute: {
+          microLamports: trade.opts?.microLamports || 500000,
+          units: trade.opts?.units || 60000,
+        },
+        blockhash: block.recentBlockhash,
+        alts,
+        jitoTipAmount: tip,
+        runSimulation: trade.opts?.runSimulation ? trade.opts.runSimulation : false
       }
-
-      let signature = await BotTransaction.sendAutoRetryTransaction(selectedConnection, transaction)
-      await BotTrade.transactionSent(tradeId, signature)
-
-    } catch(e: any) {
-      BotTrade.transactionSent(tradeId, '', e.toString())
-    }
+    );
     
-    sleep(sleepTime)
+    let selectedConnection : Connection = connection
+    if(SystemConfig.get('use_lite_rpc')) {
+      selectedConnection = lite_rpc
+    }
+
+    let signature = await BotTransaction.sendAutoRetryTransaction(selectedConnection, transaction, tip)
+    logger.info(`${trade.ammId} | ${trade.action?.toUpperCase()} | ${signature}`)
+    await BotTrade.transactionSent(tradeId, signature)
+
+  } catch(e: any) {
+    BotTrade.transactionSent(tradeId, '', e.toString())
   }
 
   
@@ -127,19 +140,23 @@ async function main() {
           let tradeId = job.data
 
           const trade = await trader.get(tradeId)
-          
-          logger.info(`Executing incoming trade | ${trade.ammId}`)
+          if(!trade) { return }
+          logger.info(`Executing incoming trade | ${job.id} | ${trade.ammId}`)
 
           process(tradeId, trade, ata)
         } catch (e) {
           console.log(e)
         }
-			}, 
+			},
 			{
 				connection: {
 						host: SystemConfig.get('redis_host'),
 						port: SystemConfig.get('redis_port')
-				}
+				},
+        concurrency: 2,
+        stalledInterval: 1000,
+        lockDuration: 1000,
+        drainDelay: 1,
 			}
 	)
 

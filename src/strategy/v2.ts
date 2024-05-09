@@ -10,7 +10,6 @@ import { config as SystemConfig, config } from "../utils/config";
 import { BotTokenAccount, setupWSOLTokenAccount } from "../library/token-account";
 import { BotLiquidity, BotLookupTable, BotMarket, getLiquidityMintState, getTokenInWallet } from "../library";
 import sleep from "atomic-sleep";
-import { submitBundle } from "../library/bundle";
 import { mainSearcherClient } from "../adapter/jito";
 import { LookupIndex, MempoolTransaction, TxInstruction, TxPool, PoolInfo } from "../types";
 import { BotTransaction, getAmmIdFromSignature } from "../library/transaction";
@@ -23,7 +22,7 @@ import { payer } from "../adapter/payer";
 import { mempool } from "../generators";
 import { blockhasher, countLiquidityPool, existingMarkets, mints, tokenBalances, trackedPoolKeys } from "../adapter/storage";
 import { BotQueue } from "../library/queue";
-import { BotTrade } from "../library/trade";
+import { BotTrade, BotTradeType } from "../library/trade";
 import { TradeEntry } from "../types/trade";
 import { BotgRPC } from "../library/grpc";
 
@@ -34,14 +33,16 @@ const processBuy = async (tradeId: string, ammId: PublicKey) => {
   const poolKeys = await BotLiquidity.getAccountPoolKeys(ammId)
 
   if(!poolKeys) { return }
+
   // Check the pool open time before proceed,
   // If the pool is not yet open, then sleep before proceeding
   // At configuration to check if for how long the system willing to wait
+  let waitForTge = false
   let different = poolKeys.poolOpenTime * 1000 - new Date().getTime();
   if (different > 0) {
     logger.warn(`Sleep ${ammId} | ${different} ms`)
     if (different <= SystemConfig.get('pool_opentime_wait_max')) {
-      BotTrade.execute(tradeId, different)
+      waitForTge = true
       return
     } else {
       return;
@@ -60,7 +61,6 @@ const processBuy = async (tradeId: string, ammId: PublicKey) => {
     isMintBase: info.isMintBase
   })
 
-  // add into the record
   existingMarkets.add(ammId)
 
   await BotTrade.processed(
@@ -70,7 +70,11 @@ const processBuy = async (tradeId: string, ammId: PublicKey) => {
     new BN(0 * LAMPORTS_PER_SOL)
   )
 
-  BotTrade.execute(tradeId)
+  if(waitForTge) {
+    BotTrade.execute(tradeId, BotTradeType.SINGLE, different)
+  } else {
+    BotTrade.execute(tradeId, BotTradeType.SINGLE)
+  }
 }
 
 async function processSell(tradeId: string, ammId: PublicKey, execCount: number = 1, execInterval: number = 1000) {
@@ -95,15 +99,21 @@ async function processSell(tradeId: string, ammId: PublicKey, execCount: number 
       await BotTrade.processed(
         tradeId, 
         'sell', 
-        amountIn, 
+        amountIn,
         new BN(0), 
         {
-          execCount,
-          execInterval,
-          microLamports: 500000,
-          units: 35000
+          microLamports: 1500000,
+          units: 35000,
+          runSimulation: false,
         }
       )
+      
+      if(execCount - 1 > 0) {
+        await BotTrade.execute(tradeId, BotTradeType.REPEAT, 0, { every: execInterval, limit: execCount - 1})
+      } else {
+        await BotTrade.execute(tradeId, BotTradeType.SINGLE, 0)
+      }
+
     }
   }
 }

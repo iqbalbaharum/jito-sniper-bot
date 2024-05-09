@@ -42,7 +42,7 @@ import {
 } from '@solana/web3.js'
 import { RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, WSOL_ADDRESS } from '../utils/const'
 import { BotLiquidityState, MintInfo, PoolInfo } from '../types'
-import { BN } from 'bn.js'
+import BN from 'bn.js'
 import { resolve } from 'path'
 import { rejects } from 'assert'
 import { payer } from '../adapter/payer'
@@ -423,7 +423,9 @@ export class BotLiquidity {
 		config?: {
 			blockhash?: string,
 			compute?: TransactionCompute,
-			alts: AddressLookupTableAccount[]
+			jitoTipAmount?: BN,
+			alts: AddressLookupTableAccount[],
+			runSimulation?: boolean,
 		},
 	): Promise<VersionedTransaction> => {
 		let tokenAccountIn
@@ -490,24 +492,24 @@ export class BotLiquidity {
 			fixedSide: fixedSide ? fixedSide : 'in',
 		})
 		
-		if(SystemConfig.get('send_tx_method') === 'bundle') {
+		if(SystemConfig.get('send_tx_method') === 'jito_send_tx') {
 			endInstructions.push(SystemProgram.transfer({
 				fromPubkey: payer.publicKey,
 				toPubkey: new PublicKey(await getJitoTipAccount()),
-				lamports: 500000
+				lamports: config?.jitoTipAmount ? parseInt(config.jitoTipAmount.toString()) : 0
 			}))
 		}
-		
-		// const cu = await BotTransaction.getExpectedComputeUnitFromTransactions(
-		// 	connectionAlt1, 
-		// 	[
-		// 		...startInstructions,
-		// 		...innerTransaction.instructions
-		// 	],
-		// 	blockhash
-		// )
 
-		// console.log(cu)
+		if(config?.runSimulation && config.runSimulation) {
+			await BotTransaction.runSimulation(
+				connectionAlt1, 
+				[
+					...startInstructions,
+					...innerTransaction.instructions
+				],
+				blockhash
+			)
+		}
 
 		let computeInstructions: TransactionInstruction[] = []
 

@@ -2,6 +2,7 @@ import { Keypair } from "@solana/web3.js";
 import { config } from "../utils/config";
 import bs58 from 'bs58'
 import { SearcherClient, searcherClient } from "jito-ts/dist/sdk/block-engine/searcher";
+import { logger } from "../utils/logger";
 
 const BLOCK_ENGINE_URLS = config.get('block_engine_urls')
 const AUTH_KEYPAIR_SECRET = config.get('auth_keypair_secret')
@@ -26,7 +27,7 @@ export { mainSearcherClient, searcherClients }
 
 // Send Transaction
 
-export type JitoRegion = 'mainnet' | 'amsterdam' | 'frankfurt' | 'ny' | 'tokyo';
+export type JitoRegion = 'mainnet' | 'amsterdam' | 'frankfurt' | 'ny' | 'tokyo' | 'random';
 
 export const JitoEndpoints = {
     mainnet: 'https://mainnet.block-engine.jito.wtf',
@@ -34,10 +35,18 @@ export const JitoEndpoints = {
     frankfurt: 'https://frankfurt.mainnet.block-engine.jito.wtf',
     ny: 'https://ny.mainnet.block-engine.jito.wtf',
     tokyo: 'https://tokyo.mainnet.block-engine.jito.wtf',
+    random: ''
 };
 
 export function getJitoEndpoint(region: JitoRegion) {
     return JitoEndpoints[region];
+}
+
+export function getRandomJitoEndpoint() {
+    const regions = Object.keys(JitoEndpoints);
+    const randomIndex = Math.floor(Math.random() * (regions.length - 1));
+    const randomRegion = regions[randomIndex];
+    return JitoEndpoints[randomRegion as JitoRegion];
 }
 
 export async function sendTxUsingJito({
@@ -47,7 +56,15 @@ export async function sendTxUsingJito({
     serializedTx: Uint8Array | Buffer | number[];
     region: JitoRegion;
 }) {
-    let rpcEndpoint = getJitoEndpoint(region);
+    let rpcEndpoint = ''
+    if(region === 'random') {
+        rpcEndpoint = getRandomJitoEndpoint();
+    } else {
+        rpcEndpoint = getJitoEndpoint(region);
+    }
+
+    logger.info(`endpoint: ${rpcEndpoint}`)
+
     let encodedTx = bs58.encode(serializedTx);
     let payload = {
         jsonrpc: "2.0",
@@ -56,7 +73,7 @@ export async function sendTxUsingJito({
         params: [encodedTx]
     };
 
-    let res = await fetch(`${rpcEndpoint}/api/v1/transactions?bundleOnly=true`, {
+    let res = await fetch(`${rpcEndpoint}/api/v1/transactions`, {
         method: 'POST',
         body: JSON.stringify(payload),
         headers: { 'Content-Type': 'application/json' }
