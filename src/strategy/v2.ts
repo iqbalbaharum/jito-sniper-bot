@@ -28,7 +28,7 @@ import { BotgRPC } from "../library/grpc";
 
 const coder = new RaydiumAmmCoder(raydiumIDL as Idl)
 
-const processBuy = async (tradeId: string, ammId: PublicKey) => {
+const processBuy = async (tradeId: string, ammId: PublicKey, microLamports: number = 500000, delay: number = 0) => {
   
   const poolKeys = await BotLiquidity.getAccountPoolKeys(ammId)
 
@@ -67,17 +67,20 @@ const processBuy = async (tradeId: string, ammId: PublicKey) => {
     tradeId, 
     'buy',
     new BN(SystemConfig.get('token_purchase_in_sol') * LAMPORTS_PER_SOL),
-    new BN(0 * LAMPORTS_PER_SOL)
+    new BN(0 * LAMPORTS_PER_SOL),
+    {
+      microLamports
+    }
   )
 
   if(waitForTge) {
-    BotTrade.execute(tradeId, BotTradeType.SINGLE, different)
+    BotTrade.execute(tradeId, BotTradeType.SINGLE, delay + different)
   } else {
-    BotTrade.execute(tradeId, BotTradeType.SINGLE)
+    BotTrade.execute(tradeId, BotTradeType.SINGLE, delay)
   }
 }
 
-async function processSell(tradeId: string, ammId: PublicKey, execCount: number = 1, execInterval: number = 1000) {
+async function processSell(tradeId: string, ammId: PublicKey, execCount: number = 1, execInterval: number = 1000, microLamports: number = 500000) {
   
   // Check if the we have confirmed balance before
   // executing sell
@@ -102,7 +105,7 @@ async function processSell(tradeId: string, ammId: PublicKey, execCount: number 
         amountIn,
         new BN(0), 
         {
-          microLamports: 1500000,
+          microLamports,
           units: 35000,
           runSimulation: false,
         }
@@ -150,7 +153,7 @@ const burstSellAfterLP = async(tradeId: string, ammId: PublicKey) => {
     const state = await mints.get(ammId!)
     if(!state) { return }
     const totalChunck = SystemConfig.get('tx_balance_chuck_division')
-    processSell(tradeId, ammId, Math.floor(totalChunck/ 4), 1800)
+    processSell(tradeId, ammId, Math.floor(totalChunck/ 4), 1800, 500000)
 }
 
 const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: PublicKey) => {
@@ -173,14 +176,16 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
       return
     }
     
-    await processBuy(tradeId, ammId)
+    await processBuy(tradeId, ammId, 80000)
     await countLiquidityPool.set(ammId, 0)
   } else {
     await countLiquidityPool.set(ammId, count - 1)
   }
 
+  if(count === undefined) { return }
+
   // Burst sell transaction, if rugpull detected
-  if(count && count - 1 === 0) {
+  if(count - 1 === 0) {
     await burstSellAfterLP(tradeId, ammId)
   }
 }
@@ -214,7 +219,8 @@ const processInitialize2 = async (instruction: TxInstruction, txPool: TxPool, at
     return
   }
 
-  await processBuy(tradeId, ammId)
+  // Delay buy for 2 seconds to avoid traffic
+  await processBuy(tradeId, ammId, 500000, 2000)
 }
 
 // Most Raydium transaction is using swapBaseIn, so the bot need to figure out if this transaction
@@ -369,7 +375,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   // let microLamports = 500000
 
   logger.warn(`Potential entry ${ammId} | ${amount} SOL`)
-  processSell(tradeId, ammId, Math.floor(totalChunck/ 5), 2000)
+  processSell(tradeId, ammId, Math.floor(totalChunck/ 5), 2000, 800000)
 }
 
 const processTx = async (tx: TxPool, ata: PublicKey) => {
