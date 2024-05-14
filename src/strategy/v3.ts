@@ -1,8 +1,11 @@
 /**
  * Microservices trade
+ * Attempt simulate tx every seconds after LP totally removed
+ * Result (13/05/24)
+ *  - Only buy token, and simulation always failed 
  */
 import { AddressLookupTableAccount, Commitment, Connection, LAMPORTS_PER_SOL, Logs, MessageAccountKeys, PublicKey, VersionedTransaction } from "@solana/web3.js";
-import { confirmedConnection, connection, lite_rpc } from "../adapter/rpc";
+import { confirmedConnection, connection } from "../adapter/rpc";
 import { BigNumberish, LIQUIDITY_STATE_LAYOUT_V4, LiquidityPoolKeys, LiquidityPoolKeysV4, LiquidityState, LiquidityStateV4, Logger, MARKET_STATE_LAYOUT_V3, getMultipleAccountsInfo, parseBigNumberish } from "@raydium-io/raydium-sdk";
 import BN from "bn.js";
 import { JUPITER_ADDRESS, OPENBOOK_V1_ADDRESS, RAYDIUM_AUTHORITY_V4_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, WSOL_ADDRESS } from "../utils/const";

@@ -19,20 +19,15 @@ const config = convict({
         env: 'WEBSOCKET_RPC_URL'
     },
     // Lite RPC
-    lite_rpc_url: {
+    send_tx_rpc_url: {
         format: String,
         default: '',
-        env: 'LITE_RPC_URL'
+        env: 'SEND_TX_RPC_URL'
     },
-    lite_rpc_ws_url: {
-        format: String,
-        default: '',
-        env: 'LITE_RPC_WS_URL'
-    },
-    use_lite_rpc: {
+    use_send_tx_rpc: {
         format: Boolean,
         default: false,
-        env: 'USE_LITE_RPC'
+        env: 'USE_SEND_TX_RPC'
     },
     http_rpc_url_2: {
         format: String,

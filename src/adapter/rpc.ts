@@ -10,9 +10,8 @@ const WEBSOCKET_RPC_URL = config.get('websocket_rpc_url')
 const HTTP_RPC_URL_2 = config.get('http_rpc_url_2')
 const WEBSOCKET_RPC_URL_2 = config.get('websocket_rpc_url_2')
 
-// Lite RPC
-const LITE_RPC_URL = config.get('lite_rpc_url')
-const LITE_RPC_WS_URL = config.get('lite_rpc_ws_url')
+// Send Tx only RPC
+const SEND_TX_RPC_URL = config.get('send_tx_rpc_url')
 
 let connection = new RetryConnection(HTTP_RPC_URL, {
     commitment: 'confirmed',
@@ -32,13 +31,10 @@ let connectionAlt1: Connection = new Connection(HTTP_RPC_URL_2, {
     wsEndpoint: WEBSOCKET_RPC_URL_2
 })
 
-let lite_rpc: Connection
+let send_tx_rpc: Connection
 
-if(LITE_RPC_URL) {
-    lite_rpc = new Connection(LITE_RPC_URL, {
-        commitment: 'processed',
-        wsEndpoint: LITE_RPC_WS_URL
-    })
+if(SEND_TX_RPC_URL) {
+    send_tx_rpc = new Connection(SEND_TX_RPC_URL)
 }
 
 // Bundle all rpcs
@@ -52,4 +48,4 @@ for(const urls of config.get('http_rpc_urls')) {
     httpOnlyRpcs.push(c)
 }
 
-export { connection, lite_rpc, confirmedConnection, connectionAlt1, httpOnlyRpcs }
+export { connection, send_tx_rpc, confirmedConnection, connectionAlt1, httpOnlyRpcs }

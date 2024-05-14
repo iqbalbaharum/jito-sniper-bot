@@ -119,7 +119,13 @@ export class BotTrade {
 		if(trade) {
 			switch(type){
 				case BotTradeType.REPEAT:
-					await txQueue.add(QueueKey.Q_TX, tradeId, { repeat, jobId: tradeId })
+					await txQueue.add(QueueKey.Q_TX, tradeId, {
+						repeat: { 
+							...repeat,
+							immediately: true
+						}, 
+						jobId: tradeId 
+					})
 					break;
 				case BotTradeType.SINGLE:
 				default:

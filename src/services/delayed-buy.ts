@@ -5,7 +5,7 @@ import { BotLiquidity, BotLookupTable, setupWSOLTokenAccount } from "../library"
 import { AddressLookupTableAccount, Connection, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
 import { BotTransaction } from "../library/transaction";
-import { connection, lite_rpc } from "../adapter/rpc";
+import { connection, send_tx_rpc } from "../adapter/rpc";
 import { LiquidityPoolKeysV4 } from "@raydium-io/raydium-sdk";
 import { blockhasher, existingMarkets, mints, trackedPoolKeys } from "../adapter/storage";
 import { QueueKey } from "../types/queue-key";
@@ -78,8 +78,8 @@ const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BN) =
     );
 
     let selectedConnection : Connection = connection
-    if(SystemConfig.get('use_lite_rpc')) {
-      selectedConnection = lite_rpc
+    if(SystemConfig.get('use_send_tx_rpc')) {
+      selectedConnection = send_tx_rpc
     }
 
     return BotTransaction.sendAutoRetryTransaction(selectedConnection, transaction)

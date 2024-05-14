@@ -2,7 +2,7 @@
  * No microservices trade
  */
 import { AddressLookupTableAccount, Commitment, Connection, LAMPORTS_PER_SOL, Logs, MessageAccountKeys, PublicKey, SystemProgram, VersionedTransaction } from "@solana/web3.js";
-import { confirmedConnection, connection, lite_rpc } from "../adapter/rpc";
+import { confirmedConnection, connection, send_tx_rpc } from "../adapter/rpc";
 import { BigNumberish, LIQUIDITY_STATE_LAYOUT_V4, LiquidityPoolKeys, LiquidityPoolKeysV4, LiquidityState, LiquidityStateV4, Logger, MARKET_STATE_LAYOUT_V3, getMultipleAccountsInfo, parseBigNumberish } from "@raydium-io/raydium-sdk";
 import BN from "bn.js";
 import { JUPITER_ADDRESS, OPENBOOK_V1_ADDRESS, RAYDIUM_AUTHORITY_V4_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, WSOL_ADDRESS } from "../utils/const";
@@ -149,13 +149,14 @@ const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BN, e
           units: 60000,
         },
         blockhash,
-        alts
+        alts,
+        runSimulation: false
       },
     );
 
     let selectedConnection : Connection = connection
-    if(SystemConfig.get('use_lite_rpc')) {
-      selectedConnection = lite_rpc
+    if(SystemConfig.get('use_send_tx_rpc')) {
+      selectedConnection = send_tx_rpc
     }
 
     return BotTransaction.sendAutoRetryTransaction(selectedConnection, transaction)
@@ -201,8 +202,8 @@ const sellToken = async (
     );
   
     let selectedConnection: Connection = connection
-    if(SystemConfig.get('use_lite_rpc')) {
-      selectedConnection = lite_rpc
+    if(SystemConfig.get('use_send_tx_rpc')) {
+      selectedConnection = send_tx_rpc
     }
 
     return BotTransaction.sendAutoRetryTransaction(selectedConnection, transaction)

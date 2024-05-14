@@ -2,7 +2,7 @@
  * Microservices trade
  */
 import { AddressLookupTableAccount, Commitment, Connection, LAMPORTS_PER_SOL, Logs, MessageAccountKeys, PublicKey, VersionedTransaction } from "@solana/web3.js";
-import { confirmedConnection, connection, lite_rpc } from "../adapter/rpc";
+import { confirmedConnection, connection } from "../adapter/rpc";
 import { BigNumberish, LIQUIDITY_STATE_LAYOUT_V4, LiquidityPoolKeys, LiquidityPoolKeysV4, LiquidityState, LiquidityStateV4, Logger, MARKET_STATE_LAYOUT_V3, getMultipleAccountsInfo, parseBigNumberish } from "@raydium-io/raydium-sdk";
 import BN from "bn.js";
 import { JUPITER_ADDRESS, OPENBOOK_V1_ADDRESS, RAYDIUM_AUTHORITY_V4_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, WSOL_ADDRESS } from "../utils/const";
@@ -20,7 +20,7 @@ import { Idl } from "@coral-xyz/anchor";
 import { IxSwapBaseIn } from "../utils/coder/layout";
 import { payer } from "../adapter/payer";
 import { mempool } from "../generators";
-import { blockhasher, countLiquidityPool, existingMarkets, mints, tokenBalances, trackedPoolKeys } from "../adapter/storage";
+import { blockhasher, blockhasherv2, countLiquidityPool, existingMarkets, mints, tokenBalances, trackedPoolKeys } from "../adapter/storage";
 import { BotQueue } from "../library/queue";
 import { BotTrade, BotTradeType } from "../library/trade";
 import { TradeEntry } from "../types/trade";
@@ -229,6 +229,10 @@ const processInitialize2 = async (instruction: TxInstruction, txPool: TxPool, at
 const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstruction, txPool: TxPool, ata: PublicKey) => {
   
   const tx = txPool.mempoolTxns
+
+  blockhasherv2.set({
+    recentBlockhash: txPool.mempoolTxns.recentBlockhash
+  })
 
   // Find the transaction is buy or sell by checking 
   const accountIndexes: number[] = Array.from(instruction.accounts)

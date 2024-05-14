@@ -5,9 +5,9 @@ import { BotLiquidity, BotLookupTable, setupWSOLTokenAccount } from "../library"
 import { AddressLookupTableAccount, Connection, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
 import { BotTransaction } from "../library/transaction";
-import { connection, lite_rpc } from "../adapter/rpc";
+import { connection, send_tx_rpc } from "../adapter/rpc";
 import { LiquidityPoolKeysV4 } from "@raydium-io/raydium-sdk";
-import { blockhasher, existingMarkets, mints, tokenBalances, trackedPoolKeys, trader } from "../adapter/storage";
+import { blockhasher, blockhasherv2, existingMarkets, mints, tokenBalances, trackedPoolKeys, trader } from "../adapter/storage";
 import { QueueKey } from "../types/queue-key";
 import { Trade } from "../types/trade";
 import { BotTrade } from "../library/trade";
@@ -87,7 +87,9 @@ const swap = async (tradeId: string, trade: Trade, keys: LiquidityPoolKeysV4, at
   }
   
   try {
-    let block = await blockhasher.get()
+    
+    let block = await blockhasherv2.get()
+    
     let tip = trade.opts?.jitoTipAmount ? trade.opts.jitoTipAmount : new BN(0)
 
     const transaction = await BotLiquidity.makeSimpleSwapInstruction(
@@ -110,8 +112,8 @@ const swap = async (tradeId: string, trade: Trade, keys: LiquidityPoolKeysV4, at
     );
     
     let selectedConnection : Connection = connection
-    if(SystemConfig.get('use_lite_rpc')) {
-      selectedConnection = lite_rpc
+    if(SystemConfig.get('use_send_tx_rpc')) {
+      selectedConnection = send_tx_rpc
     }
 
     let signature = await BotTransaction.sendAutoRetryTransaction(selectedConnection, transaction, tip)
@@ -156,7 +158,7 @@ async function main() {
         concurrency: 2,
         stalledInterval: 1000,
         lockDuration: 1000,
-        drainDelay: 1,
+        drainDelay: 0.5,
 			}
 	)
 
