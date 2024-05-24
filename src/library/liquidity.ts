@@ -163,7 +163,6 @@ export class BotLiquidity {
 			if(marketData) {
 				market = MARKET_STATE_LAYOUT_V3.decode(Buffer.from(marketData, 'hex'));
 			} else {
-				logger.info(`Read market from JSON RPC`)
 				market = await BotMarket.getMarketV3(state.marketId)
 			}
 

@@ -217,6 +217,12 @@ const config = convict({
         format: Number,
         default: 20,
         env: 'PAYER_RETRIEVE_TXS_COUNT'
+    },
+    // TICK
+    tick_limit: {
+        format: Number,
+        default: 200,
+        env: 'TICK_LIMIT'
     }
 })
 

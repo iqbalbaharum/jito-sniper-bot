@@ -40,7 +40,13 @@ const redisClient5 = redis.createClient({
     database: 4
 });
 
-const clients = [redisClient, redisClient1, redisClient2, redisClient3, redisClient4, redisClient5];
+// key - tick
+const redisClient6 = redis.createClient({
+    url: REDIS_URL,
+    database: 5
+});
+
+const clients = [redisClient, redisClient1, redisClient2, redisClient3, redisClient4, redisClient5, redisClient6];
 
 (async () => {
     for(let client of clients) {
@@ -49,4 +55,4 @@ const clients = [redisClient, redisClient1, redisClient2, redisClient3, redisCli
     }
 })();
 
-export { redisClient, redisClient1, redisClient2, redisClient3, redisClient4, redisClient5 }
+export { redisClient, redisClient1, redisClient2, redisClient3, redisClient4, redisClient5, redisClient6 }

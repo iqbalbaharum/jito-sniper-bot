@@ -103,6 +103,23 @@ export class BotTransaction {
     return tokenAmount
   }
 
+  static getTokenBalanceFromWSOLTransaction = (preTokenBalances: TxBalance[], postTokenBalances: TxBalance[]) : BN => {
+    const tokenPreAccount = preTokenBalances.filter(
+      (account) =>
+        account.mint !== WSOL_ADDRESS &&
+        account.owner === RAYDIUM_AUTHORITY_V4_ADDRESS
+    )[0];
+    const tokenPostAccount = postTokenBalances.filter(
+      (account) =>
+        account.mint !== WSOL_ADDRESS &&
+        account.owner === RAYDIUM_AUTHORITY_V4_ADDRESS
+    )[0];
+
+    const tokenAmount = tokenPreAccount.amount.sub(tokenPostAccount.amount)
+
+    return tokenAmount
+  }
+
   static sendTransactionToMultipleRpcs =  async(transaction: VersionedTransaction) => {
     let signature
 

@@ -10,6 +10,7 @@ export enum StorageKeys {
     KEY_MINTDETAIL = 'storage::mint_detail',
     KEY_TRADE = 'storage::trade',
     KEY_BLOCKHASHV2 = 'listener:blockhashv2',
+    KEY_TOKENTICK = 'listener::token_tick',
     // Signature
     KEY_TXSIG_BALUPDATE = 'storage::tx_signature_balance_update',
     // LISTENER

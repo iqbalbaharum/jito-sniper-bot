@@ -1,10 +1,10 @@
 import { BotLookupTable, BotTokenAccount } from "../library"
-import { BlockHashStorage, CountLiquidityPoolStorage, ExistingRaydiumMarketStorage, LookupTableStorage, MintStorage, OpenbookMarketStorage, PoolKeysStorage, TokenAccountStorage, TokenChunkStorage } from "../storage"
+import { BlockHashStorage, CountLiquidityPoolStorage, ExistingRaydiumMarketStorage, LookupTableStorage, MintStorage, OpenbookMarketStorage, PoolKeysStorage, TickStorage, TokenAccountStorage, TokenChunkStorage } from "../storage"
 import { AmmStateStorage } from "../storage/amm"
 import { BlockHashV2Storage } from "../storage/blockhash-v2"
 import { TradeStorage } from "../storage/trade"
 import { TransactionSignatureBalanceUpdateStorage } from "../storage/tx-balance-update"
-import { redisClient, redisClient1, redisClient2, redisClient3, redisClient4, redisClient5 } from "./redis"
+import { redisClient, redisClient1, redisClient2, redisClient3, redisClient4, redisClient5, redisClient6 } from "./redis"
 
 // config
 let blockhasher = new BlockHashStorage(redisClient)
@@ -31,6 +31,9 @@ let lookupTableStore = new LookupTableStorage(redisClient3, true)
 // token account
 let tokenAccountStore = new TokenAccountStorage(redisClient5, true)
 
+// tick
+let tickStorage = new TickStorage(redisClient6)
+
 export {
     lookupTableStore,
     ammState,
@@ -45,5 +48,7 @@ export {
     blockhasherv2,
     // tx
     txBalanceUpdater,
-    trader
+    trader,
+    // tick
+    tickStorage
 }
