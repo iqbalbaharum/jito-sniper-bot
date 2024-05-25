@@ -54,7 +54,7 @@ const process = async (tradeId: string, trade: Trade, ata: PublicKey) => {
 const swap = async (tradeId: string, trade: Trade, keys: LiquidityPoolKeysV4, ata: PublicKey) => {
 
   if(!trade.ammId) { return }
-
+  
   let alts: AddressLookupTableAccount[] = []
 
   try {
@@ -88,7 +88,7 @@ const swap = async (tradeId: string, trade: Trade, keys: LiquidityPoolKeysV4, at
   
   try {
     
-    let block = await blockhasherv2.get()
+    let block = await blockhasher.get()
     
     let tip = trade.opts?.jitoTipAmount ? trade.opts.jitoTipAmount : new BN(0)
 
@@ -115,7 +115,8 @@ const swap = async (tradeId: string, trade: Trade, keys: LiquidityPoolKeysV4, at
     if(SystemConfig.get('use_send_tx_rpc')) {
       selectedConnection = send_tx_rpc
     }
-
+    
+    console.log('here')
     let signature = await BotTransaction.sendAutoRetryTransaction(selectedConnection, transaction, tip)
     logger.info(`${trade.ammId} | ${trade.action?.toUpperCase()} | ${signature}`)
     await BotTrade.transactionSent(tradeId, signature)

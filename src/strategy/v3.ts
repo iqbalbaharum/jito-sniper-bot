@@ -69,7 +69,7 @@ const processBuy = async (tradeId: string, ammId: PublicKey) => {
     tradeId, 
     'buy',
     new BN(SystemConfig.get('token_purchase_in_sol') * LAMPORTS_PER_SOL),
-    new BN(0 * LAMPORTS_PER_SOL),
+    new BN(0),
     {}
   )
 
@@ -77,17 +77,17 @@ const processBuy = async (tradeId: string, ammId: PublicKey) => {
   BotTrade.execute(tradeId, 5 * 1000)
 }
 
-async function processSell(tradeId: string, ammId: PublicKey, execCount: number = 1, execInterval: number = 1000) {
+async function processSell(tradeId: string, execCount: number = 1, execInterval: number = 1000) {
   await BotTrade.processed(
     tradeId, 
     'sell', 
     new BN(0), 
-    new BN(5000000), 
+    new BN(5000000), // 0.005 SOL
     {
-      microLamports: 1000000,
+      microLamports: 120000,
       units: 45000,
       refetchBalance: true,
-      jitoTipAmount: new BN(1000000) 
+      runSimulation: true
     }
   )
 
@@ -154,7 +154,7 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
     await countLiquidityPool.set(ammId, count - 1)
   }
 
-  processSell(tradeId, ammId, 2000000, 500)
+  processSell(tradeId, 5000, 500)
 }
 
 const processInitialize2 = async (instruction: TxInstruction, txPool: TxPool, ata: PublicKey) => {

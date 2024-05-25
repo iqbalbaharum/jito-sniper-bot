@@ -76,11 +76,6 @@ const config = convict({
         default: '',
         env: 'SWAP_PROGRAM_ID'
     },
-    helius_api_key: {
-        format: String,
-        default: '',
-        env: 'HELIUS_API_KEY'
-    },
     token_purchase_in_sol: {
         format: Number,
         default: 0.0001,
