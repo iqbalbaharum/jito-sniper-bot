@@ -115,8 +115,7 @@ const swap = async (tradeId: string, trade: Trade, keys: LiquidityPoolKeysV4, at
     if(SystemConfig.get('use_send_tx_rpc')) {
       selectedConnection = send_tx_rpc
     }
-    
-    console.log('here')
+
     let signature = await BotTransaction.sendAutoRetryTransaction(selectedConnection, transaction, tip)
     logger.info(`${trade.ammId} | ${trade.action?.toUpperCase()} | ${signature}`)
     await BotTrade.transactionSent(tradeId, signature)
@@ -156,7 +155,7 @@ async function main() {
 						host: SystemConfig.get('redis_host'),
 						port: SystemConfig.get('redis_port')
 				},
-        concurrency: 2,
+        concurrency: config.get('trade_concurrency'),
         stalledInterval: 1000,
         lockDuration: 1000,
         drainDelay: 0.5,

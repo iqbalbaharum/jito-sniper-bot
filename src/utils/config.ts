@@ -207,6 +207,18 @@ const config = convict({
         format: Number,
         default: 200,
         env: 'TICK_LIMIT'
+    },
+    // Trade
+    trade_concurrency: {
+        format: Number,
+        default: 100,
+        env: 'TRADE_CONCURRENCY'
+    },
+    // V3
+    minimum_amount_out: {
+        format: Number,
+        default: 10000000,
+        env: 'MINIMUM_AMOUNT_OUT'
     }
 })
 

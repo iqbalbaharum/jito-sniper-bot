@@ -82,7 +82,7 @@ async function processSell(tradeId: string, execCount: number = 1, execInterval:
     tradeId, 
     'sell', 
     new BN(0), 
-    new BN(5000000), // 0.005 SOL
+    new BN(SystemConfig.get('minimum_amount_out')), // 0.005 SOL
     {
       microLamports: 120000,
       units: 45000,
@@ -91,7 +91,7 @@ async function processSell(tradeId: string, execCount: number = 1, execInterval:
     }
   )
 
-  await BotTrade.execute(tradeId, BotTradeType.REPEAT, 0, { every: execCount, limit: execInterval})
+  await BotTrade.execute(tradeId, BotTradeType.REPEAT, 0, { every: execInterval, limit: execCount})
 }
 
 const getAmmIdFromMempoolTx = async (tx: MempoolTransaction, instruction: TxInstruction) => {
