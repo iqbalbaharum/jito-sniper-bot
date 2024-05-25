@@ -34,12 +34,6 @@ const config = convict({
         default: 'https://api.mainnet-beta.solana.com',
         env: 'HTTP_RPC_URL_2'
     },
-    http_rpc_urls: {
-        format: Array,
-        default: ['https://api.mainnet-beta.solana.com'],
-        doc: 'rpc (http) urls. push transaction to all rpcs',
-        env: 'HTTP_RPC_URLS'
-    },
     websocket_rpc_url_2: {
         format: String,
         default: '',
@@ -132,11 +126,6 @@ const config = convict({
         format: String,
         default: '',
         env: 'BOT_NAME'
-    },
-    compute_unit_percentage: {
-        format: Number,
-        default: 0,
-        env: 'COMPUTE_UNIT_PERCENTAGE'
     },
     adjusted_percentage: {
         format: Number,

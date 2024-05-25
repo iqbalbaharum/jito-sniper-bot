@@ -37,15 +37,4 @@ if(SEND_TX_RPC_URL) {
     send_tx_rpc = new Connection(SEND_TX_RPC_URL)
 }
 
-// Bundle all rpcs
-let httpOnlyRpcs: Connection[] = []
-
-for(const urls of config.get('http_rpc_urls')) {
-    let c = new Connection(urls, {
-        commitment: 'processed'
-    })
-
-    httpOnlyRpcs.push(c)
-}
-
-export { connection, send_tx_rpc, confirmedConnection, connectionAlt1, httpOnlyRpcs }
+export { connection, send_tx_rpc, confirmedConnection, connectionAlt1 }

@@ -181,7 +181,7 @@ const buyToken = async (
 
     // return await submitBundle(arb)
 
-    return await BotTransaction.sendTransactionToMultipleRpcs(transaction)
+    // return await BotTransaction.sendTransactionToMultipleRpcs(transaction)
   } catch(e: any) {
     logger.error(e.toString())
     return ''
@@ -226,7 +226,7 @@ const sellToken = async (
     // }
 
     // return await submitBundle(arb)
-    return await BotTransaction.sendTransactionToMultipleRpcs(transaction)
+    // return await BotTransaction.sendTransactionToMultipleRpcs(transaction)
   } catch(e) {
     console.log(e)
   }

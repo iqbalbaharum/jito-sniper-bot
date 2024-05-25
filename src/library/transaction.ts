@@ -1,5 +1,5 @@
 import { LiquidityPoolKeysV4, LiquidityStateV4, TxVersion } from "@raydium-io/raydium-sdk"
-import { connection, httpOnlyRpcs, connectionAlt1 } from "../adapter/rpc"
+import { connection, connectionAlt1 } from "../adapter/rpc"
 import { RAYDIUM_AUTHORITY_V4_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, USDC_ADDRESS, WSOL_ADDRESS, config as SystemConfig, config } from "../utils";
 import { BlockhashWithExpiryBlockHeight, Commitment, ComputeBudgetProgram, Connection, PublicKey, RpcResponseAndContext, TransactionError, TransactionInstruction, TransactionMessage, Version, VersionedMessage, VersionedTransaction, VersionedTransactionResponse, sendAndConfirmRawTransaction } from "@solana/web3.js";
 import { BotLiquidity } from "./liquidity";
@@ -118,23 +118,6 @@ export class BotTransaction {
     const tokenAmount = tokenPreAccount.amount.sub(tokenPostAccount.amount)
 
     return tokenAmount
-  }
-
-  static sendTransactionToMultipleRpcs =  async(transaction: VersionedTransaction) => {
-    let signature
-
-    httpOnlyRpcs.forEach((rpc) => {
-      signature = rpc.sendRawTransaction(
-        transaction.serialize(),
-        {
-          maxRetries: 3,
-          skipPreflight: false,
-          preflightCommitment: 'confirmed'
-        },
-      );
-    })
-
-    return signature
   }
 
   static formatTransactionToTxPool(streamName: string, tx: VersionedTransactionResponse): TxPool {
