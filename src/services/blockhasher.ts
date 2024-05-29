@@ -9,7 +9,7 @@ import { OPENBOOK_V1_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, WSOL_ADDRESS, c
 import { GrpcGenerator } from "../generators/grpc";
 import Client, { CommitmentLevel } from "@triton-one/yellowstone-grpc";
 import { BotgRPC } from "../library/grpc";
-import { blockhasherv2 } from "../adapter/storage";
+import { blockhasher, blockhasherv2 } from "../adapter/storage";
 
 const GRPC_URL = SystemConfig.get('grpc_1_url')
 const GRPC_TOKEN = SystemConfig.get('grpc_1_token')
@@ -17,23 +17,21 @@ const GRPC_TOKEN = SystemConfig.get('grpc_1_token')
 async function main() {
     let botGrpc = new BotgRPC(GRPC_URL, GRPC_TOKEN)
 
-    botGrpc.addTransaction('raydium_tx', {
-      vote: false,
-      failed: false,
-      accountInclude: [RAYDIUM_AUTHORITY_V4_ADDRESS],
-      accountExclude: [],
-      accountRequired: [],
-    })
+    botGrpc.addBlock({accounts: []})
     botGrpc.setCommitment(CommitmentLevel.CONFIRMED)
 
     botGrpc.listen(
       () => {},
-      (txPool) => {
-        blockhasherv2.set({
-          recentBlockhash: txPool.mempoolTxns.recentBlockhash
-        })
-      },
       () => {},
+      (transaction) => {
+        if(transaction.block.slot) {
+          blockhasher.set({
+            recentBlockhash: transaction.block.blockhash,
+            latestSlot: parseInt(transaction.block.slot),
+            latestBlockHeight: parseInt(transaction.block.blockHeight.blockHeight)
+          })
+        }
+      }
     )
 }
 

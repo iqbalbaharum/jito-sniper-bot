@@ -74,7 +74,6 @@ const swap = async (tradeId: string, trade: Trade, keys: LiquidityPoolKeysV4, at
   let direction : 'in' | 'out' = trade.action === 'buy' ? 'in' : 'out'
 
   let amount = trade.amountIn
-  console.log(trade.amountIn)
 
   // Update the balance chunk from database
   if(trade.opts?.refetchBalance) {
@@ -89,7 +88,7 @@ const swap = async (tradeId: string, trade: Trade, keys: LiquidityPoolKeysV4, at
   
   try {
     
-    let block = await blockhasherv2.get()
+    let block = await blockhasher.get()
     
     let tip = trade.opts?.jitoTipAmount ? trade.opts.jitoTipAmount : new BN(0)
 

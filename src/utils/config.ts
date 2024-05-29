@@ -214,7 +214,13 @@ const config = convict({
         default: 100,
         env: 'TRADE_CONCURRENCY'
     },
-    // V3
+    // V2
+    delayed_buy_token_in_ms: {
+        format: Number,
+        default: 0,
+        env: 'DELAY_BUY_TOKEN_IN_MS'
+    },
+    // V2/V3
     minimum_amount_out: {
         format: Number,
         default: 10000000,

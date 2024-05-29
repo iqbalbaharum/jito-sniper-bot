@@ -67,7 +67,7 @@ const processBuy = async (tradeId: string, ammId: PublicKey, microLamports: numb
     tradeId, 
     'buy',
     new BN(SystemConfig.get('token_purchase_in_sol') * LAMPORTS_PER_SOL),
-    new BN(0 * LAMPORTS_PER_SOL),
+    new BN(0),
     {
       microLamports
     }
@@ -103,7 +103,7 @@ async function processSell(tradeId: string, ammId: PublicKey, execCount: number 
         tradeId, 
         'sell', 
         amountIn,
-        new BN(0), 
+        new BN(SystemConfig.get('minimum_amount_out')), 
         {
           microLamports,
           units: 35000,
@@ -219,8 +219,8 @@ const processInitialize2 = async (instruction: TxInstruction, txPool: TxPool, at
     return
   }
 
-  // Delay buy for 2 seconds to avoid traffic
-  await processBuy(tradeId, ammId, 500000, 5000)
+  // To add delay buy, add DELAYED_BUY_TOKEN_IN_MS in environment
+  await processBuy(tradeId, ammId, 500000, SystemConfig.get('delayed_buy_token_in_ms'))
 }
 
 // Most Raydium transaction is using swapBaseIn, so the bot need to figure out if this transaction
