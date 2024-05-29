@@ -220,7 +220,7 @@ const processInitialize2 = async (instruction: TxInstruction, txPool: TxPool, at
   }
 
   // Delay buy for 2 seconds to avoid traffic
-  await processBuy(tradeId, ammId, 500000, 2000)
+  await processBuy(tradeId, ammId, 500000, 5000)
 }
 
 // Most Raydium transaction is using swapBaseIn, so the bot need to figure out if this transaction
