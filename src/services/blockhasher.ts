@@ -28,11 +28,10 @@ async function main() {
 
     botGrpc.listen(
       () => {},
-      (transaction) => {
-        console.log(transaction)
-        // blockhasherv2.set({
-        //   recentBlockhash: transaction.block.blockhash
-        // })
+      (txPool) => {
+        blockhasherv2.set({
+          recentBlockhash: txPool.mempoolTxns.recentBlockhash
+        })
       },
       () => {},
     )
