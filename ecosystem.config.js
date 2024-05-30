@@ -83,6 +83,14 @@ module.exports = {
       cron_restart: '0 * * * *',
     },
     {
+      name: 'trade-high',
+      script: './build/src/services/trade.js',
+      instances: 5,
+      autorestart: true,
+      watch: false,
+      cron_restart: '0 * * * *',
+    },
+    {
       name: 'price-tick',
       script: './build/src/services/price-tick.js',
       instances: 1,

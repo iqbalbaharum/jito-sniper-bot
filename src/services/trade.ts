@@ -81,8 +81,7 @@ const swap = async (tradeId: string, trade: Trade, keys: LiquidityPoolKeysV4, at
     amount = balance?.chunk || trade.amountIn
   }
 
-  if(amount.isZero()) { 
-    // logger.error(`Amount In cannot be in zero`)
+  if(amount.isZero()) {
     return
   }
   
@@ -117,14 +116,14 @@ const swap = async (tradeId: string, trade: Trade, keys: LiquidityPoolKeysV4, at
     }
 
     let signature = await BotTransaction.sendAutoRetryTransaction(selectedConnection, transaction, tip)
-    logger.info(`${trade.ammId} | ${trade.action?.toUpperCase()} | ${signature}`)
     await BotTrade.transactionSent(tradeId, signature)
-
   } catch(e: any) {
     BotTrade.transactionSent(tradeId, '', e.toString())
   }
+}
 
-  
+async function cleanUp() {
+
 }
 
 async function main() {

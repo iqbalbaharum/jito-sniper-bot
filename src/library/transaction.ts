@@ -279,7 +279,6 @@ export class BotTransaction {
     }) 
     
     if(simulate.value.err) {
-      logger.error(simulate.value.err)
       throw new Error(`Simulation error: ${simulate.value.err}`)
     }
 

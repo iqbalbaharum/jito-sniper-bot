@@ -225,6 +225,12 @@ const config = convict({
         format: Number,
         default: 10000000,
         env: 'MINIMUM_AMOUNT_OUT'
+    },
+    // V3
+    trade_limit: {
+        format: Number,
+        default: 1,
+        env: 'TRADE_LIMIT'
     }
 })
 

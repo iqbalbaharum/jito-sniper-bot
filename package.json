@@ -21,7 +21,7 @@
     "build": "tsc -p tsconfig.json",
     "start:v1": "pm2 start ecosystem.config.js --only 'v1,amm,blockhasher,market,payer,delayed-buy'",
     "start:v2": "pm2 start ecosystem.config.js --only 'v2,trade,amm,blockhasher,market,payer'",
-    "start:v3": "pm2 start ecosystem.config.js --only 'v3,trade,amm,blockhasher,market,payer'"
+    "start:v3": "pm2 start ecosystem.config.js --only 'v3,trade-high,amm,blockhasher,market,payer'"
   },
   "keywords": [],
   "author": "",

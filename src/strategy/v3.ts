@@ -74,7 +74,7 @@ const processBuy = async (tradeId: string, ammId: PublicKey) => {
   )
 
   // delayed buy to make sure we the buy confirmation
-  BotTrade.execute(tradeId, 5 * 1000)
+  BotTrade.execute(tradeId, BotTradeType.SINGLE, 0)
 }
 
 async function processSell(tradeId: string, execCount: number = 1, execInterval: number = 1000) {
@@ -82,7 +82,7 @@ async function processSell(tradeId: string, execCount: number = 1, execInterval:
     tradeId, 
     'sell', 
     new BN(0), 
-    new BN(SystemConfig.get('minimum_amount_out')), // 0.005 SOL
+    new BN(SystemConfig.get('minimum_amount_out')),
     {
       microLamports: 120000,
       units: 45000,
@@ -114,17 +114,6 @@ const getAmmIdFromMempoolTx = async (tx: MempoolTransaction, instruction: TxInst
   return ammId
 }
 
-/**
- * Burst sell trade based on balance chuck
- * @param ammId 
- * @param ata 
- * @param blockhash 
- * @returns 
- */
-const burstSellAfterLP = async(tradeId: string, ammId: PublicKey) => {
-  
-}
-
 const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: PublicKey) => {
   const tx = txPool.mempoolTxns
 
@@ -154,39 +143,11 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
     await countLiquidityPool.set(ammId, count - 1)
   }
 
-  processSell(tradeId, 5000, 500)
-}
-
-const processInitialize2 = async (instruction: TxInstruction, txPool: TxPool, ata: PublicKey) => {
-  const tx = txPool.mempoolTxns
-
-  const tradeId = await BotTrade.listen(TradeEntry.INITIAILIZE2)
-
-  const accountIndexes: number[] = instruction.accounts || []
-  const lookupsForAccountKeyIndex: LookupIndex[] = BotLookupTable.generateTableLookup(tx.addressTableLookups)
-
-  let ammId: PublicKey | undefined
-
-  const accountIndex = accountIndexes[4]
-  
-  if(accountIndex >= tx.accountKeys.length) {
-    const lookupIndex = accountIndex - tx.accountKeys.length
-    const lookup = lookupsForAccountKeyIndex[lookupIndex]
-    const table = await BotLookupTable.getLookupTable(new PublicKey(lookup?.lookupTableKey))
-    ammId = table?.state.addresses[lookup?.lookupTableIndex]
-  } else {
-    ammId = new PublicKey(tx.accountKeys[accountIndex])
-  }
-
-  if(!ammId) { return }
-
-  await BotTrade.preprocessed(tradeId, ammId)
-
-  if(await existingMarkets.isExisted(ammId)) {
-    return
-  }
-
-  await processBuy(tradeId, ammId)
+  processSell(
+    tradeId,
+    SystemConfig.get('trade_limit'),
+    500
+  )
 }
 
 const processTx = async (tx: TxPool, ata: PublicKey) => {
@@ -200,10 +161,6 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
         if(decodedIx.hasOwnProperty('withdraw')) { // remove liquidity
           logger.info(`Withdraw ${tx.mempoolTxns.signature}`)
           await processWithdraw(ins, tx, ata)
-        } else if(decodedIx.hasOwnProperty('initialize2')) {
-          sleep(5000)
-          logger.info(`Initialize2 ${tx.mempoolTxns.signature}`)
-          await processInitialize2(ins, tx, ata)
         }
       } catch(e:any) {
         console.log(tx.mempoolTxns.signature, e)
