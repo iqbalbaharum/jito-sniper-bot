@@ -150,7 +150,8 @@ const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BN, e
         },
         blockhash,
         alts,
-        runSimulation: false
+        runSimulation: false,
+        txMethod: 'rpc'
       },
     );
 
@@ -159,7 +160,7 @@ const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BN, e
       selectedConnection = send_tx_rpc
     }
 
-    return BotTransaction.sendAutoRetryTransaction(selectedConnection, transaction)
+    return BotTransaction.sendAutoRetryTransaction(selectedConnection, transaction, 'rpc')
 	// return BotTransaction.sendJitoTransaction(transaction)
   } catch(e: any) {
     logger.error(`TEST: ` + e.toString())
@@ -197,7 +198,8 @@ const sellToken = async (
       'in',
       {
         ...config,
-        alts
+        alts,
+        txMethod: 'rpc'
       }
     );
   
@@ -206,7 +208,7 @@ const sellToken = async (
       selectedConnection = send_tx_rpc
     }
 
-    return BotTransaction.sendAutoRetryTransaction(selectedConnection, transaction)
+    return BotTransaction.sendAutoRetryTransaction(selectedConnection, transaction, 'rpc')
   } catch(e) {
     console.log(e)
   }

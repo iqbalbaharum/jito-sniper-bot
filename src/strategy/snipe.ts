@@ -63,7 +63,8 @@ const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BigNu
           units: 101337
         },
         blockhash,
-        alts: []
+        alts: [],
+        txMethod: 'rpc'
       }
     );
     

@@ -27,7 +27,7 @@ export { mainSearcherClient, searcherClients }
 
 // Send Transaction
 
-export type JitoRegion = 'mainnet' | 'amsterdam' | 'frankfurt' | 'ny' | 'tokyo' | 'random';
+export type JitoRegion = 'mainnet' | 'amsterdam' | 'frankfurt' | 'ny' | 'tokyo';
 
 export const JitoEndpoints = {
     mainnet: 'https://mainnet.block-engine.jito.wtf',
@@ -35,18 +35,18 @@ export const JitoEndpoints = {
     frankfurt: 'https://frankfurt.mainnet.block-engine.jito.wtf',
     ny: 'https://ny.mainnet.block-engine.jito.wtf',
     tokyo: 'https://tokyo.mainnet.block-engine.jito.wtf',
-    random: ''
 };
 
-export function getJitoEndpoint(region: JitoRegion) {
-    return JitoEndpoints[region];
-}
-
-export function getRandomJitoEndpoint() {
-    const regions = Object.keys(JitoEndpoints);
-    const randomIndex = Math.floor(Math.random() * (regions.length - 1));
-    const randomRegion = regions[randomIndex];
-    return JitoEndpoints[randomRegion as JitoRegion];
+export function getJitoEndpoint(region: JitoRegion | 'random') {
+    let r = region as string
+    if(region === 'random') {
+        const regions = Object.keys(JitoEndpoints);
+        const randomIndex = Math.floor(Math.random() * (regions.length - 1));
+        r = regions[randomIndex];
+        return JitoEndpoints[r as JitoRegion];
+    } else {
+        return JitoEndpoints[region];
+    }
 }
 
 export async function sendTxUsingJito({
@@ -54,14 +54,9 @@ export async function sendTxUsingJito({
     region = 'mainnet'
 }: {
     serializedTx: Uint8Array | Buffer | number[];
-    region: JitoRegion;
+    region: JitoRegion | 'random';
 }) {
-    let rpcEndpoint = ''
-    if(region === 'random') {
-        rpcEndpoint = getRandomJitoEndpoint();
-    } else {
-        rpcEndpoint = getJitoEndpoint(region);
-    }
+    let rpcEndpoint = getJitoEndpoint(region);
 
     logger.info(`endpoint: ${rpcEndpoint}`)
 

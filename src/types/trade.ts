@@ -1,5 +1,6 @@
 import { PublicKey } from "@solana/web3.js"
 import BN from "bn.js"
+import { TxMethod } from "./tx-method"
 
 export type TradeTiming = {
 	listened: number,
@@ -14,7 +15,8 @@ export type TradeOptions = {
     refetchBalance?: boolean,
     expectedProfit?: BN,
     jitoTipAmount?: BN,
-    runSimulation?: boolean
+    runSimulation?: boolean,
+    sendTxMethod?: TxMethod,
 }
 
 export type TradeSignature = {

@@ -1,3 +1,7 @@
+/**
+ * DEPRECATED
+ * Removed this service after v1 is not been used anymore
+ */
 import { Job, Worker } from "bullmq"
 import { config as SystemConfig } from "../utils"
 import { logger } from "../utils/logger";
@@ -73,7 +77,8 @@ const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BN) =
           units: 60000
         },
         blockhash: block.recentBlockhash,
-				alts
+				alts,
+        txMethod: 'rpc'
       }
     );
 
@@ -82,7 +87,7 @@ const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BN) =
       selectedConnection = send_tx_rpc
     }
 
-    return BotTransaction.sendAutoRetryTransaction(selectedConnection, transaction)
+    return BotTransaction.sendAutoRetryTransaction(selectedConnection, transaction, 'rpc')
   } catch(e: any) {
     logger.error(e.toString())
     return ''

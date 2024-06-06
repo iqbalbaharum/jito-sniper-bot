@@ -81,37 +81,12 @@ const config = convict({
         env: 'MIN_SOL_TRIGGER'
     },
     // Config
-    send_tx_method: {
-        format: String,
-        default: 'rpc',
-        env: 'SEND_TX_METHOD'
-    },
     blockhash_method: {
         format: String,
         default: 'rpc',
         env: 'BLOCKHASH_METHOD'
     },
     //
-    tip_percent_min: {
-        format: Number,
-        default: 1,
-        env: 'TIP_PERCENT_MIN'
-    },
-    tip_percent_max: {
-        format: Number,
-        default: 1,
-        env: 'TIP_PERCENT_MAX'
-    },
-    min_tip_in_sol: {
-        format: Number,
-        default: 0.001,
-        env: 'MIN_TIP_IN_SOL'
-    },
-    max_tip_in_sol: {
-        format: Number,
-        default: 0.001,
-        env: 'MAX_TIP_IN_SOL'
-    },
     tx_balance_chuck_division: {
         format: Number,
         default: 4,
@@ -225,6 +200,12 @@ const config = convict({
         format: Number,
         default: 10000000,
         env: 'MINIMUM_AMOUNT_OUT'
+    },
+    // V2-jito
+    jito_tip: {
+        format: Number,
+        default: 10000,
+        env: 'JITO_TIP'
     },
     // V3
     trade_limit: {

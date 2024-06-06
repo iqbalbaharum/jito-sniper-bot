@@ -4,7 +4,7 @@ import { RAYDIUM_AUTHORITY_V4_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, USDC_A
 import { BlockhashWithExpiryBlockHeight, Commitment, ComputeBudgetProgram, Connection, PublicKey, RpcResponseAndContext, TransactionError, TransactionInstruction, TransactionMessage, Version, VersionedMessage, VersionedTransaction, VersionedTransactionResponse, sendAndConfirmRawTransaction } from "@solana/web3.js";
 import { BotLiquidity } from "./liquidity";
 import BN from "bn.js";
-import { TransactionCompute, TxBalance, TxPool } from "../types";
+import { TransactionCompute, TxBalance, TxPool, TxMethod } from "../types";
 
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
@@ -187,12 +187,11 @@ export class BotTransaction {
    * @param transaction 
    * @param blockhashResult 
    */
-  static sendAutoRetryTransaction =  async(conn: Connection, transaction: VersionedTransaction, jitoTipAmount: BN = new BN(0)) : Promise<string> => {
+  static sendAutoRetryTransaction =  async(conn: Connection, transaction: VersionedTransaction, method: TxMethod, jitoTipAmount: BN = new BN(0)) : Promise<string> => {
     const rawTransaction = transaction.serialize()
   
-    let method = config.get('send_tx_method')
     let signature
-
+    
     switch(method) {
       case 'jito_send_tx':
         let bundle = await sendTxUsingJito({
@@ -309,6 +308,7 @@ export class BotTransaction {
 
   static sendToSwapProgram = async (
     conn: Connection,
+    method: TxMethod,
     poolKeys: LiquidityPoolKeysV4,
     sourceTokenAccount: PublicKey,
     destTokenAccount: PublicKey,
@@ -393,7 +393,7 @@ export class BotTransaction {
       const transaction = new VersionedTransaction(messageV0)
       transaction.sign([payer])
 
-      return this.sendAutoRetryTransaction(conn, transaction)
+      return this.sendAutoRetryTransaction(conn, transaction, method)
 
     } catch(e: any) {
       logger.warn(`${e.toString()}`)

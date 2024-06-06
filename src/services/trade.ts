@@ -12,6 +12,7 @@ import { QueueKey } from "../types/queue-key";
 import { Trade } from "../types/trade";
 import { BotTrade } from "../library/trade";
 import sleep from "atomic-sleep";
+import { TxMethod } from "../types";
 
 const process = async (tradeId: string, trade: Trade, ata: PublicKey) => {
   
@@ -90,7 +91,7 @@ const swap = async (tradeId: string, trade: Trade, keys: LiquidityPoolKeysV4, at
     let block = await blockhasher.get()
     
     let tip = trade.opts?.jitoTipAmount ? trade.opts.jitoTipAmount : new BN(0)
-
+    
     const transaction = await BotLiquidity.makeSimpleSwapInstruction(
       keys,
       direction,
@@ -100,13 +101,14 @@ const swap = async (tradeId: string, trade: Trade, keys: LiquidityPoolKeysV4, at
       'in',
       {
         compute: {
-          microLamports: trade.opts?.microLamports || 500000,
+          microLamports: trade.opts?.microLamports || 0,
           units: trade.opts?.units || 60000,
         },
         blockhash: block.recentBlockhash,
         alts,
         jitoTipAmount: tip,
-        runSimulation: trade.opts?.runSimulation ? trade.opts.runSimulation : false
+        runSimulation: trade.opts?.runSimulation ? trade.opts.runSimulation : false,
+        txMethod: trade.opts?.sendTxMethod as TxMethod
       }
     );
     
@@ -115,7 +117,7 @@ const swap = async (tradeId: string, trade: Trade, keys: LiquidityPoolKeysV4, at
       selectedConnection = send_tx_rpc
     }
 
-    let signature = await BotTransaction.sendAutoRetryTransaction(selectedConnection, transaction, tip)
+    let signature = await BotTransaction.sendAutoRetryTransaction(selectedConnection, transaction, trade.opts?.sendTxMethod as TxMethod, tip)
     await BotTrade.transactionSent(tradeId, signature)
   } catch(e: any) {
     BotTrade.transactionSent(tradeId, '', e.toString())

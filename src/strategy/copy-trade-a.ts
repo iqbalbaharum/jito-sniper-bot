@@ -1,4 +1,5 @@
 /**
+ * DEPRECATED
  * Technique: Copy trade (ooo5qMf4R5ExWmnjGsb8ZD33UkmqBAnTtyN9D5Ne4Kn) + Reverse Dollar Cost Averaging (RDCA)
  */
 import { AddressLookupTableAccount, Commitment, ComputeBudgetInstruction, LAMPORTS_PER_SOL, Logs, MessageAccountKeys, PublicKey, TransactionInstruction, VersionedTransaction } from "@solana/web3.js";
@@ -170,7 +171,8 @@ const buyToken = async (
       'in',
       {
         ...config,
-        alts
+        alts,
+        txMethod: 'rpc'
       }
     );
     
@@ -216,7 +218,8 @@ const sellToken = async (
       'in',
       {
         ...config,
-        alts
+        alts,
+        txMethod: 'rpc'
       }
     );
     

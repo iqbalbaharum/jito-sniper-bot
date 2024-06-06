@@ -41,7 +41,7 @@ import {
 	VersionedTransaction,
 } from '@solana/web3.js'
 import { RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, WSOL_ADDRESS } from '../utils/const'
-import { BotLiquidityState, MintInfo, PoolInfo } from '../types'
+import { BotLiquidityState, MintInfo, PoolInfo, TxMethod } from '../types'
 import BN from 'bn.js'
 import { resolve } from 'path'
 import { rejects } from 'assert'
@@ -421,10 +421,12 @@ export class BotLiquidity {
 		fixedSide: 'in' | 'out',
 		config?: {
 			blockhash?: string,
+			setGasPrice?: boolean,
 			compute?: TransactionCompute,
 			jitoTipAmount?: BN,
 			alts: AddressLookupTableAccount[],
 			runSimulation?: boolean,
+			txMethod: TxMethod
 		},
 	): Promise<VersionedTransaction> => {
 		let tokenAccountIn
@@ -491,7 +493,7 @@ export class BotLiquidity {
 			fixedSide: fixedSide ? fixedSide : 'in',
 		})
 		
-		if(SystemConfig.get('send_tx_method') === 'jito_send_tx') {
+		if(config?.txMethod === 'jito_send_tx') {
 			endInstructions.push(SystemProgram.transfer({
 				fromPubkey: payer.publicKey,
 				toPubkey: new PublicKey(await getJitoTipAccount()),
@@ -515,7 +517,6 @@ export class BotLiquidity {
 		if (config?.compute && config?.compute.units > 0) {
 			computeInstructions.push(
 				ComputeBudgetProgram.setComputeUnitLimit({
-					// units: cu || 60000,
 					units: config.compute.units
 				})
 			)

@@ -6,6 +6,7 @@
   "scripts": {
     "bot:v1": "ts-node src/strategy/v1.ts",
     "bot:v2": "ts-node src/strategy/v2.ts",
+    "bot:v2-jito": "ts-node src/strategy/v2-jito.ts",
     "bot:v3": "ts-node src/strategy/v3.ts",
     "bot:snipe": "ts-node src/strategy/snipe.ts",
     "service:amm": "ts-node src/services/amm.ts",
@@ -23,6 +24,7 @@
     "build": "tsc -p tsconfig.json",
     "start:v1": "pm2 start ecosystem.config.js --only 'v1,amm,blockhasher,market,payer,delayed-buy'",
     "start:v2": "pm2 start ecosystem.config.js --only 'v2,trade,amm,blockhasher,market,payer'",
+    "start:v2-jito": "pm2 start ecosystem.config.js --only 'v2-jito,trade,amm,blockhasher,market,payer'",
     "start:v3": "pm2 start ecosystem.config.js --only 'v3,trade-high,amm,blockhasher,market,payer'"
   },
   "keywords": [],

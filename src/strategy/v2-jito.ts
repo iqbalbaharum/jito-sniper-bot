@@ -1,5 +1,5 @@
 /**
- * Microservices trade
+ * Microservices trade - jito
  */
 import { AddressLookupTableAccount, Commitment, Connection, LAMPORTS_PER_SOL, Logs, MessageAccountKeys, PublicKey, VersionedTransaction } from "@solana/web3.js";
 import { confirmedConnection, connection } from "../adapter/rpc";
@@ -81,7 +81,7 @@ const processBuy = async (tradeId: string, ammId: PublicKey, microLamports: numb
   }
 }
 
-async function processSell(tradeId: string, ammId: PublicKey, execCount: number = 1, execInterval: number = 1000, microLamports: number = 500000) {
+async function processSell(tradeId: string, ammId: PublicKey, execCount: number = 1, execInterval: number = 1000, microLamports: number) {
   
   // Check if the we have confirmed balance before
   // executing sell
@@ -106,10 +106,11 @@ async function processSell(tradeId: string, ammId: PublicKey, execCount: number 
         amountIn,
         new BN(SystemConfig.get('minimum_amount_out')), 
         {
-          microLamports,
           units: 35000,
+          microLamports,
           runSimulation: false,
-          sendTxMethod: 'rpc'
+          jitoTipAmount: new BN(SystemConfig.get('jito_tip')),
+          sendTxMethod: 'jito_send_bundle'
         }
       )
       
@@ -152,10 +153,10 @@ const getAmmIdFromMempoolTx = async (tx: MempoolTransaction, instruction: TxInst
  */
 const burstSellAfterLP = async(tradeId: string, ammId: PublicKey) => {
   logger.info(`Burst TXs | ${ammId.toBase58()}`)
-    const state = await mints.get(ammId!)
-    if(!state) { return }
-    const totalChunck = SystemConfig.get('tx_balance_chuck_division')
-    processSell(tradeId, ammId, Math.floor(totalChunck/ 4), 1800, 500000)
+  const state = await mints.get(ammId!)
+  if(!state) { return }
+  const totalChunck = SystemConfig.get('tx_balance_chuck_division')
+  processSell(tradeId, ammId, Math.floor(totalChunck/ 4), 1800, 0)
 }
 
 const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: PublicKey) => {
