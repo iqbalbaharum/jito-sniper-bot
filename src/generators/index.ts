@@ -7,6 +7,7 @@ import { ConcurrentSet } from "../utils/concurrent-set";
 import { GrpcGenerator } from "./grpc";
 import { Web3JSOnLog } from "./log";
 import { connectionAlt1 } from "../adapter/rpc";
+import { logger } from "../utils/logger";
 
 async function* mempool(accounts: string[]): AsyncGenerator<TxPool> {
 	const generators: AsyncGenerator<TxPool>[] = [];
@@ -14,7 +15,7 @@ async function* mempool(accounts: string[]): AsyncGenerator<TxPool> {
 	
 	// geyser
 	const geyser1Pool: GrpcGenerator = new GrpcGenerator('geyser_1', config.get('grpc_1_url'), config.get('grpc_1_token'))
-	geyser1Pool.addTransaction('raydium_tx', {
+	geyser1Pool.addTransaction('raydium_tx_1', {
 		vote: false,
 		failed: false,
 		accountInclude: accounts,
@@ -23,7 +24,7 @@ async function* mempool(accounts: string[]): AsyncGenerator<TxPool> {
 	})
 
 	const geyser2Pool: GrpcGenerator = new GrpcGenerator('geyser_2', config.get('grpc_2_url'), config.get('grpc_2_token'))
-	geyser1Pool.addTransaction('raydium_tx', {
+	geyser2Pool.addTransaction('raydium_tx_2', {
 		vote: false,
 		failed: false,
 		accountInclude: accounts,
@@ -31,12 +32,9 @@ async function* mempool(accounts: string[]): AsyncGenerator<TxPool> {
 		accountRequired: [],
 	})
 
-	// const logsPool: Web3JSOnLog = new Web3JSOnLog('onLog', connectionAlt1, new PublicKey(RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS))
-	
 	try {
 		generators.push(geyser1Pool.listen())
-		// generators.push(geyser2Pool.listen())
-		// generators.push(logsPool.listen())
+		generators.push(geyser2Pool.listen())
 	} catch(e: any) {
 		console.log(e.toString())
 	}

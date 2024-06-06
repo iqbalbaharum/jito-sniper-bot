@@ -18,6 +18,8 @@
     "listener:ammnetflow": "ts-node src/tools/amm-netflow-listener.ts",
     "tool:createalt": "ts-node src/tools/create-lookup-table.ts",
     "tool:listenbundle": "ts-node src/tools/listen-bundle.ts",
+    "tool:rentreclaimer": "ts-node src/tools/rent-reclaimer.ts",
+    "tool:publickeypayer": "ts-node src/tools/payer-publickey.ts",
     "build": "tsc -p tsconfig.json",
     "start:v1": "pm2 start ecosystem.config.js --only 'v1,amm,blockhasher,market,payer,delayed-buy'",
     "start:v2": "pm2 start ecosystem.config.js --only 'v2,trade,amm,blockhasher,market,payer'",
