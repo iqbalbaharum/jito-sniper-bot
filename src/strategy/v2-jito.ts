@@ -81,7 +81,7 @@ const processBuy = async (tradeId: string, ammId: PublicKey, microLamports: numb
   }
 }
 
-async function processSell(tradeId: string, ammId: PublicKey, execCount: number = 1, execInterval: number = 1000, microLamports: number) {
+async function processSell(tradeId: string, ammId: PublicKey, execCount: number = 1, execInterval: number = 1000, microLamports: number, delay: number = 0) {
   
   // Check if the we have confirmed balance before
   // executing sell
@@ -102,7 +102,7 @@ async function processSell(tradeId: string, ammId: PublicKey, execCount: number 
 
       await BotTrade.processed(
         tradeId, 
-        'sell', 
+        'sell',
         amountIn,
         new BN(SystemConfig.get('minimum_amount_out')), 
         {
@@ -115,9 +115,9 @@ async function processSell(tradeId: string, ammId: PublicKey, execCount: number 
       )
       
       if(execCount - 1 > 0) {
-        await BotTrade.execute(tradeId, BotTradeType.REPEAT, 0, { every: execInterval, limit: execCount - 1})
+        await BotTrade.execute(tradeId, BotTradeType.REPEAT, delay, { every: execInterval, limit: execCount - 1})
       } else {
-        await BotTrade.execute(tradeId, BotTradeType.SINGLE, 0)
+        await BotTrade.execute(tradeId, BotTradeType.SINGLE, delay)
       }
 
     }
@@ -156,7 +156,7 @@ const burstSellAfterLP = async(tradeId: string, ammId: PublicKey) => {
   const state = await mints.get(ammId!)
   if(!state) { return }
   const totalChunck = SystemConfig.get('tx_balance_chuck_division')
-  processSell(tradeId, ammId, Math.floor(totalChunck/ 4), 1800, 0)
+  processSell(tradeId, ammId, Math.floor(totalChunck/ 4), 1800, 0, 5000)
 }
 
 const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: PublicKey) => {
@@ -183,13 +183,6 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
     await countLiquidityPool.set(ammId, 0)
   } else {
     await countLiquidityPool.set(ammId, count - 1)
-  }
-
-  if(count === undefined) { return }
-
-  // Burst sell transaction, if rugpull detected
-  if(count - 1 === 0) {
-    await burstSellAfterLP(tradeId, ammId)
   }
 }
 
@@ -375,11 +368,6 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   await BotTrade.preprocessed(tradeId, ammId)
 
   const totalChunck = SystemConfig.get('tx_balance_chuck_division')
-  // The strategy similar as bot v3 (old). On every trade triggered,
-  // burst out a number of txs (chunk)
-  // let blockhash = txPool.mempoolTxns.recentBlockhash
-  // let units = 35000
-  // let microLamports = 500000
 
   logger.warn(`Potential entry ${ammId} | ${amount} SOL`)
   processSell(tradeId, ammId, Math.floor(totalChunck/ 5), 2000, 800000)

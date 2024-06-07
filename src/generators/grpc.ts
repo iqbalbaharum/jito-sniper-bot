@@ -106,8 +106,6 @@ export class GrpcGenerator extends BaseGenerator {
 			switch(status.code) {
 				case Status.CANCELLED:
 				case Status.UNAVAILABLE:
-					console.log(this.stream)
-					console.log(`Here ${this.stream?.isPaused}`)
 					this.stream?.resume()
 			}
 		});

@@ -6,7 +6,7 @@ import { JUPITER_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, config } from "../u
 import { ConcurrentSet } from "../utils/concurrent-set";
 import { GrpcGenerator } from "./grpc";
 import { Web3JSOnLog } from "./log";
-import { connectionAlt1 } from "../adapter/rpc";
+import { connection, connectionAlt1 } from "../adapter/rpc";
 import { logger } from "../utils/logger";
 
 async function* mempool(accounts: string[]): AsyncGenerator<TxPool> {
@@ -32,9 +32,12 @@ async function* mempool(accounts: string[]): AsyncGenerator<TxPool> {
 		accountRequired: [],
 	})
 
+	const onLogPool = new Web3JSOnLog('onLog_1', connection, accounts[0])
+
 	try {
 		generators.push(geyser1Pool.listen())
 		generators.push(geyser2Pool.listen())
+		generators.push(onLogPool.listen())
 	} catch(e: any) {
 		console.log(e.toString())
 	}
