@@ -108,7 +108,7 @@ async function processSell(tradeId: string, ammId: PublicKey, execCount: number 
         {
           microLamports,
           units: 35000,
-          runSimulation: false,
+          runSimulation: true,
           sendTxMethod: 'rpc'
         }
       )
