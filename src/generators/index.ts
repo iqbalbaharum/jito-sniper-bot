@@ -8,6 +8,7 @@ import { GrpcGenerator } from "./grpc";
 import { Web3JSOnLog } from "./log";
 import { connection, connectionAlt1 } from "../adapter/rpc";
 import { logger } from "../utils/logger";
+import { HeliusWebSocketGenerator } from "./helius-websocket";
 
 async function* mempool(accounts: string[]): AsyncGenerator<TxPool> {
 	const generators: AsyncGenerator<TxPool>[] = [];
@@ -32,12 +33,24 @@ async function* mempool(accounts: string[]): AsyncGenerator<TxPool> {
 		accountRequired: [],
 	})
 
+	const geyser3Pool: GrpcGenerator = new GrpcGenerator('geyser_3', config.get('grpc_3_url'), config.get('grpc_3_token'))
+	geyser2Pool.addTransaction('raydium_tx_3', {
+		vote: false,
+		failed: false,
+		accountInclude: accounts,
+		accountExclude: [],
+		accountRequired: [],
+	})
+
 	const onLogPool = new Web3JSOnLog('onLog_1', connection, accounts[0])
+	const heliusWS = new HeliusWebSocketGenerator('helius_ws_1', config.get('helius_api_key'), accounts)
 
 	try {
 		generators.push(geyser1Pool.listen())
 		generators.push(geyser2Pool.listen())
+		generators.push(geyser3Pool.listen())
 		generators.push(onLogPool.listen())
+		generators.push(heliusWS.listen())
 	} catch(e: any) {
 		console.log(e.toString())
 	}

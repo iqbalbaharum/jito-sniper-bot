@@ -39,6 +39,12 @@ const config = convict({
         default: '',
         env: 'WEBSOCKET_RPC_URL_2'
     },
+    // HELIUS,
+    helius_api_key: {
+        format: String,
+        default: '',
+        env: 'HELIUS_API_KEY'
+    },
     redis_url: {
         format: String,
         default: 'redis://localhost:6379',
@@ -153,6 +159,16 @@ const config = convict({
         format: String,
         default: '',
         env: 'GRPC_2_TOKEN'
+    },
+    grpc_3_url: {
+        format: String,
+        default: '',
+        env: 'GRPC_3_URL'
+    },
+    grpc_3_token: {
+        format: String,
+        default: '',
+        env: 'GRPC_3_TOKEN'
     },
     // REDIS
     redis_host: {

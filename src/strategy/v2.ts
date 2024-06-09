@@ -387,11 +387,12 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
 const processTx = async (tx: TxPool, ata: PublicKey) => {
   for(const ins of tx.mempoolTxns.instructions) {
     const programId = tx.mempoolTxns.accountKeys[ins.programIdIndex]
+
     if(programId === RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS) {
+      
       try {
         let dataBuffer = Buffer.from(ins.data)
         const decodedIx = coder.instruction.decode(dataBuffer)
-        
         if(decodedIx.hasOwnProperty('withdraw')) { // remove liquidity
           logger.info(`Withdraw ${tx.mempoolTxns.signature}`)
           await processWithdraw(ins, tx, ata)

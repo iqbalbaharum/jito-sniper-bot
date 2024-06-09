@@ -103,7 +103,7 @@ export class BotTrade {
 			trader.set(tradeId, trade)
 
 			if(signature) {
-				logger.info(`${trade.ammId!.toBase58()} | ${trade.action?.toUpperCase()} | ${signature.toUpperCase()}`)
+				logger.info(`${trade.ammId!.toBase58()} | ${trade.action?.toUpperCase()} | ${signature}`)
 			}
 		}
 	}
