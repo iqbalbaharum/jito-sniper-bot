@@ -88,7 +88,7 @@ module.exports = {
     {
       name: 'trade',
       script: './build/src/services/trade.js',
-      instances: 1,
+      instances: 2,
       autorestart: true,
       watch: false,
       cron_restart: '0 * * * *',
