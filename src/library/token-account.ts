@@ -27,7 +27,7 @@ export class BotTokenAccount {
     create = false
   ) : Promise<BotTA> => {
     let instructions: TransactionInstruction[] = [];
-    logger.info(`ata1`)
+    
     let ata = await getAssociatedTokenAddress(
         mint,
         payer.publicKey,
@@ -35,9 +35,9 @@ export class BotTokenAccount {
         TOKEN_PROGRAM_ID,
         ASSOCIATED_TOKEN_PROGRAM_ID
       );
-      logger.info(`ata2`)
+
       const ataInfo = await connection.fetchAccountInfo(ata);
-      logger.info(`ata3`)
+      
       if (create && !ataInfo) {
         instructions.push(
           createAssociatedTokenAccountInstruction(

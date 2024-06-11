@@ -474,11 +474,12 @@ export class BotLiquidity {
 				accountInDecimal = poolKeys.baseDecimals
 			}
 
-			const { ata } = await BotTokenAccount.getOrCreateTokenAccountInstruction(
-				accountIn,
-				false
-			)
-
+			// const { ata } = await BotTokenAccount.getOrCreateTokenAccountInstruction(
+			// 	accountIn,
+			// 	false
+			// )
+			const ata = await BotTokenAccount.getAssociatedTokenAccount(accountIn, payer.publicKey)
+			
 			tokenAccountIn = ata
 			tokenAccountOut = wsolTokenAccount
 		}
