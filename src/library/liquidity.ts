@@ -437,6 +437,7 @@ export class BotLiquidity {
 		let startInstructions: TransactionInstruction[] = []
 		let endInstructions: TransactionInstruction[] = []
 
+		logger.info(`hello`)
 		if (!blockhash) {
 			const block = await connection.getLatestBlockhash({
 				commitment: 'confirmed',
@@ -444,6 +445,7 @@ export class BotLiquidity {
 			blockhash = block.blockhash
 		}
 
+		logger.info('hello2')
 		if (direction === 'in') {
 			let accountOut
 			if (poolKeys.baseMint.toString() === WSOL_ADDRESS) {
@@ -480,7 +482,7 @@ export class BotLiquidity {
 			tokenAccountIn = ata
 			tokenAccountOut = wsolTokenAccount
 		}
-
+		logger.info('hello3')
 		const { innerTransaction } = Liquidity.makeSwapInstruction({
 			poolKeys,
 			userKeys: {
@@ -492,7 +494,7 @@ export class BotLiquidity {
 			amountOut: amountOut,
 			fixedSide: fixedSide ? fixedSide : 'in',
 		})
-		
+		logger.info('hello4')
 		if(config?.txMethod === 'jito_send_tx') {
 			endInstructions.push(SystemProgram.transfer({
 				fromPubkey: payer.publicKey,
@@ -503,7 +505,7 @@ export class BotLiquidity {
 
 		if(config?.runSimulation && config.runSimulation) {
 			await BotTransaction.runSimulation(
-				connectionAlt1, 
+				connection, 
 				[
 					...startInstructions,
 					...innerTransaction.instructions
@@ -540,7 +542,7 @@ export class BotLiquidity {
 				...endInstructions
 			],
 		}).compileToV0Message(config?.alts ?? [])
-
+		
 		const transaction = new VersionedTransaction(messageV0)
 
 		transaction.sign([payer, ...innerTransaction.signers])

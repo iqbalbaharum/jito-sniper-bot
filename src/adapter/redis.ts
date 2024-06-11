@@ -37,13 +37,13 @@ const redisClient4 = redis.createClient({
 // key - token account
 const redisClient5 = redis.createClient({
     url: REDIS_URL,
-    database: 4
+    database: 5
 });
 
 // key - tick
 const redisClient6 = redis.createClient({
     url: REDIS_URL,
-    database: 5
+    database: 6
 });
 
 const clients = [redisClient, redisClient1, redisClient2, redisClient3, redisClient4, redisClient5, redisClient6];

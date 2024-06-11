@@ -272,10 +272,12 @@ export class BotTransaction {
 
 		const simTx = new VersionedTransaction(simulatedMessageV0)
     
+    logger.info(`simulate start`)
     let simulate = await conn.simulateTransaction(simTx, {
       replaceRecentBlockhash: true,
-      commitment: 'confirmed'
-    }) 
+      commitment: 'processed'
+    })
+    logger.info(simulate)
     
     if(simulate.value.err) {
       throw new Error(`Simulation error: ${simulate.value.err}`)

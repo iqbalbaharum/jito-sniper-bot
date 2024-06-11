@@ -32,7 +32,7 @@ const process = async (tradeId: string, trade: Trade, ata: PublicKey) => {
   if(info.mint === undefined) { return }
   
   if(!poolKeys) { return }
-  
+
   await swap(
     tradeId,
     trade,
