@@ -28,6 +28,7 @@ import { fuseGenerators, mempool } from "../generators";
 import { GrpcGenerator } from "../generators/grpc";
 import { SignatureGenerator } from "../generators/signature";
 import { redisClient } from "../adapter/redis";
+import { geysers } from "../adapter/geysers";
 
 // let trackedLiquidityPool: Set<string> = new Set<string>()
 let tokenBalances: Map<string, TokenChunk> = new Map<string, TokenChunk>()
@@ -520,7 +521,9 @@ const onBundleResult = () => {
 
     const generators: AsyncGenerator<TxPool>[] = [];
 
-    const geyserPool: GrpcGenerator = new GrpcGenerator('geyser', config.get('grpc_1_url'), config.get('grpc_1_token'))
+    let env = geysers[0]
+
+    const geyserPool: GrpcGenerator = new GrpcGenerator('geyser', env.url, env.token)
     geyserPool.addTransaction('oooEYsNtbAnQnkx6SMtVui9iwP4Eu3KuTGC6NAp2gk2_tx', {
       vote: false,
       failed: false,

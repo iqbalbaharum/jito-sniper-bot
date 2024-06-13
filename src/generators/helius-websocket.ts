@@ -18,6 +18,8 @@ export class HeliusWebSocketGenerator extends BaseGenerator {
     super(streamName);
 		this.apiKey = apiKey
 		this.accounts = accounts
+
+    logger.info(`Loaded helius: ${apiKey}`)
   }
 
 	private sendRequest(ws: WebSocket) {
@@ -129,7 +131,7 @@ export class HeliusWebSocketGenerator extends BaseGenerator {
 					this.sendRequest(ws);
 				});
 	
-				ws.on('message', (data) => {
+				ws.on('message', (data: any) => {
 					const messageStr = data.toString('utf8');
 					try {
 						const response = JSON.parse(messageStr);

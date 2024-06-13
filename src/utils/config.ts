@@ -140,35 +140,15 @@ const config = convict({
         env: 'POOL_OPENTIME_WAIT_MAX'
     },
     // GRPC
-    grpc_1_url: {
-        format: String,
+    grpc_urls: {
+        format: Array,
         default: '',
-        env: 'GRPC_1_URL'
+        env: 'GRPC_URLS'
     },
-    grpc_1_token: {
-        format: String,
+    grpc_tokens: {
+        format: Array,
         default: '',
-        env: 'GRPC_1_TOKEN'
-    },
-    grpc_2_url: {
-        format: String,
-        default: '',
-        env: 'GRPC_2_URL'
-    },
-    grpc_2_token: {
-        format: String,
-        default: '',
-        env: 'GRPC_2_TOKEN'
-    },
-    grpc_3_url: {
-        format: String,
-        default: '',
-        env: 'GRPC_3_URL'
-    },
-    grpc_3_token: {
-        format: String,
-        default: '',
-        env: 'GRPC_3_TOKEN'
+        env: 'GRPC_TOKENS'
     },
     // REDIS
     redis_host: {

@@ -187,9 +187,7 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
   if(count === undefined) { return }
 
   // Burst sell transaction, if rugpull detected
-  if(count - 1 === 0) {
-    await burstSellAfterLP(tradeId, ammId)
-  }
+  await burstSellAfterLP(tradeId, ammId)
 }
 
 const processInitialize2 = async (instruction: TxInstruction, txPool: TxPool, ata: PublicKey) => {
@@ -257,26 +255,6 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   }
 
   if(!ammId) { return }
-
-  // TODO: Effect: Multiple purchase of same token
-  // Check, if the ammId is not tracked, and the swapBaseIn/swapBaseOut is still zero
-  // then it's a newly opened pool.
-  // For this liquidity, add to market list before the buy complete, this to prevent
-  // multiple purchase of the same token.
-  // TODO BUGFIXES: This logic is executed before the buy process completed, which
-  // resulting to multiple token purchase
-  // if(!existingMarkets.isExisted(ammId)) {
-  //   let isNewlyActive = await BotLiquidity.isLiquidityPoolNewlyActive(ammId, 1000)
-  //   if(isNewlyActive) {
-  //     existingMarkets.add(ammId)
-
-  //     let block = await blockhasher.get()
-  //     // await processBuy(ammId, ata, txPool.mempoolTxns.recentBlockhash) 
-  //     await processBuy(tradeId, ammId, ata, block.recentBlockhash)
-  //   }
-
-  //   return
-  // }
   
   // BUG: There's another method for Raydium swap which move the array positions
   // to differentiate which position, check the position of OPENBOOK program Id in accountKeys
@@ -419,7 +397,7 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
     }
 
     const mempoolUpdates = mempool([
-      RAYDIUM_AUTHORITY_V4_ADDRESS,
+      RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS,
       '7YttLkHDoNj9wyDur5pM1ejNaAvT9X4eqaYcHQqtj2G5'
     ])
     
@@ -429,24 +407,6 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
       processTx(update, ata) // You can process the updates as needed
     }
 
-    // let botGrpc = new BotgRPC(SystemConfig.get('grpc_1_url'), SystemConfig.get('grpc_1_token'))
-    // botGrpc.addTransaction('raydium_tx', {
-    //   vote: false,
-    //   failed: false,
-    //   accountInclude: [
-    //     RAYDIUM_AUTHORITY_V4_ADDRESS, 
-    //     payer.publicKey.toBase58(),
-    //     '7YttLkHDoNj9wyDur5pM1ejNaAvT9X4eqaYcHQqtj2G5'
-    //   ],
-    //   accountExclude: [],
-    //   accountRequired: [],
-    // })
-
-    // botGrpc.listen(
-    //   () => {},
-    //   (update: TxPool) => processTx(update, ata),
-    //   () => {}
-    // )
   } catch(e) {
     console.log(e)
   }

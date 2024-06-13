@@ -21,9 +21,10 @@ import { BotLookupTable } from "../library";
 import { logger } from "../utils/logger";
 import { ConcurrentSet } from "../utils/concurrent-set";
 import { countLiquidityPool, mints, tokenBalances, trackedPoolKeys, txBalanceUpdater } from "../adapter/storage";
+import { geysers } from "../adapter/geysers";
 
-const GRPC_URL = SystemConfig.get('grpc_1_url')
-const GRPC_TOKEN = SystemConfig.get('grpc_1_token')
+const env = geysers[0]
+
 const TXS_COUNT = SystemConfig.get('payer_retrieve_txs_count')
 
 const coder = new RaydiumAmmCoder(raydiumIDL as Idl)
@@ -205,7 +206,7 @@ async function main() {
     // As start check the grpc
     await getLatestTransactionInWallet()
     
-    let botGrpc = new BotgRPC(GRPC_URL, GRPC_TOKEN)
+    let botGrpc = new BotgRPC(env.url, env.token)
     botGrpc.addAccount({
       name: 'my_wallet',
       owner: [],

@@ -10,12 +10,12 @@ import { GrpcGenerator } from "../generators/grpc";
 import Client, { CommitmentLevel } from "@triton-one/yellowstone-grpc";
 import { BotgRPC } from "../library/grpc";
 import { blockhasher, blockhasherv2 } from "../adapter/storage";
+import { geysers } from "../adapter/geysers";
 
-const GRPC_URL = SystemConfig.get('grpc_1_url')
-const GRPC_TOKEN = SystemConfig.get('grpc_1_token')
+let env = geysers[0]
 
 async function main() {
-    let botGrpc = new BotgRPC(GRPC_URL, GRPC_TOKEN)
+    let botGrpc = new BotgRPC(env.url, env.token)
 
     botGrpc.addBlock({accounts: []})
     botGrpc.setCommitment(CommitmentLevel.CONFIRMED)

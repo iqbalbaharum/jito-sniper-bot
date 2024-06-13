@@ -41,6 +41,8 @@ export class GrpcGenerator extends BaseGenerator {
 		super(streamName)
 		this._client = new Client(geyserUrl, geyserApiKey, {
 		} as ChannelOptions)
+
+		logger.info(`Loaded geyser: ${geyserUrl}`)
 	}
 
 	private async connect() {

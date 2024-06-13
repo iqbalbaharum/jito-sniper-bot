@@ -179,7 +179,7 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
     }
 
     const mempoolUpdates = mempool([
-      RAYDIUM_AUTHORITY_V4_ADDRESS,
+      RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS,
       '7YttLkHDoNj9wyDur5pM1ejNaAvT9X4eqaYcHQqtj2G5'
     ])
     
@@ -189,24 +189,6 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
       processTx(update, ata) // You can process the updates as needed
     }
 
-    // let botGrpc = new BotgRPC(SystemConfig.get('grpc_1_url'), SystemConfig.get('grpc_1_token'))
-    // botGrpc.addTransaction('raydium_tx', {
-    //   vote: false,
-    //   failed: false,
-    //   accountInclude: [
-    //     RAYDIUM_AUTHORITY_V4_ADDRESS, 
-    //     payer.publicKey.toBase58(),
-    //     '7YttLkHDoNj9wyDur5pM1ejNaAvT9X4eqaYcHQqtj2G5'
-    //   ],
-    //   accountExclude: [],
-    //   accountRequired: [],
-    // })
-
-    // botGrpc.listen(
-    //   () => {},
-    //   (update: TxPool) => processTx(update, ata),
-    //   () => {}
-    // )
   } catch(e) {
     console.log(e)
   }

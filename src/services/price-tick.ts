@@ -10,9 +10,12 @@ import { Idl } from "@coral-xyz/anchor"
 import { mints, tickStorage } from "../adapter/storage"
 import { BotLiquidity, BotLookupTable } from "../library"
 import { BN } from "bn.js"
+import { geysers } from "../adapter/geysers"
 
-const GRPC_URL = SystemConfig.get('grpc_1_url')
-const GRPC_TOKEN = SystemConfig.get('grpc_1_token')
+let env = geysers[0]
+
+const GRPC_URL = env.url
+const GRPC_TOKEN = env.token
 
 const coder = new RaydiumAmmCoder(raydiumIDL as Idl)
 
