@@ -191,6 +191,16 @@ const config = convict({
         default: 0,
         env: 'DELAY_BUY_TOKEN_IN_MS'
     },
+    burst_microlamport: {
+        format: Number,
+        default: 100000,
+        env: 'BURST_MICROLAMPORT'
+    },
+    sell_microlamport: {
+        format: Number,
+        default: 100000,
+        env: 'SELL_MICROLAMPORT'
+    },
     // V2/V3
     minimum_amount_out: {
         format: Number,

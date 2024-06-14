@@ -155,7 +155,7 @@ const burstSellAfterLP = async(tradeId: string, ammId: PublicKey) => {
     const state = await mints.get(ammId!)
     if(!state) { return }
     const totalChunck = SystemConfig.get('tx_balance_chuck_division')
-    processSell(tradeId, ammId, Math.floor(totalChunck/ 4), 1800, 500000)
+    processSell(tradeId, ammId, Math.floor(totalChunck/ 4), 1800, SystemConfig.get('burst_microlamport'))
 }
 
 const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: PublicKey) => {
@@ -359,7 +359,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   // let microLamports = 500000
 
   logger.warn(`Potential entry ${ammId} | ${amount} SOL`)
-  processSell(tradeId, ammId, Math.floor(totalChunck/ 5), 2000, 800000)
+  processSell(tradeId, ammId, Math.floor(totalChunck/ 5), 2000, SystemConfig.get('sell_microlamport'))
 }
 
 const processTx = async (tx: TxPool, ata: PublicKey) => {

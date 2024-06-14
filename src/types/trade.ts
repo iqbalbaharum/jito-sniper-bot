@@ -40,5 +40,5 @@ export type Trade = {
     timing: TradeTiming,
     signature: TradeSignature[],
     err: string | undefined,
-    opts?: TradeOptions
+    opts?: TradeOptions,
 }
