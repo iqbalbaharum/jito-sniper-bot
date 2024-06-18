@@ -7,7 +7,7 @@ import BN from "bn.js";
 import { BotTransaction } from "../library/transaction";
 import { connection, send_tx_rpc } from "../adapter/rpc";
 import { LiquidityPoolKeysV4 } from "@raydium-io/raydium-sdk";
-import { blockhasher, blockhasherv2, existingMarkets, mints, tokenBalances, trackedPoolKeys, trader } from "../adapter/storage";
+import { blockhasher, blockhasherv2, existingMarkets, mints, tokenBalances, poolKeys, trader } from "../adapter/storage";
 import { QueueKey } from "../types/queue-key";
 import { Trade } from "../types/trade";
 import { BotTrade } from "../library/trade";
@@ -21,13 +21,13 @@ const process = async (tradeId: string, trade: Trade, ata: PublicKey) => {
     return
   }
 
-  const poolKeys = await trackedPoolKeys.get(trade.ammId)
-  if(!poolKeys) { 
+  const pKeys = await poolKeys.get(trade.ammId)
+  if(!pKeys) { 
     BotTrade.abandoned(tradeId)
     return
   }
 
-  const info = BotLiquidity.getMintInfoFromWSOLPair(poolKeys)
+  const info = BotLiquidity.getMintInfoFromWSOLPair(pKeys)
   // Cancel process if pair is not WSOL
   if(info.mint === undefined) { return }
   
@@ -36,7 +36,7 @@ const process = async (tradeId: string, trade: Trade, ata: PublicKey) => {
   await swap(
     tradeId,
     trade,
-    poolKeys, 
+    pKeys, 
     ata
   )
 
@@ -111,7 +111,7 @@ const swap = async (tradeId: string, trade: Trade, keys: LiquidityPoolKeysV4, at
         txMethod: trade.opts?.sendTxMethod as TxMethod
       }
     );
-    
+
     let selectedConnection : Connection = connection
     if(SystemConfig.get('use_send_tx_rpc')) {
       selectedConnection = send_tx_rpc

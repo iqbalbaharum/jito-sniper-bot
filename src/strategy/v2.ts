@@ -19,8 +19,8 @@ import raydiumIDL from '../idl/raydiumAmm.json'
 import { Idl } from "@coral-xyz/anchor";
 import { IxSwapBaseIn } from "../utils/coder/layout";
 import { payer } from "../adapter/payer";
-import { mempool } from "../generators";
-import { blockhasher, blockhasherv2, countLiquidityPool, existingMarkets, mints, tokenBalances, trackedPoolKeys } from "../adapter/storage";
+import { getTxs, mempool, subscribeAmmIdToMempool, unsubscribeAmmIdToMempool } from "../generators";
+import { blockhasher, blockhasherv2, countLiquidityPool, existingMarkets, mints, tokenBalances, poolKeys, trackedAmm } from "../adapter/storage";
 import { BotQueue } from "../library/queue";
 import { BotTrade, BotTradeType } from "../library/trade";
 import { TradeEntry } from "../types/trade";
@@ -30,15 +30,18 @@ const coder = new RaydiumAmmCoder(raydiumIDL as Idl)
 
 const processBuy = async (tradeId: string, ammId: PublicKey, microLamports: number = 500000, delay: number = 0) => {
   
-  const poolKeys = await BotLiquidity.getAccountPoolKeys(ammId)
+  const isTracked = await trackedAmm.get(ammId)
+  if(isTracked === false) { return }
+  
+  const pKeys = await BotLiquidity.getAccountPoolKeys(ammId)
 
-  if(!poolKeys) { return }
+  if(!pKeys) { return }
 
   // Check the pool open time before proceed,
   // If the pool is not yet open, then sleep before proceeding
   // At configuration to check if for how long the system willing to wait
   let waitForTge = false
-  let different = poolKeys.poolOpenTime * 1000 - new Date().getTime();
+  let different = pKeys.poolOpenTime * 1000 - new Date().getTime();
   if (different > 0) {
     logger.warn(`Sleep ${ammId} | ${different} ms`)
     if (different <= SystemConfig.get('pool_opentime_wait_max')) {
@@ -49,11 +52,11 @@ const processBuy = async (tradeId: string, ammId: PublicKey, microLamports: numb
     }
   }
 
-  const info = BotLiquidity.getMintInfoFromWSOLPair(poolKeys)
+  const info = BotLiquidity.getMintInfoFromWSOLPair(pKeys)
   // Cancel process if pair is not WSOL
   if(info.mint === undefined) { return }
 
-  await trackedPoolKeys.set(ammId, poolKeys)
+  await poolKeys.set(ammId, pKeys)
   await mints.set(ammId, {
     ammId,
     mint: info.mint,
@@ -334,9 +337,13 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   if(count === undefined || count === null) { return }
   if(count > 0) { return }
 
-  let poolKeys
-  poolKeys = await trackedPoolKeys.get(ammId!)
-  if(!poolKeys) { return }
+  // Check if the amm is tracked, only proceed tracked amm
+  let isTracked = await trackedAmm.get(ammId)
+  if(!isTracked) { return }
+
+  let pKeys
+  pKeys = await poolKeys.get(ammId!)
+  if(!pKeys) { return }
   
   let isBuyTradeAction = false
 
@@ -396,14 +403,17 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
       return 
     }
 
-    const mempoolUpdates = mempool([
-      RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS,
-      '7YttLkHDoNj9wyDur5pM1ejNaAvT9X4eqaYcHQqtj2G5'
-    ])
+    mempool([])
+
+    // reinitialise poolkeys
+    subscribeAmmIdToMempool([RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS])
+    subscribeAmmIdToMempool(['7YttLkHDoNj9wyDur5pM1ejNaAvT9X4eqaYcHQqtj2G5'])
+    
+    trackedAmm.init()
     
     logger.info(`Starting bot V2`)
 
-    for await (const update of mempoolUpdates) {
+    for await (const update of getTxs()) {
       processTx(update, ata) // You can process the updates as needed
     }
 

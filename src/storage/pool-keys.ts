@@ -3,17 +3,17 @@ import { BaseStorage } from "./base-storage";
 import { StorageKeys } from "../types/storage-keys";
 import { LiquidityPoolKeys, LiquidityPoolKeysV4 } from "@raydium-io/raydium-sdk";
 import { PoolInfo } from "../types";
-import { BotLiquidity } from "../library";
+import { subscribeAmmIdToMempool, unsubscribeAmmIdToMempool } from "../generators";
 
 export class PoolKeysStorage extends BaseStorage {
-	trackedPoolKeys: Map<string, LiquidityPoolKeys & PoolInfo>;
+	poolKeys: Map<string, LiquidityPoolKeys & PoolInfo>;
     // Redis client
     client: any
     useRedis: boolean
     
     constructor(client: any, useRedis: boolean) {
         super(StorageKeys.KEY_POOLKEYS)
-        this.trackedPoolKeys = new Map()
+        this.poolKeys = new Map()
 
         this.client = client
         this.useRedis = useRedis
@@ -26,7 +26,7 @@ export class PoolKeysStorage extends BaseStorage {
             else { return undefined }
 
         } else {
-            return this.trackedPoolKeys.get(ammId.toBase58())
+            return this.poolKeys.get(ammId.toBase58())
         }
     }
 
@@ -34,16 +34,20 @@ export class PoolKeysStorage extends BaseStorage {
         if(this.useRedis) {
             await this.client.hSet(`${ammId.toBase58()}`, this.key, this.serializeLiquidityPoolKeys(poolKeys))
         } else {
-            this.trackedPoolKeys.set(ammId.toBase58(), poolKeys)
+            this.poolKeys.set(ammId.toBase58(), poolKeys)
         }
+
+		
     }
 
     async remove(ammId: PublicKey) {
         if(this.useRedis) {
             await this.client.hDel(`${ammId.toBase58()}`, this.key)
         } else {
-            this.trackedPoolKeys.delete(ammId.toBase58())
+            this.poolKeys.delete(ammId.toBase58())
         }
+
+		unsubscribeAmmIdToMempool(ammId)
     }
 
     private serializeLiquidityPoolKeys(poolkeys: LiquidityPoolKeysV4 & PoolInfo): string {

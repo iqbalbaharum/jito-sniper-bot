@@ -24,16 +24,16 @@ import { ASSOCIATED_TOKEN_PROGRAM_ID, AccountLayout } from "@solana/spl-token";
 import { IxSwapBaseIn } from "../utils/coder/layout";
 import { payer } from "../adapter/payer";
 import { CopyTrades, ExistingRaydiumMarketStorage } from "../storage";
-import { fuseGenerators, mempool } from "../generators";
+import { getTxs, mempool } from "../generators";
 import { GrpcGenerator } from "../generators/grpc";
 import { SignatureGenerator } from "../generators/signature";
 import { redisClient } from "../adapter/redis";
-import { geysers } from "../adapter/geysers";
+import { grpcs } from "../adapter/grpcs";
 
 // let trackedLiquidityPool: Set<string> = new Set<string>()
 let tokenBalances: Map<string, TokenChunk> = new Map<string, TokenChunk>()
 let rdcaTimers: Map<string, NodeJS.Timeout> = new Map()
-let trackedPoolKeys: Map<string, LiquidityPoolKeys> = new Map<
+let poolKeys: Map<string, LiquidityPoolKeys> = new Map<
   string,
   LiquidityPoolKeys>();
 let mints: Map<string, BotLiquidityState> = new Map<
@@ -63,23 +63,21 @@ const processBuy = async (
     compute: TransactionCompute
   }) => {
   
-  const poolKeys = await BotLiquidity.getAccountPoolKeysFromAccountDataV4(ammId)
+  const pKeys = await BotLiquidity.getAccountPoolKeysFromAccountDataV4(ammId)
 
-  if(!poolKeys) { return }
+  if(!pKeys) { return }
 
-  const info = BotLiquidity.getMintInfoFromWSOLPair(poolKeys)
+  const info = BotLiquidity.getMintInfoFromWSOLPair(pKeys)
   
   // Cancel process if pair is not WSOL
   if(info.mint === undefined) { return }
-
-  if(!poolKeys) { return }
   
   logger.info(new Date(), `BUY ${info.mint.toBase58()}`)
   
   let adjustedAmount = amount.mul(new BN(SystemConfig.get('adjusted_percentage'))).div(new BN(100))
 
   let signature = await buyToken(
-    poolKeys, 
+    pKeys, 
     ata,
     adjustedAmount,
     config
@@ -94,7 +92,7 @@ const processBuy = async (
     adjustedAmount
   })
 
-  trackedPoolKeys.set(ammId.toBase58(), poolKeys)
+  poolKeys.set(ammId.toBase58(), pKeys)
   mints.set(ammId.toBase58(), {
     ammId,
     mint: info.mint,
@@ -114,11 +112,11 @@ async function processSell(
     blockhash: string
     compute: TransactionCompute
   },
-  poolKeys?: LiquidityPoolKeysV4) {
+  pKeys?: LiquidityPoolKeysV4) {
   
-  if(!poolKeys) {
-    poolKeys = trackedPoolKeys.get(ammId!.toBase58())
-    if(!poolKeys) { return }
+  if(!pKeys) {
+    pKeys = poolKeys.get(ammId!.toBase58())
+    if(!pKeys) { return }
   }
 
   const balance = tokenBalances.get(mint.toBase58())
@@ -133,7 +131,7 @@ async function processSell(
   const adjustedAmount = copyTradeData.adjustedAmount.mul(originalAmount).div(copyTradeData.originalAmount);
 
   const signature = await sellToken(
-    poolKeys, 
+    pKeys, 
     ata, 
     adjustedAmount,
     config
@@ -521,38 +519,38 @@ const onBundleResult = () => {
 
     const generators: AsyncGenerator<TxPool>[] = [];
 
-    let env = geysers[0]
+    let env = grpcs[0]
 
-    const geyserPool: GrpcGenerator = new GrpcGenerator('geyser', env.url, env.token)
-    geyserPool.addTransaction('oooEYsNtbAnQnkx6SMtVui9iwP4Eu3KuTGC6NAp2gk2_tx', {
-      vote: false,
-      failed: false,
-      accountInclude: ['oooEYsNtbAnQnkx6SMtVui9iwP4Eu3KuTGC6NAp2gk2'],
-      accountExclude: [],
-      accountRequired: [],
-    })
+    // const geyserPool: GrpcGenerator = new GrpcGenerator('geyser', env.url, env.token)
+    // geyserPool.addTransaction('oooEYsNtbAnQnkx6SMtVui9iwP4Eu3KuTGC6NAp2gk2_tx', {
+    //   vote: false,
+    //   failed: false,
+    //   accountInclude: ['oooEYsNtbAnQnkx6SMtVui9iwP4Eu3KuTGC6NAp2gk2'],
+    //   accountExclude: [],
+    //   accountRequired: [],
+    // })
 
-    geyserPool.addTransaction('wallet_tx', {
-      vote: false,
-      failed: false,
-      accountInclude: [payer.publicKey.toBase58()],
-      accountExclude: [],
-      accountRequired: [],
-    })
+    // geyserPool.addTransaction('wallet_tx', {
+    //   vote: false,
+    //   failed: false,
+    //   accountInclude: [payer.publicKey.toBase58()],
+    //   accountExclude: [],
+    //   accountRequired: [],
+    // })
 
-    try {
-      generators.push(geyserPool.listen())
-    } catch(e: any) {
-      console.log(e.toString())
-    }
+    // try {
+    //   generators.push(geyserPool.listen())
+    // } catch(e: any) {
+    //   console.log(e.toString())
+    // }
 
-    const updates = fuseGenerators(generators)
+    // const updates = fuseGenerators(generators)
 
     // if(config.get('mode') === 'development') {
     //   onBundleResult()
     // }
 
-    for await (const update of updates) {
+    for await (const update of getTxs()) {
       if(update) {
         processTx(update, ata)
       }

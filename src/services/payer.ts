@@ -20,10 +20,10 @@ import { BotTransaction } from "../library/transaction";
 import { BotLookupTable } from "../library";
 import { logger } from "../utils/logger";
 import { ConcurrentSet } from "../utils/concurrent-set";
-import { countLiquidityPool, mints, tokenBalances, trackedPoolKeys, txBalanceUpdater } from "../adapter/storage";
-import { geysers } from "../adapter/geysers";
+import { countLiquidityPool, mints, tokenBalances, poolKeys, txBalanceUpdater, trackedAmm } from "../adapter/storage";
+import { grpcs } from "../adapter/grpcs";
 
-const env = geysers[0]
+const env = grpcs[0]
 
 const TXS_COUNT = SystemConfig.get('payer_retrieve_txs_count')
 
@@ -38,13 +38,15 @@ const updateTokenBalance = async (ammId: PublicKey, mint: PublicKey, amount: BN,
       // No more balance, remove from tracking
       if(prevBalance.remaining.isNeg()) {
         tokenBalances.isUsedUp(ammId)
-        trackedPoolKeys.remove(ammId)
+        poolKeys.remove(ammId)
+        trackedAmm.set(ammId, false)
       } else {
         tokenBalances.set(ammId, prevBalance); 
       }
     }
   } else { // BUY
     let chunk = amount.divn(SystemConfig.get('tx_balance_chuck_division'))
+    trackedAmm.set(ammId, true)
     tokenBalances.set(ammId, {
       total: amount,
       remaining: amount,
@@ -88,10 +90,10 @@ const process = async (tx: TxPool, instruction: TxInstruction) => {
       case 40:
         logger.warn(`Token used up ${ammId}`)
         tokenBalances.isUsedUp(ammId)
-        trackedPoolKeys.remove(ammId)
+        poolKeys.remove(ammId)
         break;
       case 38:
-        trackedPoolKeys.remove(ammId)
+        poolKeys.remove(ammId)
       default:
         break
     }

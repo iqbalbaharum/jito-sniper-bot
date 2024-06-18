@@ -10,9 +10,9 @@ import { Idl } from "@coral-xyz/anchor"
 import { mints, tickStorage } from "../adapter/storage"
 import { BotLiquidity, BotLookupTable } from "../library"
 import { BN } from "bn.js"
-import { geysers } from "../adapter/geysers"
+import { grpcs } from "../adapter/grpcs"
 
-let env = geysers[0]
+let env = grpcs[0]
 
 const GRPC_URL = env.url
 const GRPC_TOKEN = env.token

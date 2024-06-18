@@ -1,5 +1,5 @@
 import { BotLookupTable, BotTokenAccount } from "../library"
-import { BlockHashStorage, CountLiquidityPoolStorage, ExistingRaydiumMarketStorage, LookupTableStorage, MintStorage, OpenbookMarketStorage, PoolKeysStorage, TickStorage, TokenAccountStorage, TokenChunkStorage } from "../storage"
+import { BlockHashStorage, CountLiquidityPoolStorage, ExistingRaydiumMarketStorage, LookupTableStorage, MintStorage, OpenbookMarketStorage, PoolKeysStorage, TickStorage, TokenAccountStorage, TokenChunkStorage, TrackedAmm } from "../storage"
 import { AmmStateStorage } from "../storage/amm"
 import { BlockHashV2Storage } from "../storage/blockhash-v2"
 import { TradeStorage } from "../storage/trade"
@@ -21,7 +21,8 @@ let ammState = new AmmStateStorage(redisClient4, true)
 let existingMarkets = new ExistingRaydiumMarketStorage(redisClient4, true)
 let countLiquidityPool = new CountLiquidityPoolStorage(redisClient4, true)
 let tokenBalances = new TokenChunkStorage(redisClient4, true)
-let trackedPoolKeys = new PoolKeysStorage(redisClient4, true)
+let poolKeys = new PoolKeysStorage(redisClient4, true)
+let trackedAmm = new TrackedAmm(redisClient4)
 let mints = new MintStorage(redisClient4, true)
 let openbookMarket = new OpenbookMarketStorage(redisClient4)
 
@@ -42,7 +43,8 @@ export {
     existingMarkets,
     countLiquidityPool,
     tokenBalances,
-    trackedPoolKeys,
+    poolKeys,
+    trackedAmm,
     mints,
     blockhasher,
     blockhasherv2,

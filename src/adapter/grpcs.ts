@@ -1,5 +1,3 @@
-import { GrpcGenerator } from "../generators/grpc";
-import { TxPool } from "../types";
 import { config } from "../utils";
 
 export type GrpcEnv = {
@@ -7,7 +5,7 @@ export type GrpcEnv = {
     token: string
 }
 
-const geysers: GrpcEnv[] = [];
+const grpcs: GrpcEnv[] = [];
 
 let grpc_urls = config.get('grpc_urls')
 let grpc_tokens = config.get('grpc_tokens')
@@ -18,12 +16,11 @@ for(let x = 0; x < grpc_urls.length; x++) {
     let token = grpc_tokens[x]
 
     if(url) {
-        geysers.push({
+        grpcs.push({
             url,
             token
         })
     }
 }
 
-
-export { geysers }
+export { grpcs }

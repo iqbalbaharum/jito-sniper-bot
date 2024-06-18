@@ -23,7 +23,7 @@ import { Idl } from "@coral-xyz/anchor";
 import { IxSwapBaseIn } from "../utils/coder/layout";
 import { payer } from "../adapter/payer";
 import { mempool } from "../generators";
-import { blockhasher, countLiquidityPool, existingMarkets, mints, tokenBalances, trackedPoolKeys } from "../adapter/storage";
+import { blockhasher, countLiquidityPool, existingMarkets, mints, tokenBalances, poolKeys } from "../adapter/storage";
 import { BotQueue } from "../library/queue";
 import { BotTrade, BotTradeType } from "../library/trade";
 import { TradeEntry } from "../types/trade";
@@ -33,13 +33,13 @@ const coder = new RaydiumAmmCoder(raydiumIDL as Idl)
 
 const processBuy = async (tradeId: string, ammId: PublicKey) => {
   
-  const poolKeys = await BotLiquidity.getAccountPoolKeys(ammId)
+  const pKeys = await BotLiquidity.getAccountPoolKeys(ammId)
 
-  if(!poolKeys) { return }
+  if(!pKeys) { return }
   // Check the pool open time before proceed,
   // If the pool is not yet open, then sleep before proceeding
   // At configuration to check if for how long the system willing to wait
-  let different = poolKeys.poolOpenTime * 1000 - new Date().getTime();
+  let different = pKeys.poolOpenTime * 1000 - new Date().getTime();
   if (different > 0) {
     logger.warn(`Sleep ${ammId} | ${different} ms`)
     if (different <= SystemConfig.get('pool_opentime_wait_max')) {
@@ -50,11 +50,11 @@ const processBuy = async (tradeId: string, ammId: PublicKey) => {
     }
   }
 
-  const info = BotLiquidity.getMintInfoFromWSOLPair(poolKeys)
+  const info = BotLiquidity.getMintInfoFromWSOLPair(pKeys)
   // Cancel process if pair is not WSOL
   if(info.mint === undefined) { return }
 
-  await trackedPoolKeys.set(ammId, poolKeys)
+  await poolKeys.set(ammId, pKeys)
   await mints.set(ammId, {
     ammId,
     mint: info.mint,

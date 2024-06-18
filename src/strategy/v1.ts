@@ -24,20 +24,20 @@ import { ASSOCIATED_TOKEN_PROGRAM_ID, AccountLayout } from "@solana/spl-token";
 import { IxSwapBaseIn } from "../utils/coder/layout";
 import { payer } from "../adapter/payer";
 import { mempool } from "../generators";
-import { blockhasher, countLiquidityPool, existingMarkets, mints, tokenBalances, trackedPoolKeys } from "../adapter/storage";
+import { blockhasher, countLiquidityPool, existingMarkets, mints, tokenBalances, poolKeys } from "../adapter/storage";
 import { BotQueue } from "../library/queue";
 
 const coder = new RaydiumAmmCoder(raydiumIDL as Idl)
 
 const processBuy = async (ammId: PublicKey, ata: PublicKey, blockhash: string) => {
   
-  const poolKeys = await BotLiquidity.getAccountPoolKeys(ammId)
+  const pKeys = await BotLiquidity.getAccountPoolKeys(ammId)
 	
-  if(!poolKeys) { return }
+  if(!pKeys) { return }
   // Check the pool open time before proceed,
   // If the pool is not yet open, then sleep before proceeding
   // At configuration to check if for how long the system willing to wait
-  let different = poolKeys.poolOpenTime * 1000 - new Date().getTime();
+  let different = pKeys.poolOpenTime * 1000 - new Date().getTime();
   if (different > 0) {
     logger.warn(`Sleep ${ammId} | ${different} ms`)
     if (different <= SystemConfig.get('pool_opentime_wait_max')) {
@@ -48,7 +48,7 @@ const processBuy = async (ammId: PublicKey, ata: PublicKey, blockhash: string) =
     }
   }
 
-  const info = BotLiquidity.getMintInfoFromWSOLPair(poolKeys)
+  const info = BotLiquidity.getMintInfoFromWSOLPair(pKeys)
   // Cancel process if pair is not WSOL
   if(info.mint === undefined) { return }
   
@@ -57,7 +57,7 @@ const processBuy = async (ammId: PublicKey, ata: PublicKey, blockhash: string) =
   logger.info(new Date(), `BUY ${ammId.toBase58()} | ${info.mint.toBase58()}`)
   
   let signature = await buyToken(
-    poolKeys, 
+    pKeys, 
     ata,
     new BN(SystemConfig.get('token_purchase_in_sol') * LAMPORTS_PER_SOL),
     new BN(0 * LAMPORTS_PER_SOL),
@@ -68,7 +68,7 @@ const processBuy = async (ammId: PublicKey, ata: PublicKey, blockhash: string) =
   
   logger.info(`BUY TX ${ammId} | ${signature}`)
 
-  await trackedPoolKeys.set(ammId, poolKeys)
+  await poolKeys.set(ammId, pKeys)
   await mints.set(ammId, {
     ammId,
     mint: info.mint,
@@ -91,11 +91,11 @@ async function processSell(
     blockhash: string
     compute: TransactionCompute
   },
-  poolKeys?: LiquidityPoolKeysV4) {
+  pKeys?: LiquidityPoolKeysV4) {
   
-  if(!poolKeys) {
-    poolKeys = await trackedPoolKeys.get(ammId!)
-    if(!poolKeys) { return }
+  if(!pKeys) {
+    pKeys = await poolKeys.get(ammId!)
+    if(!pKeys) { return }
   }
 
   // Check if the we have confirmed balance before
@@ -108,7 +108,7 @@ async function processSell(
 
       logger.info(new Date(), `SELL | ${mint.toBase58()}`)
       const signature = await sellToken(
-        poolKeys, 
+        pKeys, 
         ata, 
         balance.chunk,
         useBundle,
@@ -455,8 +455,8 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   if(count === undefined || count === null) { return }
   if(count > 0) { return }
 
-  let poolKeys
-  poolKeys = await trackedPoolKeys.get(ammId!)
+  let pKeys
+  pKeys = await poolKeys.get(ammId!)
   if(!poolKeys) { return }
   
   let isBuyTradeAction = false
@@ -490,7 +490,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
           },
           blockhash,
         },
-        poolKeys
+        pKeys
       )
 
       blockhash = block.recentBlockhash

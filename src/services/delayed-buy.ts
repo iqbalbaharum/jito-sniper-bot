@@ -11,7 +11,7 @@ import BN from "bn.js";
 import { BotTransaction } from "../library/transaction";
 import { connection, send_tx_rpc } from "../adapter/rpc";
 import { LiquidityPoolKeysV4 } from "@raydium-io/raydium-sdk";
-import { blockhasher, existingMarkets, mints, trackedPoolKeys } from "../adapter/storage";
+import { blockhasher, existingMarkets, mints, poolKeys } from "../adapter/storage";
 import { QueueKey } from "../types/queue-key";
 
 const processBuy = async (ammId: PublicKey, ata: PublicKey) => {
@@ -37,7 +37,7 @@ const processBuy = async (ammId: PublicKey, ata: PublicKey) => {
   
   logger.info(`BUY TX ${ammId} | ${signature}`)
 
-  await trackedPoolKeys.set(ammId, poolKeys)
+  // await poolKeys.set(ammId, poolKeys)
   await mints.set(ammId, {
     ammId,
     mint: info.mint,
