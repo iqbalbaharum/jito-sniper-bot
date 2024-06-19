@@ -1,15 +1,17 @@
 import { ComputeBudgetProgram, Connection, ParsedAccountData, TransactionInstruction, TransactionMessage, VersionedTransaction } from "@solana/web3.js";
 import { payer } from "../adapter/payer";
-import { connection } from "../adapter/rpc";
+import { confirmedConnection, connection } from "../adapter/rpc";
 import { SPL_ACCOUNT_LAYOUT, TOKEN_PROGRAM_ID } from "@raydium-io/raydium-sdk";
 import { WSOL_ADDRESS } from "../utils";
 import { createBurnCheckedInstruction, createCloseAccountInstruction } from "@solana/spl-token";
 
-let nos = parseInt(process.env.npm_config_nos as string)
+let nos = parseInt(process.env.nos as string)
 
 if (!nos) {
   nos = 20
 }
+
+console.log(nos)
 
 async function getTokenAccountsByOwner() {
   const tokenResp = await connection.getTokenAccountsByOwner(
@@ -47,7 +49,7 @@ async function sendTx(instructions: TransactionInstruction[], blockhash: string)
     const transaction = new VersionedTransaction(messageV0)
     transaction.sign([payer])
 
-    connection.sendRawTransaction(
+    confirmedConnection.sendRawTransaction(
       transaction.serialize()
     )
 		.then(console.log)
@@ -57,8 +59,6 @@ async function sendTx(instructions: TransactionInstruction[], blockhash: string)
 async function main() {
 
 	const accs = await getTokenAccountsByOwner()
-
-	let recentBlockhash = (await connection.getLatestBlockhash());
 
   console.log('Total tokens in wallet:', `${accs.length}`);
   if (accs.length <= 0) {
@@ -94,7 +94,7 @@ async function main() {
           acc.pubkey,
           acc.accountInfo.mint,
           payer.publicKey,
-          acc.accountInfo.amount.toNumber(),
+          parseInt(acc.accountInfo.amount.toString()),
           parsedData.parsed.info.decimals
         ))
         instructions.push(createCloseAccountInstruction(acc.pubkey, payer.publicKey, payer.publicKey))
