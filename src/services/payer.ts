@@ -22,6 +22,8 @@ import { logger } from "../utils/logger";
 import { ConcurrentSet } from "../utils/concurrent-set";
 import { countLiquidityPool, mints, tokenBalances, poolKeys, txBalanceUpdater, trackedAmm } from "../adapter/storage";
 import { grpcs } from "../adapter/grpcs";
+import { BotTradeTracker } from "../library/trade-tracker";
+import { BotTrackedAmm } from "../library/tracked-amm";
 
 const env = grpcs[0]
 
@@ -39,14 +41,15 @@ const updateTokenBalance = async (ammId: PublicKey, mint: PublicKey, amount: BN,
       if(prevBalance.remaining.isNeg()) {
         tokenBalances.isUsedUp(ammId)
         poolKeys.remove(ammId)
-        trackedAmm.set(ammId, false)
+        BotTrackedAmm.unregister(ammId)
       } else {
-        tokenBalances.set(ammId, prevBalance); 
+        tokenBalances.set(ammId, prevBalance);
+        BotTradeTracker.sellFinalized(ammId)
       }
     }
   } else { // BUY
     let chunk = amount.divn(SystemConfig.get('tx_balance_chuck_division'))
-    trackedAmm.set(ammId, true)
+    BotTrackedAmm.register(ammId)
     tokenBalances.set(ammId, {
       total: amount,
       remaining: amount,
@@ -54,6 +57,7 @@ const updateTokenBalance = async (ammId: PublicKey, mint: PublicKey, amount: BN,
       isUsedUp: false,
       isConfirmed: true
     });
+    BotTradeTracker.buyFinalized(ammId)
 
     if(lpCount === undefined) {
       await countLiquidityPool.set(ammId, 1)

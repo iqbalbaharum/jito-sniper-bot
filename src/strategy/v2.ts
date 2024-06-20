@@ -25,6 +25,8 @@ import { BotQueue } from "../library/queue";
 import { BotTrade, BotTradeType } from "../library/trade";
 import { TradeEntry } from "../types/trade";
 import { BotgRPC } from "../library/grpc";
+import { BotTradeTracker } from "../library/trade-tracker";
+import { BotTrackedAmm } from "../library/tracked-amm";
 
 const coder = new RaydiumAmmCoder(raydiumIDL as Idl)
 
@@ -258,6 +260,15 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   }
 
   if(!ammId) { return }
+
+  // Check if this ammId is within the sell attempt configured.
+  let tracker = await BotTradeTracker.getTracker(ammId)
+  if(tracker) {
+    if(tracker.sellAttemptCount > SystemConfig.get('max_sell_attempt')) {
+      BotTrackedAmm.unregister(ammId)
+      return
+    }
+  }
   
   // BUG: There's another method for Raydium swap which move the array positions
   // to differentiate which position, check the position of OPENBOOK program Id in accountKeys
@@ -409,7 +420,7 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
     subscribeAmmIdToMempool([RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS])
     subscribeAmmIdToMempool(['7YttLkHDoNj9wyDur5pM1ejNaAvT9X4eqaYcHQqtj2G5'])
     
-    trackedAmm.init()
+    BotTrackedAmm.init()
     
     logger.info(`Starting bot V2`)
 

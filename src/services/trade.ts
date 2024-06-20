@@ -7,12 +7,13 @@ import BN from "bn.js";
 import { BotTransaction } from "../library/transaction";
 import { connection, send_tx_rpc } from "../adapter/rpc";
 import { LiquidityPoolKeysV4 } from "@raydium-io/raydium-sdk";
-import { blockhasher, blockhasherv2, existingMarkets, mints, tokenBalances, poolKeys, trader } from "../adapter/storage";
+import { blockhasher, blockhasherv2, existingMarkets, mints, tokenBalances, poolKeys, trader, tradeTracker } from "../adapter/storage";
 import { QueueKey } from "../types/queue-key";
 import { Trade } from "../types/trade";
 import { BotTrade } from "../library/trade";
 import sleep from "atomic-sleep";
 import { TxMethod } from "../types";
+import { BotTradeTracker } from "../library/trade-tracker";
 
 const process = async (tradeId: string, trade: Trade, ata: PublicKey) => {
   
@@ -88,6 +89,14 @@ const swap = async (tradeId: string, trade: Trade, keys: LiquidityPoolKeysV4, at
   
   try {
     
+    await BotTradeTracker.init(trade.ammId)
+    
+    if(trade.action === 'buy') {
+      await BotTradeTracker.buyAttempt(trade.ammId)
+    } else {
+      await BotTradeTracker.sellAttempt(trade.ammId)
+    }
+
     let block = await blockhasher.get()
     
     let tip = trade.opts?.jitoTipAmount ? trade.opts.jitoTipAmount : new BN(0)
@@ -119,6 +128,7 @@ const swap = async (tradeId: string, trade: Trade, keys: LiquidityPoolKeysV4, at
 
     let signature = await BotTransaction.sendAutoRetryTransaction(selectedConnection, transaction, trade.opts?.sendTxMethod as TxMethod, tip)
     await BotTrade.transactionSent(tradeId, signature)
+    
   } catch(e: any) {
     BotTrade.transactionSent(tradeId, '', e.toString())
   }

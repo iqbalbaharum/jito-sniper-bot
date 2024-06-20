@@ -201,6 +201,11 @@ const config = convict({
         default: 100000,
         env: 'SELL_MICROLAMPORT'
     },
+    max_sell_attempt: {
+        format: Number,
+        default: 50,
+        env: 'MAX_SELL_ATTEMPT'
+    },
     // V2/V3
     minimum_amount_out: {
         format: Number,
