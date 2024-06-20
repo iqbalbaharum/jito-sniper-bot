@@ -30,6 +30,11 @@ export class TradeStorage extends BaseStorage {
         await this.client.hDel(uuid, this.key)
     }
 
+    async getAllKeys() : Promise<string[]> {
+        const keys = await this.client.keys('*')
+		return keys.map((key: string) => key);
+    }
+
     private serialize(trade: Trade) : string {
         return JSON.stringify(trade)
     }

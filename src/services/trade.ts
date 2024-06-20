@@ -41,7 +41,6 @@ const process = async (tradeId: string, trade: Trade, ata: PublicKey) => {
     ata
   )
 
-  // TODO This should be in done in payer service not here
   await BotTrade.completed(tradeId)
 }
 

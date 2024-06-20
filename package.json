@@ -21,6 +21,7 @@
     "tool:listenbundle": "ts-node src/tools/listen-bundle.ts",
     "tool:rentreclaimer": "ts-node src/tools/rent-reclaimer.ts",
     "tool:publickeypayer": "ts-node src/tools/payer-publickey.ts",
+    "tool:stats": "ts-node src/tools/statistics.ts",
     "build": "tsc -p tsconfig.json",
     "start:test": "pm2 start ecosystem.config.js --only 'amm,market,payer,trade'",
     "start:v1": "pm2 start ecosystem.config.js --only 'v1,amm,blockhasher,market,payer,delayed-buy'",
