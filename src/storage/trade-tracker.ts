@@ -26,6 +26,11 @@ export class TradeTrackerStorage extends BaseStorage {
         return undefined
     }
 
+    async getAllKeys() : Promise<string[]> {
+		const keys = await this.client.keys('*')
+		return keys.map((key: string) => key);
+	}
+
     private serialize(trade: TradeTracker) : string {
         return JSON.stringify(trade)
     }

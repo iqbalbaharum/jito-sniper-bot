@@ -4,5 +4,9 @@ export type TradeTracker = {
     sellAttemptCount: number,
     sellFinalizedCount: number,
     lastBuyAt: number
-    lastSellAt: number
+    lastSellAt: number,
+    lastBuySendTxAt: number,
+    lastSellSendTxAt: number,
+    totalTimeBuyFinalized: number,
+    totalTimeSellFinalized: number
 }

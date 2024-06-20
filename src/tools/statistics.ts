@@ -1,4 +1,4 @@
-import { trader } from "../adapter/storage"
+import { tradeTracker, trader } from "../adapter/storage"
 import { TradeEntry } from "../types"
 import { logger } from "../utils/logger"
 
@@ -98,6 +98,7 @@ async function trade() {
         }
     }
 
+    logger.info(`-------------------------------- TRADE ---------------------------------`)
     logger.info(`TOTAL TRADE: ${total}`)
     logger.info(`LP CREATED: ${createdLPCount}`)
     logger.info(`LP REMOVED: ${removedLPCount}`)
@@ -105,20 +106,85 @@ async function trade() {
     logger.info(`-------------------------------- BUY ---------------------------------`)
     logger.info(`BUY COUNT: ${buyCount}`)
     logger.info(`BUY W/ ERROR COUNT: ${buyFailed}`)
-    logger.info(`PREPROCESSED (AVG): ${buyPreprocessedTotal / buyPreprocessedCount} MS`)
-    logger.info(`PROCESSED (AVG): ${buyProcessedTotal / buyProcessedCount} MS`)
-    logger.info(`COMPLETED (AVG): ${buyCompletedTotal / buyCompletedCount} MS`)
+    logger.info(`PREPROCESSED (AVG): ${buyPreprocessedTotal / buyPreprocessedCount} ms`)
+    logger.info(`PROCESSED (AVG): ${buyProcessedTotal / buyProcessedCount} ms`)
+    logger.info(`COMPLETED (AVG): ${buyCompletedTotal / buyCompletedCount} ms`)
     logger.info(`-------------------------------- SELL --------------------------------`)
     logger.info(`SELL COUNT: ${sellCount}`)
     logger.info(`SELL W/ ERROR COUNT: ${sellFailed}`)
-    logger.info(`PREPROCESSED (AVG): ${sellPreprocessedTotal / sellPreprocessedCount} MS`)
-    logger.info(`PROCESSED (AVG): ${sellProcessedTotal / sellProcessedCount} MS`)
-    logger.info(`COMPLETED (AVG): ${sellCompletedTotal / sellCompletedCount} MS`)
+    logger.info(`PREPROCESSED (AVG): ${sellPreprocessedTotal / sellPreprocessedCount} ms`)
+    logger.info(`PROCESSED (AVG): ${sellProcessedTotal / sellProcessedCount} ms`)
+    logger.info(`COMPLETED (AVG): ${sellCompletedTotal / sellCompletedCount} ms`)
+}
+
+async function tracker() {
+
+    let total = 0
+    let totalBuyAttemptCount = 0
+    let buyFinalizedCount = 0
+    let totalBuyFinalizedCount = 0
+
+    let totalSellAttemptCount = 0
+    let sellFinalizedCount = 0
+    let totalSellFinalizedCount = 0
+    
+    let totalTimeBuyCount = 0
+    let grantTotalTimeBuyFinalized = 0
+
+    let totalTimeSellCount = 0
+    let grantTotalTimeSellFinalized = 0
+
+    const ammIds = await tradeTracker.getAllKeys()
+    for(const ammId of ammIds) {
+        let tracker = await tradeTracker.get(ammId)
+        if(!tracker) { continue }
+
+        total++
+
+        if(tracker.buyAttemptCount > 0) {
+            totalBuyAttemptCount = totalBuyAttemptCount + tracker.buyAttemptCount
+        }
+
+        if(tracker.buyFinalizedCount > 0) {
+            buyFinalizedCount++
+            totalBuyFinalizedCount = totalBuyFinalizedCount + tracker.buyFinalizedCount
+        }
+
+        if(tracker.sellAttemptCount > 0) {
+            totalSellAttemptCount = totalSellAttemptCount + tracker.sellAttemptCount
+        }
+
+        if(tracker.sellFinalizedCount > 0) {
+            sellFinalizedCount++
+            totalSellFinalizedCount = totalSellFinalizedCount + tracker.sellFinalizedCount
+        }
+
+        if(tracker.totalTimeBuyFinalized > 0) {
+            totalTimeBuyCount++
+            grantTotalTimeBuyFinalized = grantTotalTimeBuyFinalized + (tracker.totalTimeBuyFinalized/tracker.buyFinalizedCount)
+        }
+
+        if(tracker.totalTimeSellFinalized > 0) {
+            totalTimeSellCount++
+            grantTotalTimeSellFinalized = grantTotalTimeSellFinalized + (tracker.totalTimeSellFinalized/tracker.sellFinalizedCount)
+        }
+    }
+
+    logger.info(`-------------------------------- TRACKER ---------------------------------`)
+    logger.info(`TOTAL TRACKED TOKEN: ${total}`)
+    logger.info(`-------------------------------- AVERAGE ---------------------------------`)
+    logger.info(`BUY ATTEMPT PERCENTAGE: ${totalBuyAttemptCount / total * 100} %`)
+    logger.info(`BUY FINALIZED PERCENTAGE: ${buyFinalizedCount / total * 100} %`)
+    logger.info(`SELL ATTEMPT COUNT: ${totalSellAttemptCount/total * 100} %`)
+    logger.info(`SELL FINALIZED COUNT: ${totalSellFinalizedCount/sellFinalizedCount * 100} %`)
+    logger.info(`BUY SPEED (AVG): ${grantTotalTimeBuyFinalized/totalTimeBuyCount} ms`)
+    logger.info(`SELL SPEED (AVG): ${grantTotalTimeSellFinalized/totalTimeSellCount} ms`)
 }
 
 async function main() {
 
-    trade()    
+    trade()  
+    tracker()  
     
     return
 }   

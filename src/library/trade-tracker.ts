@@ -13,8 +13,12 @@ export class BotTradeTracker {
                 sellAttemptCount: 0,
                 sellFinalizedCount: 0,
                 lastBuyAt: 0,
-                lastSellAt: 0
-            })
+                lastSellAt: 0,
+                lastBuySendTxAt: 0,
+                lastSellSendTxAt: 0,
+                totalTimeBuyFinalized: 0,
+                totalTimeSellFinalized: 0
+            } as TradeTracker)
         }
     }
 
@@ -22,6 +26,22 @@ export class BotTradeTracker {
         let tracker = await tradeTracker.get(ammId.toBase58())
         if(tracker) {
             tracker.buyAttemptCount++
+            tradeTracker.set(ammId.toBase58(), tracker)
+        }
+    }
+
+    static async buySendTx(ammId: PublicKey) {
+        let tracker = await tradeTracker.get(ammId.toBase58())
+        if(tracker) {
+            tracker.lastBuySendTxAt = new Date().getTime()
+            tradeTracker.set(ammId.toBase58(), tracker)
+        }
+    }
+
+    static async sellSendTx(ammId: PublicKey) {
+        let tracker = await tradeTracker.get(ammId.toBase58())
+        if(tracker) {
+            tracker.lastSellSendTxAt = new Date().getTime()
             tradeTracker.set(ammId.toBase58(), tracker)
         }
     }
@@ -39,6 +59,8 @@ export class BotTradeTracker {
         if(tracker) {
             tracker.buyFinalizedCount++
             tracker.lastBuyAt = new Date().getTime()
+            tracker.totalTimeBuyFinalized = tracker.totalTimeBuyFinalized + (tracker.lastBuyAt - tracker.lastBuySendTxAt)
+            tracker.lastBuySendTxAt = 0
             tradeTracker.set(ammId.toBase58(), tracker)
         }
     }
@@ -48,6 +70,8 @@ export class BotTradeTracker {
         if(tracker) {
             tracker.sellFinalizedCount++
             tracker.lastSellAt = new Date().getTime()
+            tracker.totalTimeSellFinalized = tracker.totalTimeSellFinalized + (tracker.lastSellAt - tracker.lastBuySendTxAt)
+            tracker.lastSellAt = 0
             tradeTracker.set(ammId.toBase58(), tracker)
         }
     }
