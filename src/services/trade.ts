@@ -5,7 +5,7 @@ import { BotLiquidity, BotLookupTable, setupWSOLTokenAccount } from "../library"
 import { AddressLookupTableAccount, Connection, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
 import { BotTransaction } from "../library/transaction";
-import { connection, send_tx_rpc } from "../adapter/rpc";
+import { connection, send_tx_rpcs } from "../adapter/rpc";
 import { LiquidityPoolKeysV4 } from "@raydium-io/raydium-sdk";
 import { blockhasher, blockhasherv2, existingMarkets, mints, tokenBalances, poolKeys, trader, tradeTracker } from "../adapter/storage";
 import { QueueKey } from "../types/queue-key";
@@ -122,11 +122,17 @@ const swap = async (tradeId: string, trade: Trade, keys: LiquidityPoolKeysV4, at
     );
 
     let selectedConnection : Connection = connection
+    let signature: string = ''
+
     if(SystemConfig.get('use_send_tx_rpc')) {
-      selectedConnection = send_tx_rpc
+      if(config.get('send_tx_method') === 'multiple') {
+        signature = await BotTransaction.sendAutoRetryBulkTransaction(send_tx_rpcs, transaction, trade.opts?.sendTxMethod as TxMethod, tip)
+      } else {
+        selectedConnection = send_tx_rpcs[0]
+        signature = await BotTransaction.sendAutoRetryTransaction(selectedConnection, transaction, trade.opts?.sendTxMethod as TxMethod, tip)
+      }
     }
 
-    let signature = await BotTransaction.sendAutoRetryTransaction(selectedConnection, transaction, trade.opts?.sendTxMethod as TxMethod, tip)
     await BotTrade.transactionSent(tradeId, signature)
     
   } catch(e: any) {

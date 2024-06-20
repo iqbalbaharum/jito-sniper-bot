@@ -75,7 +75,8 @@ const processBuy = async (tradeId: string, ammId: PublicKey, microLamports: numb
     new BN(0),
     {
       microLamports,
-      sendTxMethod: 'rpc'
+      sendTxMethod: 'rpc',
+      units: 60000
     }
   )
 
@@ -112,7 +113,7 @@ async function processSell(tradeId: string, ammId: PublicKey, execCount: number 
         new BN(SystemConfig.get('minimum_amount_out')), 
         {
           microLamports,
-          units: 35000,
+          units: 20000,
           runSimulation: true,
           sendTxMethod: 'rpc'
         }

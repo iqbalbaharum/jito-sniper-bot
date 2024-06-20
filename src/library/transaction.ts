@@ -211,44 +211,26 @@ export class BotTransaction {
 
         signature = bundleId
         break
-      case 'base64':
-        signature = await BotTransaction.sendBase64Transaction(transaction)
-        break;
       case 'rpc':
       default:
-        signature = await conn.sendRawTransaction(rawTransaction, {
-          skipPreflight: true,
-          preflightCommitment: 'confirmed'
-        })
+        signature = await SolanaHttpRpc.sendTransaction(conn, transaction)
+        // signature = await conn.sendRawTransaction(rawTransaction, {
+        //   skipPreflight: true,
+        //   preflightCommitment: 'confirmed'
+        // })
         break
     }
     
     return signature
   }
 
-  static async sendBase64Transaction(transaction: VersionedTransaction) : Promise<string> {
-    const resp = await fetch(config.get('http_rpc_url'), {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json;charset=UTF-8',
-      },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: 1,
-        method: "sendTransaction",
-        params: [
-          toBuffer(transaction.serialize()).toString('base64'),
-          {
-            encoding: "base64",
-            skipPreflight: true,
-            maxRetries: 1,
-            preflightCommitment: "confirmed"
-          }
-        ]
-      })
-    })
-    const json = await resp.json();
-    return json.result
+  static sendAutoRetryBulkTransaction = async(connections: Connection[], transaction: VersionedTransaction, method: TxMethod, jitoTipAmount: BN = new BN(0)) : Promise<string> => {
+    let signature: string = ''
+    for (const conn of connections) {
+      signature = await this.sendAutoRetryTransaction(conn, transaction, method, jitoTipAmount)
+    }
+
+    return signature
   }
 
   static sendJitoTransaction =  async(transaction: VersionedTransaction) : Promise<string> => {
@@ -278,13 +260,19 @@ export class BotTransaction {
     //   commitment: 'processed'
     // })
     let simulate = await SolanaHttpRpc.simulateTransaction(conn, simTx)
-    logger.info(simulate)
+    let error = this.processError(simulate.result.value.logs)
     
-    if(simulate.value.err) {
-      throw new Error(`Simulation error: ${simulate.value.err}`)
+    if(error) {
+      throw new Error(`simulation error [${error}]`)
     }
 
     return simulate
+  }
+
+  static processError (logs: string[]) : string {
+    const errorLog = logs.find(log => log.includes('failed: custom program error:'));
+    const errorCode = errorLog?.match(/0x[0-9a-fA-F]+/)?.[0] || ''
+    return errorCode;
   }
 
   static async getExpectedComputeUnitFromTransactions (conn: Connection, instructions: TransactionInstruction[], blockhash: string) : Promise<number> {
@@ -369,8 +357,7 @@ export class BotTransaction {
       if (config?.compute && config?.compute.units > 0) {
         computeInstructions.push(
           ComputeBudgetProgram.setComputeUnitLimit({
-            units: 55000,
-            // units: 55000
+            units: 55000
           })
         )
       }

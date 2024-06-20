@@ -20,9 +20,14 @@ const config = convict({
     },
     // Lite RPC
     send_tx_rpc_url: {
-        format: String,
+        format: Array,
         default: '',
         env: 'SEND_TX_RPC_URL'
+    },
+    send_tx_method: {
+        format: String,
+        default: 'multiple', // multiple | single
+        env: 'SEND_TX_METHOD'
     },
     use_send_tx_rpc: {
         format: Boolean,

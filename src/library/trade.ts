@@ -105,6 +105,10 @@ export class BotTrade {
 			if(signature) {
 				logger.info(`${trade.ammId!.toBase58()} | ${trade.action?.toUpperCase()} | ${signature}`)
 			}
+
+			if(err) {
+				logger.info(`${trade.ammId!.toBase58()} | ${err}`)
+			}
 		}
 	}
 
