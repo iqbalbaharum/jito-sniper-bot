@@ -34,6 +34,7 @@ export class BotTradeTracker {
         let tracker = await tradeTracker.get(ammId.toBase58())
         if(tracker) {
             tracker.lastBuySendTxAt = new Date().getTime()
+            console.log(tracker)
             tradeTracker.set(ammId.toBase58(), tracker)
         }
     }
@@ -58,6 +59,7 @@ export class BotTradeTracker {
         let tracker = await tradeTracker.get(ammId.toBase58())
         if(tracker) {
             tracker.buyFinalizedCount++
+            console.log(tracker)
             tracker.lastBuyAt = new Date().getTime()
             tracker.totalTimeBuyFinalized = tracker.totalTimeBuyFinalized + (tracker.lastBuyAt - tracker.lastBuySendTxAt)
             tracker.lastBuySendTxAt = 0
