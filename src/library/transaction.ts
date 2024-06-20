@@ -17,6 +17,7 @@ import { getSimulationComputeUnits } from "@solana-developers/helpers";
 import { sendTxUsingJito } from "../adapter/jito";
 import { toBuffer } from "../utils/instruction";
 import { BotBundle } from "./bundle";
+import { SolanaHttpRpc } from "./http-rpcs";
 
 export const getAmmIdFromSignature = async (signature: string) : Promise<PublicKey | undefined> => {
   const response = await connection.getTransaction(signature, {
@@ -261,7 +262,6 @@ export class BotTransaction {
   }
   
   static async runSimulation (conn: Connection, instructions: TransactionInstruction[], blockhash: string) : Promise<RpcResponseAndContext<anchor.web3.SimulatedTransactionResponse>> {
-    // let cu = await getSimulationComputeUnits(conn, instructions, payer.publicKey, [])
     const simulatedMessageV0 = new TransactionMessage({
 			payerKey: payer.publicKey,
 			recentBlockhash: blockhash,
@@ -273,10 +273,11 @@ export class BotTransaction {
 		const simTx = new VersionedTransaction(simulatedMessageV0)
     
     logger.info(`simulate start`)
-    let simulate = await conn.simulateTransaction(simTx, {
-      replaceRecentBlockhash: true,
-      commitment: 'processed'
-    })
+    // let simulate = await conn.simulateTransaction(simTx, {
+    //   replaceRecentBlockhash: true,
+    //   commitment: 'processed'
+    // })
+    let simulate = await SolanaHttpRpc.simulateTransaction(conn, simTx)
     logger.info(simulate)
     
     if(simulate.value.err) {
