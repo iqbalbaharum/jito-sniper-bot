@@ -2,6 +2,12 @@ import { tradeTracker, trader } from "../adapter/storage"
 import { TradeEntry } from "../types"
 import { logger } from "../utils/logger"
 
+type StatByHour = {
+    total: number,
+    createdLP: number,
+    removedLP: number,
+    possibleEntry: number
+}
 
 async function trade() {
     let total = 0
@@ -29,6 +35,8 @@ async function trade() {
     let removedLPCount = 0
     let possibleEntryCount = 0
 
+    const statsByHour: { [key: string]: StatByHour } = {}
+
     // get total trade
     let uuids = await trader.getAllKeys()
     total = uuids.length
@@ -37,18 +45,34 @@ async function trade() {
         let trade = await trader.get(uuid)
         if(!trade) { continue }
 
+        const tradeHour = new Date(trade.timing.processed).getHours().toString()
+
+        if (!statsByHour[tradeHour]) {
+            statsByHour[tradeHour] = {
+                total: 0,
+                createdLP: 0,
+                removedLP: 0,
+                possibleEntry: 0
+            }
+        }
+
+        statsByHour[tradeHour].total++
+
         // Completed trade
         if(trade.timing.processed > 0) {
             
             switch(trade.entry) {
                 case TradeEntry.INITIAILIZE2:
                     createdLPCount++
+                    statsByHour[tradeHour].createdLP++
                     break
                 case TradeEntry.WITHDRAW:
                     removedLPCount++
+                    statsByHour[tradeHour].removedLP++
                     break
                 case TradeEntry.SWAPBASEIN:
                     possibleEntryCount++
+                    statsByHour[tradeHour].possibleEntry++
                     break
             }
 
@@ -103,6 +127,14 @@ async function trade() {
     logger.info(`LP CREATED: ${createdLPCount}`)
     logger.info(`LP REMOVED: ${removedLPCount}`)
     logger.info(`POSSIBLE ENTRY: ${possibleEntryCount}`)
+    logger.info(`-------------------------------- HOURLY TRADE ---------------------------------`)
+    for (const [hour, stats] of Object.entries(statsByHour)) {
+        logger.info(`${hour.toString().padStart(2, '0')}:00 - ${hour.toString().padStart(2, '0')}:59`)
+        logger.info(`  TOTAL: ${stats.total}`)
+        logger.info(`  LP CREATED: ${stats.createdLP}`)
+        logger.info(`  LP REMOVED: ${stats.removedLP}`)
+        logger.info(`  POSSIBLE ENTRY: ${stats.possibleEntry}`)
+    }
     logger.info(`-------------------------------- BUY ---------------------------------`)
     logger.info(`BUY COUNT: ${buyCount}`)
     logger.info(`BUY W/ ERROR COUNT: ${buyFailed}`)
@@ -134,6 +166,11 @@ async function tracker() {
     let totalTimeSellCount = 0
     let grantTotalTimeSellFinalized = 0
 
+    let minBuySpeed = Infinity
+    let maxBuySpeed = -Infinity
+    let minSellSpeed = Infinity
+    let maxSellSpeed = -Infinity
+
     const ammIds = await tradeTracker.getAllKeys()
     for(const ammId of ammIds) {
         let tracker = await tradeTracker.get(ammId)
@@ -161,12 +198,16 @@ async function tracker() {
 
         if(tracker.totalTimeBuyFinalized > 0) {
             totalTimeBuyCount++
-            grantTotalTimeBuyFinalized = grantTotalTimeBuyFinalized + (tracker.totalTimeBuyFinalized/tracker.buyFinalizedCount)
+            let buySpeed = grantTotalTimeBuyFinalized = grantTotalTimeBuyFinalized + (tracker.totalTimeBuyFinalized/tracker.buyFinalizedCount)
+            if (buySpeed < minBuySpeed) minBuySpeed = buySpeed
+            if (buySpeed > maxBuySpeed) maxBuySpeed = buySpeed
         }
 
         if(tracker.totalTimeSellFinalized > 0) {
             totalTimeSellCount++
-            grantTotalTimeSellFinalized = grantTotalTimeSellFinalized + (tracker.totalTimeSellFinalized/tracker.sellFinalizedCount)
+            let sellSpeed = grantTotalTimeSellFinalized = grantTotalTimeSellFinalized + (tracker.totalTimeSellFinalized/tracker.sellFinalizedCount)
+            if (sellSpeed < minSellSpeed) minSellSpeed = sellSpeed
+            if (sellSpeed > maxSellSpeed) maxSellSpeed = sellSpeed
         }
     }
 
@@ -178,7 +219,11 @@ async function tracker() {
     logger.info(`SELL ATTEMPT COUNT: ${totalSellAttemptCount/total * 100} %`)
     logger.info(`SELL FINALIZED COUNT: ${totalSellFinalizedCount/sellFinalizedCount * 100} %`)
     logger.info(`BUY SPEED (AVG): ${grantTotalTimeBuyFinalized/totalTimeBuyCount} ms`)
+    logger.info(`FASTEST BUY SPEED: ${minBuySpeed} ms`)
+    logger.info(`SLOWEST BUY SPEED: ${maxBuySpeed} ms`)
     logger.info(`SELL SPEED (AVG): ${grantTotalTimeSellFinalized/totalTimeSellCount} ms`)
+    logger.info(`FASTEST SELL SPEED: ${minSellSpeed} ms`)
+    logger.info(`SLOWEST SELL SPEED: ${maxSellSpeed} ms`)
 }
 
 async function main() {
