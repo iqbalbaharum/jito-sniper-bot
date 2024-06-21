@@ -191,6 +191,11 @@ const config = convict({
         env: 'TRADE_CONCURRENCY'
     },
     // V2
+    run_simulation_flag: {
+        format: Boolean,
+        default: true,
+        env: 'RUN_SIMULATION_FLAG'
+    },
     delayed_buy_token_in_ms: {
         format: Number,
         default: 0,
