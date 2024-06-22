@@ -3,7 +3,7 @@ export type TradeTracker = {
     buyFinalizedCount: number,
     sellAttemptCount: number,
     sellFinalizedCount: number,
-    lastBuyAt: number
+    lastBuyAt: number,
     lastSellAt: number,
     lastBuySendTxAt: number,
     lastSellSendTxAt: number,

@@ -1,4 +1,5 @@
-import { tradeTracker, trader } from "../adapter/storage"
+import { PublicKey } from "@solana/web3.js"
+import { trackedAmm, tradeTracker, trader } from "../adapter/storage"
 import { TradeEntry } from "../types"
 import { logger } from "../utils/logger"
 
@@ -7,6 +8,14 @@ type StatByHour = {
     createdLP: number,
     removedLP: number,
     possibleEntry: number
+}
+
+function formatDateTime(date: Date): string {
+    const year = date.getFullYear().toString()
+    const month = (date.getMonth() + 1).toString().padStart(2, '0')
+    const day = date.getDate().toString().padStart(2, '0')
+    const hour = date.getHours().toString().padStart(2, '0')
+    return `${year}-${month}-${day} ${hour}:00 - ${hour}:59`
 }
 
 async function trade() {
@@ -45,34 +54,35 @@ async function trade() {
         let trade = await trader.get(uuid)
         if(!trade) { continue }
 
-        const tradeHour = new Date(trade.timing.processed).getHours().toString()
-
-        if (!statsByHour[tradeHour]) {
-            statsByHour[tradeHour] = {
-                total: 0,
-                createdLP: 0,
-                removedLP: 0,
-                possibleEntry: 0
-            }
-        }
-
-        statsByHour[tradeHour].total++
-
         // Completed trade
         if(trade.timing.processed > 0) {
+            
+            const tradeDate = new Date(trade.timing.processed)
+            const tradeDateHourKey = formatDateTime(tradeDate)
+
+            if (!statsByHour[tradeDateHourKey]) {
+                statsByHour[tradeDateHourKey] = {
+                    total: 0,
+                    createdLP: 0,
+                    removedLP: 0,
+                    possibleEntry: 0
+                }
+            }
+
+            statsByHour[tradeDateHourKey].total++
             
             switch(trade.entry) {
                 case TradeEntry.INITIAILIZE2:
                     createdLPCount++
-                    statsByHour[tradeHour].createdLP++
+                    statsByHour[tradeDateHourKey].createdLP++
                     break
                 case TradeEntry.WITHDRAW:
                     removedLPCount++
-                    statsByHour[tradeHour].removedLP++
+                    statsByHour[tradeDateHourKey].removedLP++
                     break
                 case TradeEntry.SWAPBASEIN:
                     possibleEntryCount++
-                    statsByHour[tradeHour].possibleEntry++
+                    statsByHour[tradeDateHourKey].possibleEntry++
                     break
             }
 
@@ -128,8 +138,8 @@ async function trade() {
     console.log(`LP REMOVED: ${removedLPCount}`)
     console.log(`POSSIBLE ENTRY: ${possibleEntryCount}`)
     console.log(`----------------------------- HOURLY TRADE ------------------------------`)
-    for (const [hour, stats] of Object.entries(statsByHour)) {
-        console.log(`${hour.toString().padStart(2, '0')}:00 - ${hour.toString().padStart(2, '0')}:59`)
+    for (const [dateHour, stats] of Object.entries(statsByHour)) {
+        console.log(`${dateHour}:`)
         console.log(`  TOTAL: ${stats.total}`)
         console.log(`  LP CREATED: ${stats.createdLP}`)
         console.log(`  LP REMOVED: ${stats.removedLP}`)
@@ -152,6 +162,8 @@ async function trade() {
 async function tracker() {
 
     let total = 0
+    let totalTrackedToken = 0
+
     let totalBuyAttemptCount = 0
     let buyFinalizedCount = 0
     let totalBuyFinalizedCount = 0
@@ -174,9 +186,13 @@ async function tracker() {
     const ammIds = await tradeTracker.getAllKeys()
     for(const ammId of ammIds) {
         let tracker = await tradeTracker.get(ammId)
-        if(!tracker) { continue }
+        let tracked = await trackedAmm.get(new PublicKey(ammId))
+
+        if(!tracker || !tracked) { continue }
 
         total++
+
+        if(tracked === true) { totalTrackedToken++ }
 
         if(tracker.buyAttemptCount > 0) {
             totalBuyAttemptCount = totalBuyAttemptCount + tracker.buyAttemptCount
@@ -228,10 +244,10 @@ async function tracker() {
 
 async function main() {
 
-    trade()  
-    tracker()  
+    await trade()  
+    await tracker()  
     
-    return
+    process.exit()
 }   
 
 main()
