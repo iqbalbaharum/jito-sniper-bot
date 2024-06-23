@@ -26,7 +26,7 @@ import { mempool } from "../generators";
 import { blockhasher, countLiquidityPool, existingMarkets, mints, tokenBalances, poolKeys } from "../adapter/storage";
 import { BotQueue } from "../library/queue";
 import { BotTrade, BotTradeType } from "../library/trade";
-import { TradeEntry } from "../types/trade";
+import { AbandonedReason, TradeEntry } from "../types/trade";
 import { BotgRPC } from "../library/grpc";
 
 const coder = new RaydiumAmmCoder(raydiumIDL as Idl)
@@ -130,7 +130,7 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
   let count: number | undefined = await countLiquidityPool.get(ammId)
   if(count === undefined || count === null) {
     if(await existingMarkets.isExisted(ammId)) {
-      await BotTrade.abandoned(tradeId)
+      await BotTrade.abandoned(tradeId, AbandonedReason.NO_AMM_ID)
       return
     }
     
