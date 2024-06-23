@@ -24,6 +24,7 @@ import { countLiquidityPool, mints, tokenBalances, poolKeys, txBalanceUpdater, t
 import { grpcs } from "../adapter/grpcs";
 import { BotTradeTracker } from "../library/trade-tracker";
 import { BotTrackedAmm } from "../library/tracked-amm";
+import { BotSignatureTracker } from "../library/signature-tracker";
 
 const env = grpcs[0]
 
@@ -31,7 +32,7 @@ const TXS_COUNT = SystemConfig.get('payer_retrieve_txs_count')
 
 const coder = new RaydiumAmmCoder(raydiumIDL as Idl)
 
-const updateTokenBalance = async (ammId: PublicKey, mint: PublicKey, amount: BN, lpCount: number | undefined) => {
+const updateTokenBalance = async (signature: string, ammId: PublicKey, blockTime: number, amount: BN, lpCount: number | undefined) => {
   if(amount.isNeg()) { // SELL
     const prevBalance = await tokenBalances.get(ammId);
     if (prevBalance !== undefined && !prevBalance.remaining.isNeg()) {
@@ -44,7 +45,7 @@ const updateTokenBalance = async (ammId: PublicKey, mint: PublicKey, amount: BN,
         BotTrackedAmm.unregister(ammId)
       } else {
         tokenBalances.set(ammId, prevBalance);
-        BotTradeTracker.sellFinalized(ammId)
+        await BotSignatureTracker.finalized(signature, new Date().getTime())
       }
     }
   } else { // BUY
@@ -57,8 +58,9 @@ const updateTokenBalance = async (ammId: PublicKey, mint: PublicKey, amount: BN,
       isUsedUp: false,
       isConfirmed: true
     });
-    BotTradeTracker.buyFinalized(ammId)
 
+    await BotSignatureTracker.finalized(signature, blockTime)
+    logger.info(`${ammId} | Completed Transaction ${new Date(blockTime).toISOString()}`)
     if(lpCount === undefined) {
       await countLiquidityPool.set(ammId, 1)
     }
@@ -111,7 +113,7 @@ const process = async (tx: TxPool, instruction: TxInstruction) => {
   
   let txAmount = BotTransaction.getBalanceFromTransaction(preTokenBalances, postTokenBalances, state.mint)
   
-  updateTokenBalance(ammId, state.mint, txAmount, count)
+  updateTokenBalance(tx.mempoolTxns.signature, ammId, tx.blockTime!, txAmount, count, )
 }
 
 const getTransaction = async (signature: string) : Promise<TxPool> => {
@@ -153,6 +155,10 @@ const getAmmId = async (txPool: TxPool, instruction: TxInstruction) => {
 async function processTx(signature: string) {
   try {
     let tx = await getTransaction(signature)
+    if(tx.mempoolTxns.err) {
+      logger.error(`Error: Skip processing`)
+    }
+    
     for(const ins of tx.mempoolTxns.instructions) {
       const programId = tx.mempoolTxns.accountKeys[ins.programIdIndex]
       if(programId === RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS) {

@@ -172,6 +172,7 @@ export class BotTransaction {
         computeUnitsConsumed: tx.meta?.computeUnitsConsumed || 0,
         err
       },
+      blockTime: tx.blockTime! * 1000 || 0,
       timing: {
         listened: new Date().getTime(),
         preprocessed: 0,

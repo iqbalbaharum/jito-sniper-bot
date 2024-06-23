@@ -7,6 +7,7 @@ import { delayedQueue, txQueue } from "../adapter/queue";
 import { QueueKey } from "../types/queue-key";
 import { logger } from "../utils/logger";
 import { BotTradeTracker } from "./trade-tracker";
+import { BotSignatureTracker } from "./signature-tracker";
 
 export enum BotTradeType {
 	SINGLE,
@@ -109,11 +110,7 @@ export class BotTrade {
 
 			if(signature) {
 				logger.info(`${trade.ammId!.toBase58()} | ${trade.action?.toUpperCase()} | ${signature}`)
-				if(trade.action === 'buy') {
-					BotTradeTracker.buySendTx(trade.ammId!)
-				} else if(trade.action === 'sell') {
-					BotTradeTracker.sellSendTx(trade.ammId!)
-				}
+				BotSignatureTracker.sendRequest(signature)
 			}
 
 			if(err) {

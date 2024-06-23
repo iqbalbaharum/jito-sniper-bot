@@ -11,6 +11,7 @@ export enum StorageKeys {
     KEY_MINTDETAIL = 'storage::mint_detail',
     KEY_TRADE = 'storage::trade',
     KEY_TRADETRACKER = 'storage::trade_tracker',
+    KEY_SIGNATURETRACKER = 'storage::signature_tracker',
     //
     KEY_BLOCKHASHV2 = 'listener:blockhashv2',
     KEY_TOKENTICK = 'listener::token_tick',

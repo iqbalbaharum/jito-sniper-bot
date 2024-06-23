@@ -46,7 +46,13 @@ const redisClient6 = redis.createClient({
     database: 6
 });
 
-const clients = [redisClient, redisClient1, redisClient2, redisClient3, redisClient4, redisClient5, redisClient6];
+// signature
+const redisClient7 = redis.createClient({
+    url: REDIS_URL,
+    database: 7
+});
+
+const clients = [redisClient, redisClient1, redisClient2, redisClient3, redisClient4, redisClient5, redisClient6, redisClient7];
 
 (async () => {
     for(let client of clients) {
@@ -55,4 +61,4 @@ const clients = [redisClient, redisClient1, redisClient2, redisClient3, redisCli
     }
 })();
 
-export { redisClient, redisClient1, redisClient2, redisClient3, redisClient4, redisClient5, redisClient6 }
+export { redisClient, redisClient1, redisClient2, redisClient3, redisClient4, redisClient5, redisClient6, redisClient7 }

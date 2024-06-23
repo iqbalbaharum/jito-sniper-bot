@@ -54,5 +54,6 @@ export type LookupIndex = {
 
 export type TxPool = {
 	mempoolTxns: MempoolTransaction,
-	timing: PoolTiming
+	timing?: PoolTiming
+	blockTime?: number
 }

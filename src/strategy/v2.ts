@@ -183,26 +183,16 @@ const burstSellAfterLP = async(tradeId: string, ammId: PublicKey) => {
 
 const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: PublicKey) => {
   const tx = txPool.mempoolTxns
-
-  let tradeId = await BotTrade.listen(TradeEntry.WITHDRAW)
   
   let ammId: PublicKey | undefined = await getAmmIdFromMempoolTx(tx, instruction)
   if(!ammId) {
-    await BotTrade.abandoned(tradeId, AbandonedReason.NO_AMM_ID) 
     return
   }
   
-  await BotTrade.preprocessed(tradeId, ammId)
+  let tradeId = await BotTrade.listen(TradeEntry.WITHDRAW)
 
-  // If the token is not available, then buy the token. This to cover use cases:
-  // 1. Didnt buy token initially
-  // 2. Buy failed
   let count: number | undefined = await countLiquidityPool.get(ammId)
   if(count === undefined || count === null) {
-    if(await existingMarkets.isExisted(ammId)) {
-      await BotTrade.abandoned(tradeId, AbandonedReason.MARKET_EXISTED)
-      return
-    }
     
     if(SystemConfig.get('buy_after_withdraw_flag')) {
       await processBuy(tradeId, ammId, 80000)
@@ -217,6 +207,8 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
     await BotTrade.abandoned(tradeId, AbandonedReason.NO_LP)
     return
   }
+
+  await BotTrade.preprocessed(tradeId, ammId)
 
   // Check if tracked
   let isTracked = await trackedAmm.get(ammId)

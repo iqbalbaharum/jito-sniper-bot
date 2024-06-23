@@ -211,19 +211,19 @@ async function tracker() {
             totalSellFinalizedCount = totalSellFinalizedCount + tracker.sellFinalizedCount
         }
 
-        if(tracker.totalTimeBuyFinalized > 0) {
-            totalTimeBuyCount++
-            let buySpeed = grantTotalTimeBuyFinalized = grantTotalTimeBuyFinalized + (tracker.totalTimeBuyFinalized/tracker.buyFinalizedCount)
-            if (buySpeed < minBuySpeed) minBuySpeed = buySpeed
-            if (buySpeed > maxBuySpeed) maxBuySpeed = buySpeed
-        }
+        // if(tracker.totalTimeBuyFinalized > 0) {
+        //     totalTimeBuyCount++
+        //     let buySpeed = grantTotalTimeBuyFinalized = grantTotalTimeBuyFinalized + (tracker.totalTimeBuyFinalized/tracker.buyFinalizedCount)
+        //     if (buySpeed < minBuySpeed) minBuySpeed = buySpeed
+        //     if (buySpeed > maxBuySpeed) maxBuySpeed = buySpeed
+        // }
 
-        if(tracker.totalTimeSellFinalized > 0) {
-            totalTimeSellCount++
-            let sellSpeed = grantTotalTimeSellFinalized = grantTotalTimeSellFinalized + (tracker.totalTimeSellFinalized/tracker.sellFinalizedCount)
-            if (sellSpeed < minSellSpeed) minSellSpeed = sellSpeed
-            if (sellSpeed > maxSellSpeed) maxSellSpeed = sellSpeed
-        }
+        // if(tracker.totalTimeSellFinalized > 0) {
+        //     totalTimeSellCount++
+        //     let sellSpeed = grantTotalTimeSellFinalized = grantTotalTimeSellFinalized + (tracker.totalTimeSellFinalized/tracker.sellFinalizedCount)
+        //     if (sellSpeed < minSellSpeed) minSellSpeed = sellSpeed
+        //     if (sellSpeed > maxSellSpeed) maxSellSpeed = sellSpeed
+        // }
     }
 
     console.log(`-------------------------------- TRACKER ---------------------------------`)
