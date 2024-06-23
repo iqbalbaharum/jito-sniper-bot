@@ -57,7 +57,7 @@ export class BotTrade {
 	static async abandoned(tradeId: string, reason: AbandonedReason) {
 		let trade = await trader.get(tradeId)
 		if(trade) {
-			logger.info(`${trade.ammId} | ${reason}`) 
+			logger.info(`${trade.ammId} | ABANDONED | ${reason}`) 
 			trade.timing.abandoned = new Date().getTime()
 			trade.abandonedReason = reason
 		}
