@@ -1,6 +1,6 @@
 import BN from "bn.js";
 import { trader } from "../adapter/storage";
-import { Trade, TradeEntry, TradeOptions, TradeSignature } from "../types/trade";
+import { AbandonedReason, Trade, TradeEntry, TradeOptions, TradeSignature } from "../types/trade";
 import { PublicKey } from "@solana/web3.js";
 import { v4 as uuidv4 } from 'uuid';
 import { delayedQueue, txQueue } from "../adapter/queue";
@@ -29,11 +29,13 @@ export class BotTrade {
 			entry,
 			err: undefined,
 			signature: [],
+			abandonedReason: AbandonedReason.NONE,
 			timing: {
 					listened: new Date().getTime(),
 					preprocessed: 0,
 					processed: 0,
-					completed: 0
+					completed: 0,
+					abandoned: 0
 			},
 			opts: {}
 		})
@@ -52,10 +54,12 @@ export class BotTrade {
 		return undefined
 	}
 
-	static async abandoned(tradeId: string) {
+	static async abandoned(tradeId: string, reason: AbandonedReason) {
 		let trade = await trader.get(tradeId)
 		if(trade) {
-			trader.remove(tradeId)
+			logger.info(`${trade.ammId} | ${reason}`) 
+			trade.timing.abandoned = new Date().getTime()
+			trade.abandonedReason = reason
 		}
 	}
 

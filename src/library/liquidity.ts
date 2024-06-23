@@ -172,7 +172,7 @@ export class BotLiquidity {
 				}
 			}
 		} else {
-			// logger.error(`No state data`)
+			logger.error(`No state data`)
 			return await BotLiquidity.getAccountPoolKeysFromAccountDataV4(ammId)
 		}
 	}
@@ -194,7 +194,7 @@ export class BotLiquidity {
 	}
 
 	/**
-	 *
+	 * 
 	 * @param ammId
 	 * @returns
 	 */
@@ -202,12 +202,18 @@ export class BotLiquidity {
 		ammId: PublicKey
 	): Promise<LiquidityPoolKeys & PoolInfo | undefined> => {
 
+		let retryCount = 0
+		
 		let account: AccountInfo<Buffer> | null = await connection.fetchAccountInfo(ammId, {
 			commitment: config.get('default_commitment') as Commitment,
 		})
 
 		if (!account) {
-			return undefined
+			if(retryCount < SystemConfig.get('bot_retry')) {
+				return this.getAccountPoolKeysFromAccountDataV4(ammId)
+			} else {
+				return undefined
+			}
 		}
 
 		return BotLiquidity.formatAccountPoolKeysFromAccountDataV4(ammId, account.data)

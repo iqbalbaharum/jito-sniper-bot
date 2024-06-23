@@ -23,7 +23,7 @@ import { getTxs, mempool, subscribeAmmIdToMempool, unsubscribeAmmIdToMempool } f
 import { blockhasher, blockhasherv2, countLiquidityPool, existingMarkets, mints, tokenBalances, poolKeys, trackedAmm } from "../adapter/storage";
 import { BotQueue } from "../library/queue";
 import { BotTrade, BotTradeType } from "../library/trade";
-import { TradeEntry } from "../types/trade";
+import { AbandonedReason, TradeEntry } from "../types/trade";
 import { BotgRPC } from "../library/grpc";
 import { BotTradeTracker } from "../library/trade-tracker";
 import { BotTrackedAmm } from "../library/tracked-amm";
@@ -33,11 +33,17 @@ const coder = new RaydiumAmmCoder(raydiumIDL as Idl)
 const processBuy = async (tradeId: string, ammId: PublicKey, microLamports: number = 500000, delay: number = 0) => {
   
   const isTracked = await trackedAmm.get(ammId)
-  if(isTracked === false) { return }
+  if(isTracked === false) {
+    await BotTrade.abandoned(tradeId, AbandonedReason.NOT_TRACKED)
+    return
+  }
   
   const pKeys = await BotLiquidity.getAccountPoolKeys(ammId)
-
-  if(!pKeys) { return }
+  
+  if(!pKeys) {
+    await BotTrade.abandoned(tradeId, AbandonedReason.NO_POOLKEY)
+    return 
+  }
 
   // Check the pool open time before proceed,
   // If the pool is not yet open, then sleep before proceeding
@@ -50,13 +56,18 @@ const processBuy = async (tradeId: string, ammId: PublicKey, microLamports: numb
       waitForTge = true
       return
     } else {
+      await BotTrade.abandoned(tradeId, AbandonedReason.EXCEED_WAITING_TIME)
       return;
     }
   }
 
   const info = BotLiquidity.getMintInfoFromWSOLPair(pKeys)
+  
   // Cancel process if pair is not WSOL
-  if(info.mint === undefined) { return }
+  if(info.mint === undefined) { 
+    await BotTrade.abandoned(tradeId, AbandonedReason.NO_MINT)
+    return
+  }
 
   await poolKeys.set(ammId, pKeys)
   await mints.set(ammId, {
@@ -92,7 +103,10 @@ async function processSell(tradeId: string, ammId: PublicKey, execCount: number 
   // Check if the we have confirmed balance before
   // executing sell
   const balance = await tokenBalances.get(ammId)
-  if(balance === undefined) { return }
+  if(balance === undefined) {
+    await BotTrade.abandoned(tradeId, AbandonedReason.NO_BALANCE) 
+    return
+  }
   
   if(balance && !balance.remaining.isZero()) {
     if(!balance.remaining.isNeg()) {
@@ -158,39 +172,58 @@ const getAmmIdFromMempoolTx = async (tx: MempoolTransaction, instruction: TxInst
  */
 const burstSellAfterLP = async(tradeId: string, ammId: PublicKey) => {
   logger.info(`Burst TXs | ${ammId.toBase58()}`)
-    const state = await mints.get(ammId!)
-    if(!state) { return }
-    const totalChunck = SystemConfig.get('tx_balance_chuck_division')
-    processSell(tradeId, ammId, Math.floor(totalChunck/ 4), 1800, SystemConfig.get('burst_microlamport'))
+  const state = await mints.get(ammId!)
+  if(!state) { 
+    await BotTrade.abandoned(tradeId, AbandonedReason.NO_STATE) 
+    return
+  }
+  const totalChunck = SystemConfig.get('tx_balance_chuck_division')
+  processSell(tradeId, ammId, Math.floor(totalChunck/ 4), 1800, SystemConfig.get('burst_microlamport'))
 }
 
 const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: PublicKey) => {
   const tx = txPool.mempoolTxns
 
   let tradeId = await BotTrade.listen(TradeEntry.WITHDRAW)
-
+  
   let ammId: PublicKey | undefined = await getAmmIdFromMempoolTx(tx, instruction)
-  if(!ammId) { return }
+  if(!ammId) {
+    await BotTrade.abandoned(tradeId, AbandonedReason.NO_AMM_ID) 
+    return
+  }
   
   await BotTrade.preprocessed(tradeId, ammId)
 
   // If the token is not available, then buy the token. This to cover use cases:
   // 1. Didnt buy token initially
-  // 2. Buy failed 
+  // 2. Buy failed
   let count: number | undefined = await countLiquidityPool.get(ammId)
   if(count === undefined || count === null) {
     if(await existingMarkets.isExisted(ammId)) {
-      await BotTrade.abandoned(tradeId)
+      await BotTrade.abandoned(tradeId, AbandonedReason.MARKET_EXISTED)
       return
     }
     
-    await processBuy(tradeId, ammId, 80000)
-    await countLiquidityPool.set(ammId, 0)
+    if(SystemConfig.get('buy_after_withdraw_flag')) {
+      await processBuy(tradeId, ammId, 80000)
+      await countLiquidityPool.set(ammId, 0)
+    }
+
   } else {
     await countLiquidityPool.set(ammId, count - 1)
   }
 
-  if(count === undefined) { return }
+  if(count === undefined) { 
+    await BotTrade.abandoned(tradeId, AbandonedReason.NO_LP)
+    return
+  }
+
+  // Check if tracked
+  let isTracked = await trackedAmm.get(ammId)
+  if(!isTracked) {
+    await BotTrade.abandoned(tradeId, AbandonedReason.NOT_TRACKED)
+    return
+  }
 
   // Burst sell transaction, if rugpull detected
   await burstSellAfterLP(tradeId, ammId)
@@ -217,11 +250,15 @@ const processInitialize2 = async (instruction: TxInstruction, txPool: TxPool, at
     ammId = new PublicKey(tx.accountKeys[accountIndex])
   }
 
-  if(!ammId) { return }
+  if(!ammId) { 
+    await BotTrade.abandoned(tradeId, AbandonedReason.NO_AMM_ID) 
+    return
+  }
 
   await BotTrade.preprocessed(tradeId, ammId)
 
   if(await existingMarkets.isExisted(ammId)) {
+    await BotTrade.abandoned(tradeId, AbandonedReason.MARKET_EXISTED)
     return
   }
 
@@ -261,15 +298,6 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   }
 
   if(!ammId) { return }
-
-  // Check if this ammId is within the sell attempt configured.
-  let tracker = await BotTradeTracker.getTracker(ammId)
-  if(tracker) {
-    if(tracker.sellAttemptCount > SystemConfig.get('max_sell_attempt')) {
-      BotTrackedAmm.unregister(ammId)
-      return
-    }
-  }
   
   // BUG: There's another method for Raydium swap which move the array positions
   // to differentiate which position, check the position of OPENBOOK program Id in accountKeys

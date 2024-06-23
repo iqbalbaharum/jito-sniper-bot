@@ -1,7 +1,7 @@
 import { PublicKey } from "@solana/web3.js";
 import { BaseStorage } from "./base-storage";
 import { StorageKeys } from "../types/storage-keys";
-import { Trade, TradeOptions, TradeTiming } from "../types/trade";
+import { AbandonedReason, Trade, TradeOptions, TradeTiming } from "../types/trade";
 import { BN } from "bn.js";
 
 export class TradeStorage extends BaseStorage {
@@ -49,6 +49,7 @@ export class TradeStorage extends BaseStorage {
             signature: d.signature,
             entry: d.entry,
             timing: d.timing as TradeTiming,
+            abandonedReason: d.abandonedReason as AbandonedReason,
             err: d.err,
             opts: d.opts as TradeOptions
         }

@@ -6,7 +6,23 @@ export type TradeTiming = {
 	listened: number,
 	preprocessed: number,
 	processed: number
-    completed: number
+    completed: number,
+    abandoned: number
+}
+
+export enum AbandonedReason {
+    NONE,
+    NO_AMM_ID,
+    NO_POOLKEY,
+    MARKET_EXISTED,
+    NO_LP,
+    NOT_TRACKED,
+    NO_STATE,
+    NO_BALANCE,
+    EXCEED_WAITING_TIME,
+    NO_MINT,
+    EXCEED_SELL_ATTEMPT,
+    INCOMPLETE_TOKENACCOUNT_DATA
 }
 
 export type TradeOptions = {
@@ -39,6 +55,7 @@ export type Trade = {
     entry: TradeEntry,
     timing: TradeTiming,
     signature: TradeSignature[],
+    abandonedReason: AbandonedReason,
     err: string | undefined,
     opts?: TradeOptions,
 }

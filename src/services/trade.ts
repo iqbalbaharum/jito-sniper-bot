@@ -9,7 +9,7 @@ import { connection, send_tx_rpcs } from "../adapter/rpc";
 import { LiquidityPoolKeysV4 } from "@raydium-io/raydium-sdk";
 import { blockhasher, blockhasherv2, existingMarkets, mints, tokenBalances, poolKeys, trader, tradeTracker } from "../adapter/storage";
 import { QueueKey } from "../types/queue-key";
-import { Trade } from "../types/trade";
+import { AbandonedReason, Trade } from "../types/trade";
 import { BotTrade } from "../library/trade";
 import sleep from "atomic-sleep";
 import { TxMethod } from "../types";
@@ -18,13 +18,13 @@ import { BotTradeTracker } from "../library/trade-tracker";
 const process = async (tradeId: string, trade: Trade, ata: PublicKey) => {
   
   if(!trade.ammId) {
-    await BotTrade.abandoned(tradeId)
+    await BotTrade.abandoned(tradeId, AbandonedReason.NO_AMM_ID)
     return
   }
 
   const pKeys = await poolKeys.get(trade.ammId)
   if(!pKeys) { 
-    BotTrade.abandoned(tradeId)
+    BotTrade.abandoned(tradeId, AbandonedReason.NO_POOLKEY)
     return
   }
 

@@ -97,6 +97,11 @@ const config = convict({
         default: 'rpc',
         env: 'BLOCKHASH_METHOD'
     },
+    bot_retry: {
+        format: Number,
+        default: 3,
+        env: 'BOT_RETRY'
+    },
     //
     tx_balance_chuck_division: {
         format: Number,
@@ -195,6 +200,11 @@ const config = convict({
         format: Boolean,
         default: true,
         env: 'RUN_SIMULATION_FLAG'
+    },
+    buy_after_withdraw_flag: {
+        format: Boolean,
+        default: false,
+        env: 'BUY_AFTER_WITHDRAW_FLAG'
     },
     delayed_buy_token_in_ms: {
         format: Number,

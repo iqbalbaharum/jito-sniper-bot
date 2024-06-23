@@ -54,10 +54,9 @@ async function trade() {
         let trade = await trader.get(uuid)
         if(!trade) { continue }
 
-        // Completed trade
-        if(trade.timing.processed > 0) {
+        if(trade.timing.listened > 0) {
             
-            const tradeDate = new Date(trade.timing.processed)
+            const tradeDate = new Date(trade.timing.listened)
             const tradeDateHourKey = formatDateTime(tradeDate)
 
             if (!statsByHour[tradeDateHourKey]) {

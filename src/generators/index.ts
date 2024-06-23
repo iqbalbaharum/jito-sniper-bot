@@ -35,10 +35,10 @@ async function* mempool(accounts: string[]): AsyncGenerator<TxPool> {
 			generators.push(geyserPool.listen())
 		}
 
-		// const onLogPool = new Web3JSOnLog('onLog_1', connection, accounts[0])
+		const onLogPool = new Web3JSOnLog('onLog_1', connection, accounts[0])
 		// const heliusWS = new HeliusWebSocketGenerator('helius_ws_1', config.get('helius_api_key'), accounts)
 
-		// generators.push(onLogPool.listen())
+		generators.push(onLogPool.listen())
 		// generators.push(heliusWS.listen())
 
 	} catch(e: any) {
