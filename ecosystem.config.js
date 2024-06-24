@@ -1,8 +1,8 @@
 module.exports = {
   apps : [
     {
-      name: 'v1',
-      script: './build/src/strategy/v1.js',
+      name: 'bot',
+      script: './build/src/strategy/index.js',
       args: '--max-old-space-size=6144',
       instances: 1,
       max_memory_restart: '2G',
@@ -10,39 +10,6 @@ module.exports = {
       watch: false,
       cron_restart: '0 * * * *',
       exec_mode: 'fork'
-    },
-    {
-      name: 'v2',
-      script: './build/src/strategy/v2.js',
-      args: '--max-old-space-size=6144',
-      instances: 1,
-      max_memory_restart: '2G',
-      exec_mode: 'fork',
-      autorestart: true,
-      watch: false,
-      cron_restart: '0 * * * *',
-    },
-    {
-      name: 'v2-jito',
-      script: './build/src/strategy/v2-jito.js',
-      args: '--max-old-space-size=6144',
-      instances: 1,
-      max_memory_restart: '2G',
-      exec_mode: 'fork',
-      autorestart: true,
-      watch: false,
-      cron_restart: '0 * * * *',
-    },
-    {
-      name: 'v3',
-      script: './build/src/strategy/v3.js',
-      args: '--max-old-space-size=6144',
-      instances: 1,
-      max_memory_restart: '2G',
-      exec_mode: 'fork',
-      autorestart: true,
-      watch: false,
-      cron_restart: '0 * * * *',
     },
     {
       name: 'amm',

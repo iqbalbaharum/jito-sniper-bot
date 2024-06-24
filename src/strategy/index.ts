@@ -435,11 +435,11 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
       return 
     }
 
-    mempool([])
+    await mempool()
 
     // reinitialise poolkeys
-    subscribeAmmIdToMempool([RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS])
-    subscribeAmmIdToMempool(['7YttLkHDoNj9wyDur5pM1ejNaAvT9X4eqaYcHQqtj2G5'])
+    // subscribeAmmIdToMempool([RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS])
+    // subscribeAmmIdToMempool(['7YttLkHDoNj9wyDur5pM1ejNaAvT9X4eqaYcHQqtj2G5'])
     
     BotTrackedAmm.init()
     

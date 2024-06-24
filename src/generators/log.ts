@@ -15,7 +15,7 @@ export class Web3JSOnLog extends BaseGenerator {
     super(streamName);
     this.connection = connection;
     this.programId = new PublicKey(programId);
-
+    
     logger.info(`Loaded onLog: ${programId}`)
   }
 

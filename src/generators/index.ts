@@ -16,34 +16,21 @@ const generatorMap: Map<string, GrpcGenerator> = new Map();
 let updates: AsyncGenerator<TxPool>;
 const pools: ConcurrentSet<string> = new ConcurrentSet<string>(50 * 60000)
 
-async function* mempool(accounts: string[]): AsyncGenerator<TxPool> {
-	try {
-		// load geysers
-		for(let i=0; i < grpcs.length; i++) {
-			let env = grpcs[i]
+async function mempool() {
+	const geyserPool: GrpcGenerator = new GrpcGenerator(`geyser_rpc_1`, grpcs[0].url, grpcs[0].token)
+	geyserPool.addTransaction(`raydium_tx_init`, {
+		vote: false,
+		failed: false,
+		accountInclude: [RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, '7YttLkHDoNj9wyDur5pM1ejNaAvT9X4eqaYcHQqtj2G5'],
+		accountExclude: [],
+		accountRequired: [],
+	})
+	generators.push(geyserPool.listen())
 
-			const geyserPool: GrpcGenerator = new GrpcGenerator(`geyser_${i}`, env.url, env.token)
-			geyserPool.addTransaction(`raydium_tx_${i}`, {
-				vote: false,
-				failed: false,
-				accountInclude: accounts,
-				accountExclude: [],
-				accountRequired: [],
-			})
+	const onLogPool = new Web3JSOnLog('onLog_1', connection, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS)
+	generators.push(onLogPool.listen())
 
-			generatorMap.set(`${accounts[0]}`, geyserPool);
-			generators.push(geyserPool.listen())
-		}
-
-		const onLogPool = new Web3JSOnLog('onLog_1', connection, accounts[0])
-		// const heliusWS = new HeliusWebSocketGenerator('helius_ws_1', config.get('helius_api_key'), accounts)
-
-		generators.push(onLogPool.listen())
-		// generators.push(heliusWS.listen())
-
-	} catch(e: any) {
-		console.log(e.toString())
-	}
+	updates = await fuseGenerators(generators)
 }
 
 async function* getTxs(): AsyncGenerator<TxPool>{
@@ -56,8 +43,9 @@ async function* getTxs(): AsyncGenerator<TxPool>{
 }
 
 async function subscribeAmmIdToMempool(account: string[]) {
+	let i = 0
 	for(const env of grpcs) {
-		const geyserPool: GrpcGenerator = new GrpcGenerator(`geyser_${account[0]}`, env.url, env.token)
+		const geyserPool: GrpcGenerator = new GrpcGenerator(`geyser_${i}_${account[0]}`, env.url, env.token)
 		geyserPool.addTransaction(`geyser_${account[0]}`, {
 			vote: false,
 			failed: false,
@@ -68,6 +56,7 @@ async function subscribeAmmIdToMempool(account: string[]) {
 
 		generators.push(geyserPool.listen())
 		generatorMap.set(account[0], geyserPool)
+		i++
 	}
 
 	logger.info(`Subscribe to ${account}`)
