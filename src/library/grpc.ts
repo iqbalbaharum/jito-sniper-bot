@@ -42,6 +42,10 @@ export class BotgRPC {
 			'grpc.keepalive_permit_without_calls': 1
 		} as ChannelOptions)
 		this.connect()
+
+		setInterval(async() => {
+			await this.client.ping(10)
+		}, 6000)
 	}
 
 	private async connect() {
