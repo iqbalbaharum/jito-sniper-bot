@@ -219,8 +219,8 @@ async function tracker() {
     console.log(`-------------------------------- TRACKER ---------------------------------`)
     console.log(`TOTAL TRACKED TOKEN: ${total}`)
     console.log(`-------------------------------- AVERAGE ---------------------------------`)
-    console.log(`BUY ATTEMPT PERCENTAGE: ${totalBuyAttemptCount} (${totalBuyAttemptCount / total * 100} %)`)
-    console.log(`SELL ATTEMPT COUNT: ${totalSellAttemptCount/total * 100} %`)
+    console.log(`BUY ATTEMPT PERCENTAGE: ${totalBuyAttemptCount} (${(totalBuyAttemptCount / total * 100).toFixed(2)} %)`)
+    console.log(`SELL ATTEMPT COUNT: ${totalSellAttemptCount} (${(totalSellAttemptCount/ total * 100).toFixed(2)}) %`)
 }
 
 async function speed() {
