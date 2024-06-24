@@ -1,5 +1,5 @@
 import { PublicKey } from "@solana/web3.js"
-import { trackedAmm, tradeTracker, trader } from "../adapter/storage"
+import { signatureTracker, trackedAmm, tradeTracker, trader } from "../adapter/storage"
 import { TradeEntry } from "../types"
 import { logger } from "../utils/logger"
 
@@ -45,7 +45,8 @@ async function trade() {
     let possibleEntryCount = 0
 
     const statsByHour: { [key: string]: StatByHour } = {}
-
+    const sources: { [key: string]: number } = {}
+    
     // get total trade
     let uuids = await trader.getAllKeys()
     total = uuids.length
@@ -58,6 +59,11 @@ async function trade() {
             
             const tradeDate = new Date(trade.timing.listened)
             const tradeDateHourKey = formatDateTime(tradeDate)
+
+            if (!sources[trade.source]) {
+                sources[trade.source] = 0
+            }
+            sources[trade.source]++
 
             if (!statsByHour[tradeDateHourKey]) {
                 statsByHour[tradeDateHourKey] = {
@@ -136,6 +142,7 @@ async function trade() {
     console.log(`LP CREATED: ${createdLPCount}`)
     console.log(`LP REMOVED: ${removedLPCount}`)
     console.log(`POSSIBLE ENTRY: ${possibleEntryCount}`)
+    console.log(``)
     console.log(`----------------------------- HOURLY TRADE ------------------------------`)
     for (const [dateHour, stats] of Object.entries(statsByHour)) {
         console.log(`${dateHour}:`)
@@ -144,12 +151,20 @@ async function trade() {
         console.log(`  LP REMOVED: ${stats.removedLP}`)
         console.log(`  POSSIBLE ENTRY: ${stats.possibleEntry}`)
     }
+    console.log(``)
+    console.log(`------------------------------ SOURCES -------------------------------`)
+
+    for (const [source, count] of Object.entries(sources)) {
+        console.log(`${source}: ${count}`)
+    }
+    console.log(``)
     console.log(`-------------------------------- BUY ---------------------------------`)
     console.log(`BUY COUNT: ${buyCount}`)
     console.log(`BUY W/ ERROR COUNT: ${buyFailed}`)
     console.log(`PREPROCESSED (AVG): ${buyPreprocessedTotal / buyPreprocessedCount} ms`)
     console.log(`PROCESSED (AVG): ${buyProcessedTotal / buyProcessedCount} ms`)
     console.log(`COMPLETED (AVG): ${buyCompletedTotal / buyCompletedCount} ms`)
+    console.log(``)
     console.log(`-------------------------------- SELL --------------------------------`)
     console.log(`SELL COUNT: ${sellCount}`)
     console.log(`SELL W/ ERROR COUNT: ${sellFailed}`)
@@ -170,17 +185,6 @@ async function tracker() {
     let totalSellAttemptCount = 0
     let sellFinalizedCount = 0
     let totalSellFinalizedCount = 0
-    
-    let totalTimeBuyCount = 0
-    let grantTotalTimeBuyFinalized = 0
-
-    let totalTimeSellCount = 0
-    let grantTotalTimeSellFinalized = 0
-
-    let minBuySpeed = Infinity
-    let maxBuySpeed = -Infinity
-    let minSellSpeed = Infinity
-    let maxSellSpeed = -Infinity
 
     const ammIds = await tradeTracker.getAllKeys()
     for(const ammId of ammIds) {
@@ -210,42 +214,53 @@ async function tracker() {
             sellFinalizedCount++
             totalSellFinalizedCount = totalSellFinalizedCount + tracker.sellFinalizedCount
         }
-
-        // if(tracker.totalTimeBuyFinalized > 0) {
-        //     totalTimeBuyCount++
-        //     let buySpeed = grantTotalTimeBuyFinalized = grantTotalTimeBuyFinalized + (tracker.totalTimeBuyFinalized/tracker.buyFinalizedCount)
-        //     if (buySpeed < minBuySpeed) minBuySpeed = buySpeed
-        //     if (buySpeed > maxBuySpeed) maxBuySpeed = buySpeed
-        // }
-
-        // if(tracker.totalTimeSellFinalized > 0) {
-        //     totalTimeSellCount++
-        //     let sellSpeed = grantTotalTimeSellFinalized = grantTotalTimeSellFinalized + (tracker.totalTimeSellFinalized/tracker.sellFinalizedCount)
-        //     if (sellSpeed < minSellSpeed) minSellSpeed = sellSpeed
-        //     if (sellSpeed > maxSellSpeed) maxSellSpeed = sellSpeed
-        // }
     }
 
     console.log(`-------------------------------- TRACKER ---------------------------------`)
     console.log(`TOTAL TRACKED TOKEN: ${total}`)
     console.log(`-------------------------------- AVERAGE ---------------------------------`)
     console.log(`BUY ATTEMPT PERCENTAGE: ${totalBuyAttemptCount} (${totalBuyAttemptCount / total * 100} %)`)
-    console.log(`BUY FINALIZED PERCENTAGE: ${buyFinalizedCount} (${buyFinalizedCount / total * 100} %)`)
     console.log(`SELL ATTEMPT COUNT: ${totalSellAttemptCount/total * 100} %`)
-    console.log(`SELL FINALIZED COUNT: ${totalSellFinalizedCount/sellFinalizedCount * 100} %`)
-    console.log(`BUY SPEED (AVG): ${grantTotalTimeBuyFinalized/totalTimeBuyCount} ms`)
-    console.log(`FASTEST BUY SPEED: ${minBuySpeed} ms`)
-    console.log(`SLOWEST BUY SPEED: ${maxBuySpeed} ms`)
-    console.log(`SELL SPEED (AVG): ${grantTotalTimeSellFinalized/totalTimeSellCount} ms`)
-    console.log(`FASTEST SELL SPEED: ${minSellSpeed} ms`)
-    console.log(`SLOWEST SELL SPEED: ${maxSellSpeed} ms`)
+}
+
+async function speed() {
+
+    let total = 0
+    let totalSucceed = 0
+    let totalFailed = 0
+
+    let totalSpeed = 0
+    
+    const signatures = await signatureTracker.getAllKeys()
+    for (const signature of signatures) {
+        total++
+
+        const tracker = await signatureTracker.get(signature)
+        if(tracker) {
+            
+            if(!tracker.onChainAt) {
+                totalFailed++
+                continue
+            }
+
+            totalSucceed++
+            totalSpeed += tracker.onChainAt - tracker.requestAt * 1000
+        }
+    }
+
+    console.log(`-------------------------------- SPEED ---------------------------------`)
+    console.log(`TOTAL TRACKED TOKEN: ${total}`)
+    console.log(`TOTAL SUCCESS: ${totalSucceed} (${totalSucceed/total * 100}%)`)
+    console.log(`TOTAL FAILED: ${totalFailed} (${totalFailed/total * 100}%)`)
+    console.log(`TX SPEED (AVG): ${totalSpeed / totalSucceed} ms`)
 }
 
 async function main() {
 
     await trade()  
     await tracker()  
-    
+    await speed()
+
     process.exit()
 }   
 

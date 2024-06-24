@@ -117,7 +117,7 @@ const getAmmIdFromMempoolTx = async (tx: MempoolTransaction, instruction: TxInst
 const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: PublicKey) => {
   const tx = txPool.mempoolTxns
 
-  let tradeId = await BotTrade.listen(TradeEntry.WITHDRAW)
+  let tradeId = await BotTrade.listen(TradeEntry.WITHDRAW, txPool.mempoolTxns.source)
 
   let ammId: PublicKey | undefined = await getAmmIdFromMempoolTx(tx, instruction)
   if(!ammId) { return }

@@ -189,7 +189,7 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
     return
   }
   
-  let tradeId = await BotTrade.listen(TradeEntry.WITHDRAW)
+  let tradeId = await BotTrade.listen(TradeEntry.WITHDRAW, txPool.mempoolTxns.source)
 
   let count: number | undefined = await countLiquidityPool.get(ammId)
   if(count === undefined || count === null) {
@@ -224,7 +224,7 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
 const processInitialize2 = async (instruction: TxInstruction, txPool: TxPool, ata: PublicKey) => {
   const tx = txPool.mempoolTxns
   
-  const tradeId = await BotTrade.listen(TradeEntry.INITIAILIZE2)
+  const tradeId = await BotTrade.listen(TradeEntry.INITIAILIZE2, txPool.mempoolTxns.source)
 
   const accountIndexes: number[] = instruction.accounts || []
   const lookupsForAccountKeyIndex: LookupIndex[] = BotLookupTable.generateTableLookup(tx.addressTableLookups)
@@ -387,7 +387,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
     return 
   }
 
-  let tradeId = await BotTrade.listen(TradeEntry.SWAPBASEIN)
+  let tradeId = await BotTrade.listen(TradeEntry.SWAPBASEIN, txPool.mempoolTxns.source)
   await BotTrade.preprocessed(tradeId, ammId)
 
   const totalChunck = SystemConfig.get('tx_balance_chuck_division')

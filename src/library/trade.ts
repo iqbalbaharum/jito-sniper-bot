@@ -20,7 +20,7 @@ export class BotTrade {
 	 * Create empty container for the trade
 	 * @returns return trade container unique id (tradeId)
 	 */
-	static async listen(entry: TradeEntry) : Promise<string> {
+	static async listen(entry: TradeEntry, source: string) : Promise<string> {
 		let tradeId = uuidv4()
 		await trader.set(tradeId, {
 			ammId: undefined,
@@ -28,6 +28,7 @@ export class BotTrade {
 			amountOut: new BN(0),
 			action: undefined,
 			entry,
+			source,
 			err: undefined,
 			signature: [],
 			abandonedReason: AbandonedReason.NONE,

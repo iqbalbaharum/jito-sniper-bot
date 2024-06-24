@@ -55,6 +55,7 @@ export type Trade = {
     entry: TradeEntry,
     timing: TradeTiming,
     signature: TradeSignature[],
+    source: string,
     abandonedReason: AbandonedReason,
     err: string | undefined,
     opts?: TradeOptions,

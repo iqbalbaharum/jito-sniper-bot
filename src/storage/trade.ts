@@ -45,6 +45,7 @@ export class TradeStorage extends BaseStorage {
             ammId: d.ammId ? new PublicKey(d.ammId) : undefined,
             amountIn: new BN(d.amountIn, 16),
             amountOut: new BN(d.amountOut, 16),
+            source: d.source,
             action: d.action,
             signature: d.signature,
             entry: d.entry,
