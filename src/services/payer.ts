@@ -96,13 +96,16 @@ const process = async (tx: TxPool, instruction: TxInstruction) => {
       case 40:
         logger.warn(`Token used up ${ammId}`)
         tokenBalances.isUsedUp(ammId)
-        poolKeys.remove(ammId)
+        BotTrackedAmm.unregister(ammId)
         break;
       case 38:
-        poolKeys.remove(ammId)
+        BotTrackedAmm.unregister(ammId)
       default:
         break
     }
+
+    await BotSignatureTracker.finalized(tx.mempoolTxns.signature, tx.blockTime!)
+
     return
   }
 
