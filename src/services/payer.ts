@@ -42,7 +42,7 @@ const updateTokenBalance = async (signature: string, ammId: PublicKey, blockTime
       if(prevBalance.remaining.isNeg()) {
         tokenBalances.isUsedUp(ammId)
         poolKeys.remove(ammId)
-        BotTrackedAmm.unregister(ammId)
+        await BotTrackedAmm.unregister(ammId)
       } else {
         tokenBalances.set(ammId, prevBalance);
         await BotSignatureTracker.finalized(signature, new Date().getTime())
@@ -50,7 +50,7 @@ const updateTokenBalance = async (signature: string, ammId: PublicKey, blockTime
     }
   } else { // BUY
     let chunk = amount.divn(SystemConfig.get('tx_balance_chuck_division'))
-    BotTrackedAmm.register(ammId)
+    await BotTrackedAmm.register(ammId)
     tokenBalances.set(ammId, {
       total: amount,
       remaining: amount,
@@ -96,10 +96,10 @@ const process = async (tx: TxPool, instruction: TxInstruction) => {
       case 40:
         logger.warn(`Token used up ${ammId}`)
         tokenBalances.isUsedUp(ammId)
-        BotTrackedAmm.unregister(ammId)
+        await BotTrackedAmm.unregister(ammId)
         break;
       case 38:
-        BotTrackedAmm.unregister(ammId)
+        await BotTrackedAmm.unregister(ammId)
       default:
         break
     }

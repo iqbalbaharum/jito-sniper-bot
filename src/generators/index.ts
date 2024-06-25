@@ -10,10 +10,11 @@ import { connection, connectionAlt1 } from "../adapter/rpc";
 import { logger } from "../utils/logger";
 import { HeliusWebSocketGenerator } from "./helius-websocket";
 import { grpcs } from "../adapter/grpcs";
+import sleep from "atomic-sleep";
 
 const generators: AsyncGenerator<TxPool>[] = [];
 const generatorMap: Map<string, GrpcGenerator> = new Map();
-let updates: AsyncGenerator<TxPool>;
+let updates: AsyncGenerator<TxPool> | null;
 const pools: ConcurrentSet<string> = new ConcurrentSet<string>(50 * 60000)
 
 async function mempool() {
@@ -29,11 +30,14 @@ async function mempool() {
 
 	const onLogPool = new Web3JSOnLog('onLog_1', connection, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS)
 	generators.push(onLogPool.listen())
-
+	
+	updates = null
 	updates = await fuseGenerators(generators)
 }
 
 async function* getTxs(): AsyncGenerator<TxPool>{
+	if(!updates) { return }
+
 	for await (const update of updates) {
 		if(update && !pools.has(update.mempoolTxns.signature)) {
 			pools.add(update.mempoolTxns.signature)
@@ -43,25 +47,24 @@ async function* getTxs(): AsyncGenerator<TxPool>{
 }
 
 async function subscribeAmmIdToMempool(account: string[]) {
-	let i = 0
-	for(const env of grpcs) {
-		const geyserPool: GrpcGenerator = new GrpcGenerator(`geyser_${i}_${account[0]}`, env.url, env.token)
-		geyserPool.addTransaction(`geyser_${account[0]}`, {
-			vote: false,
-			failed: false,
-			accountInclude: account,
-			accountExclude: [],
-			accountRequired: [],
-		})
+	let i = Math.floor(Math.random() * grpcs.length)
+	const env = grpcs[i]
+	const geyserPool: GrpcGenerator = new GrpcGenerator(`geyser_${i}_${account[0]}`, env.url, env.token)
+	geyserPool.addTransaction(`geyser_${account[0]}`, {
+		vote: false,
+		failed: false,
+		accountInclude: account,
+		accountExclude: [],
+		accountRequired: [],
+	})
 
-		generators.push(geyserPool.listen())
-		generatorMap.set(account[0], geyserPool)
-		i++
-	}
+	generators.push(geyserPool.listen())
+	generatorMap.set(account[0], geyserPool)
 
-	logger.info(`Subscribe to ${account}`)
-
-	updates = fuseGenerators(generators)
+	logger.info(`geyser_${i}_${account[0]} | SUBSCRIBE to ${account}`)
+	
+	updates = null
+	updates = await fuseGenerators(generators)
 }
 
 async function unsubscribeAmmIdToMempool(ammId: PublicKey) {
@@ -73,7 +76,7 @@ async function unsubscribeAmmIdToMempool(ammId: PublicKey) {
 
 	logger.info(`Unsubscribe to ${ammId}`)
 
-	updates = fuseGenerators(generators)
+	updates = await fuseGenerators(generators)
 }
 
 async function subscribeSignatureToMempool(signature: string) {
@@ -86,11 +89,12 @@ async function subscribeSignatureToMempool(signature: string) {
 
 	logger.info(`Subscribe to ${signature}`)
 
-	updates = fuseGenerators(generators)
+	updates = null
+	updates = await fuseGenerators(generators)
 }
 
 async function* fuseGenerators<T>(
-	gens: AsyncGenerator<T>[],
+	gens: AsyncGenerator<T>[]
 ): AsyncGenerator<T> {
 	const generatorPromises: Array<
 		Promise<{ result: IteratorResult<T>; generatorIndex: number }>

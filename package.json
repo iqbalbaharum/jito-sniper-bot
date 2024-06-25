@@ -53,6 +53,7 @@
     "convict": "^6.2.4",
     "decimal.js": "^10.4.3",
     "dotenv": "^16.4.4",
+    "eventemitter3": "^5.0.1",
     "jito-ts": "^3.0.1",
     "pino": "^8.19.0",
     "pino-pretty": "^10.3.1",

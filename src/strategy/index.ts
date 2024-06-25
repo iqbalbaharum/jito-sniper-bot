@@ -440,18 +440,15 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
     }
 
     await mempool()
-
-    // reinitialise poolkeys
-    // subscribeAmmIdToMempool([RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS])
-    // subscribeAmmIdToMempool(['7YttLkHDoNj9wyDur5pM1ejNaAvT9X4eqaYcHQqtj2G5'])
-    
     BotTrackedAmm.init()
     
     logger.info(`Starting bot V2`)
 
-    for await (const update of getTxs()) {
-      processTx(update, ata) // You can process the updates as needed
-    }
+    setInterval(async() => {
+      for await (const update of getTxs()) {
+        processTx(update, ata)
+      }
+    }, 30000)
 
   } catch(e) {
     console.log(e)
