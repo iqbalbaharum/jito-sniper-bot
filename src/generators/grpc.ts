@@ -72,6 +72,18 @@ export class GrpcGenerator extends BaseGenerator {
 		// this.write()
 	}
 
+	addSignature = (signature: string) => {
+		this.gRequest.transactions[signature] = {
+			vote: false,
+			failed: false,
+			signature,
+			accountInclude: [],
+			accountExclude: [],
+			accountRequired: []
+		} as SubscribeRequestFilterTransactions
+		// this.write()
+	}
+
 	removeProgram = (name: string) => {
 		delete this.gRequest.accounts[name]
 		// this.write()

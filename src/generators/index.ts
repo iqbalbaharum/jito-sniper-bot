@@ -76,6 +76,19 @@ async function unsubscribeAmmIdToMempool(ammId: PublicKey) {
 	updates = fuseGenerators(generators)
 }
 
+async function subscribeSignatureToMempool(signature: string) {
+	let i = Math.floor(Math.random() * grpcs.length)
+	const env = grpcs[i]
+	const geyserPool: GrpcGenerator = new GrpcGenerator(`geyser_${i}_${signature}`, env.url, env.token)
+	geyserPool.addSignature(signature)
+
+	generators.push(geyserPool.listen())
+
+	logger.info(`Subscribe to ${signature}`)
+
+	updates = fuseGenerators(generators)
+}
+
 async function* fuseGenerators<T>(
 	gens: AsyncGenerator<T>[],
 ): AsyncGenerator<T> {
@@ -94,4 +107,11 @@ async function* fuseGenerators<T>(
 	}
 }
 
-export { mempool, fuseGenerators, getTxs, subscribeAmmIdToMempool, unsubscribeAmmIdToMempool }
+export { 
+	mempool,
+	fuseGenerators,
+	getTxs,
+	subscribeAmmIdToMempool,
+	unsubscribeAmmIdToMempool,
+	subscribeSignatureToMempool 
+}

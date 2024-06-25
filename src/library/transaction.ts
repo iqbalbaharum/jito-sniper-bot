@@ -82,8 +82,6 @@ export class BotTransaction {
     })
     
     if(!response) { return undefined }
-  
-    // return this.getAmmIdFromTransaction(response.transaction.message)
   }
 
   // Read mint token balance from transaction

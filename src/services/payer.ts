@@ -216,11 +216,16 @@ async function run(data: any) {
 // THERES BUG IN GEYSER - Return empty signature on failed transaction
 // As a temporary fix, read the latest 10 signatures of the wallet, and check
 // with the pool, if the signature does not exists, and execute the code
+// BUG: Not all transaction goes throught the grpc,  there is a missing transaction
+// To cover the bug, every 1 minute, it would refetch the signature and verified
+// signatures
 async function main() {
 
     // As start check the grpc
     await getLatestTransactionInWallet()
     
+    logger.info(`Service start`)
+
     let botGrpc = new BotgRPC(env.url, env.token)
     botGrpc.addAccount({
       name: 'my_wallet',
@@ -234,6 +239,12 @@ async function main() {
       () => {},
       () => {}
     )
+
+    // Fetch signature every 1 mins
+    setInterval(() => {
+      logger.info(`reload`)
+      getLatestTransactionInWallet()
+    }, 60000)
 }
 
 
