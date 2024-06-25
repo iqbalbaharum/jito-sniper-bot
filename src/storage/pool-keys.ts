@@ -46,8 +46,6 @@ export class PoolKeysStorage extends BaseStorage {
         } else {
             this.poolKeys.delete(ammId.toBase58())
         }
-
-		unsubscribeAmmIdToMempool(ammId)
     }
 
     private serializeLiquidityPoolKeys(poolkeys: LiquidityPoolKeysV4 & PoolInfo): string {

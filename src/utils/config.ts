@@ -226,6 +226,11 @@ const config = convict({
         default: 50,
         env: 'MAX_SELL_ATTEMPT'
     },
+    auto_sell_after_lp_remove_flag: {
+        format: Boolean,
+        default: false,
+        env: 'AUTO_SELL_AFTER_LP_REMOVE_FLAG'
+    },
     // V2/V3
     minimum_amount_out: {
         format: Number,

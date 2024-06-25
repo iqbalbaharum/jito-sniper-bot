@@ -218,7 +218,11 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
   }
 
   // Burst sell transaction, if rugpull detected
-  await burstSellAfterLP(tradeId, ammId)
+  if(SystemConfig.get('auto_sell_after_lp_remove_flag')) {
+    await burstSellAfterLP(tradeId, ammId)
+  } else {
+    logger.warn(`${ammId} | Auto sell after LP removed disabled`)
+  }
 }
 
 const processInitialize2 = async (instruction: TxInstruction, txPool: TxPool, ata: PublicKey) => {
