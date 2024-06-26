@@ -197,10 +197,12 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
     if(SystemConfig.get('buy_after_withdraw_flag')) {
       await processBuy(tradeId, ammId, 80000)
       await countLiquidityPool.set(ammId, 0)
+      count = 0
     }
 
   } else {
     await countLiquidityPool.set(ammId, count - 1)
+    count = count - 1
   }
 
   if(count === undefined) { 
@@ -218,7 +220,7 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
   }
 
   // Burst sell transaction, if rugpull detected
-  if(SystemConfig.get('auto_sell_after_lp_remove_flag')) {
+  if(SystemConfig.get('auto_sell_after_lp_remove_flag') && count === 0) {
     await burstSellAfterLP(tradeId, ammId)
   } else {
     logger.warn(`${ammId} | Auto sell after LP removed disabled`)
@@ -257,6 +259,10 @@ const processInitialize2 = async (instruction: TxInstruction, txPool: TxPool, at
     await BotTrade.abandoned(tradeId, AbandonedReason.MARKET_EXISTED)
     return
   }
+
+  // Preset count LP
+  // ignoring success or failed transaction
+  await countLiquidityPool.set(ammId, 1)
 
   // To add delay buy, add DELAYED_BUY_TOKEN_IN_MS in environment
   await processBuy(tradeId, ammId, 500000, SystemConfig.get('delayed_buy_token_in_ms'))

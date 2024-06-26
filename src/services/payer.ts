@@ -61,9 +61,6 @@ const updateTokenBalance = async (signature: string, ammId: PublicKey, blockTime
 
     await BotSignatureTracker.finalized(signature, blockTime)
     logger.info(`${ammId} | Completed Transaction ${new Date(blockTime).toISOString()}`)
-    if(lpCount === undefined) {
-      await countLiquidityPool.set(ammId, 1)
-    }
   }
 
   logger.info(`Token balance update ${ammId}`)
@@ -242,7 +239,6 @@ async function main() {
 
     // Fetch signature every 1 mins
     setInterval(() => {
-      logger.info(`reload`)
       getLatestTransactionInWallet()
     }, 60000)
 }
