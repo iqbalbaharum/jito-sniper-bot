@@ -16,6 +16,7 @@
     "listener:ammnetflow": "ts-node src/tools/amm-netflow-listener.ts",
     "tool:createalt": "ts-node src/tools/create-lookup-table.ts",
     "tool:listenbundle": "ts-node src/tools/listen-bundle.ts",
+    "tool:listtrade": "ts-node src/tools/list-trade.ts",
     "tool:rentreclaimer": "ts-node src/tools/rent-reclaimer.ts",
     "tool:publickeypayer": "ts-node src/tools/payer-publickey.ts",
     "tool:stats": "ts-node src/tools/statistics.ts",
