@@ -127,7 +127,7 @@ async function processSell(tradeId: string, ammId: PublicKey, execCount: number 
         new BN(SystemConfig.get('minimum_amount_out')), 
         {
           microLamports,
-          units: 25000,
+          units: 35000,
           runSimulation: SystemConfig.get('run_simulation_flag'),
           sendTxMethod: 'rpc'
         }
