@@ -1,6 +1,7 @@
 import { Connection } from "@solana/web3.js";
 import { config } from "../utils/config";
 import { RetryConnection } from "../utils/connection-retry";
+import { Agent, setGlobalDispatcher } from "undici";
 
 // Non rate limiter (primary)
 const HTTP_RPC_URL = config.get('http_rpc_url')
@@ -12,6 +13,12 @@ const WEBSOCKET_RPC_URL_2 = config.get('websocket_rpc_url_2')
 
 // Send Tx only RPC
 const SEND_TX_RPC_URL = config.get('send_tx_rpc_url')
+
+setGlobalDispatcher(
+    new Agent({
+      connections: 100,
+    })
+);
 
 let connection = new RetryConnection(HTTP_RPC_URL, {
     commitment: 'confirmed',
