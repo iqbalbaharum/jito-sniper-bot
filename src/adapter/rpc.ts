@@ -16,7 +16,7 @@ const SEND_TX_RPC_URL = config.get('send_tx_rpc_url')
 
 setGlobalDispatcher(
     new Agent({
-      connections: 100,
+      connections: config.get('http_agent_undici'),
     })
 );
 

@@ -102,6 +102,11 @@ const config = convict({
         default: 3,
         env: 'BOT_RETRY'
     },
+    http_agent_undici: {
+        format: Number,
+        default: 100,
+        env: 'HTTP_AGENT_UNDICI'
+    },
     //
     tx_balance_chuck_division: {
         format: Number,
