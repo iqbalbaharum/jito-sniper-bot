@@ -8,7 +8,7 @@ import BN from "bn.js";
 import { JUPITER_ADDRESS, OPENBOOK_V1_ADDRESS, RAYDIUM_AUTHORITY_V4_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, WSOL_ADDRESS } from "../utils/const";
 import { config as SystemConfig, config } from "../utils/config";
 import { BotTokenAccount, setupWSOLTokenAccount } from "../library/token-account";
-import { BotLiquidity, BotLookupTable, BotMarket, getLiquidityMintState, getTokenInWallet } from "../library";
+import { BotLiquidity, BotLookupTable, BotMarket, SolanaHttpRpc, getTokenInWallet } from "../library";
 import sleep from "atomic-sleep";
 import { mainSearcherClient } from "../adapter/jito";
 import { LookupIndex, MempoolTransaction, TxInstruction, TxPool, PoolInfo } from "../types";

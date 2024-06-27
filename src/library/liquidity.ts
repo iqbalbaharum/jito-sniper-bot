@@ -58,89 +58,7 @@ import { BlockHashStorage } from '../storage'
 import { ammState, openbookMarket } from '../adapter/storage'
 import { config as SystemConfig } from "../utils";
 import { getJitoTipAccount } from './jito'
-
-const getAccountPoolKeysFromAccountDataV4 = async (
-	id: PublicKey,
-	accountData: LiquidityStateV4
-): Promise<LiquidityPoolKeys> => {
-	const marketInfo = await connection.getAccountInfo(accountData.marketId, {
-		commitment: config.get('default_commitment') as Commitment,
-		dataSlice: {
-			offset: 253, // eventQueue
-			length: 32 * 3,
-		},
-	})
-
-	if (!marketInfo) {
-		throw new Error('Error fetching market info')
-	}
-
-	const minimalMarketData = MINIMAL_MARKET_STATE_LAYOUT_V3.decode(
-		marketInfo.data
-	)
-
-	return {
-		id,
-		baseMint: accountData.baseMint,
-		quoteMint: accountData.quoteMint,
-		lpMint: accountData.lpMint,
-		baseDecimals: accountData.baseDecimal.toNumber(),
-		quoteDecimals: accountData.quoteDecimal.toNumber(),
-		lpDecimals: 5,
-		version: 4,
-		programId: MAINNET_PROGRAM_ID.AmmV4,
-		authority: Liquidity.getAssociatedAuthority({
-			programId: MAINNET_PROGRAM_ID.AmmV4,
-		}).publicKey,
-		openOrders: accountData.openOrders,
-		targetOrders: accountData.targetOrders,
-		baseVault: accountData.baseVault,
-		quoteVault: accountData.quoteVault,
-		marketVersion: 3,
-		marketProgramId: accountData.marketProgramId,
-		marketId: accountData.marketId,
-		marketAuthority: Market.getAssociatedAuthority({
-			programId: accountData.marketProgramId,
-			marketId: accountData.marketId,
-		}).publicKey,
-		marketBaseVault: accountData.baseVault,
-		marketQuoteVault: accountData.quoteVault,
-		marketBids: minimalMarketData.bids,
-		marketAsks: minimalMarketData.asks,
-		marketEventQueue: minimalMarketData.eventQueue,
-		withdrawQueue: accountData.withdrawQueue,
-		lpVault: accountData.lpVault,
-		lookupTableAccount: PublicKey.default,
-	}
-}
-
-export const getLiquidityMintState = async (
-	accountData: LiquidityStateV4
-): Promise<BotLiquidityState> => {
-	let mint: PublicKey
-	let decimal: number
-	let isMintBase = true
-	if (accountData.baseMint.toString() === WSOL_ADDRESS) {
-		mint = accountData.quoteMint
-		decimal = accountData.quoteDecimal.toNumber()
-		isMintBase = false
-	} else if (accountData.quoteMint.toString() === WSOL_ADDRESS) {
-		mint = accountData.baseMint
-		decimal = accountData.baseDecimal.toNumber()
-		isMintBase = true
-	} else {
-		throw new Error('Pool doesnt have SOL')
-	}
-
-	return {
-		ammId: accountData.marketId,
-		mint,
-		isMintBase,
-		mintDecimal: decimal
-	}
-}
-
-export { getAccountPoolKeysFromAccountDataV4 }
+import { SolanaHttpRpc } from './http-rpcs'
 
 
 export class BotLiquidity {
@@ -204,10 +122,8 @@ export class BotLiquidity {
 
 		let retryCount = 0
 		
-		let account: AccountInfo<Buffer> | null = await connection.fetchAccountInfo(ammId, {
-			commitment: config.get('default_commitment') as Commitment,
-		})
-
+		let account: Partial<AccountInfo<Buffer>> | null = await SolanaHttpRpc.getAccountInfo(connection, ammId)
+		
 		if (!account) {
 			if(retryCount < SystemConfig.get('bot_retry')) {
 				return this.getAccountPoolKeysFromAccountDataV4(ammId)
@@ -216,7 +132,7 @@ export class BotLiquidity {
 			}
 		}
 
-		return BotLiquidity.formatAccountPoolKeysFromAccountDataV4(ammId, account.data)
+		return BotLiquidity.formatAccountPoolKeysFromAccountDataV4(ammId, account.data!)
 	}
 
 	/**
@@ -276,19 +192,18 @@ export class BotLiquidity {
 	 */
 	static async formatAccountPoolKeysFromAccountDataV4(ammId: PublicKey, data: Buffer): Promise<LiquidityPoolKeys & PoolInfo> {
 		const accountData = LIQUIDITY_STATE_LAYOUT_V4.decode(data)
-    
-		const marketInfo = await connection.getAccountInfo(accountData.marketId, {
-			commitment: config.get('default_commitment') as Commitment
-		})
+
+		const marketInfo = await SolanaHttpRpc.getAccountInfo(connection, accountData.marketId)
 
 		if (!marketInfo) {
 			throw new Error(BotError.MARKET_FETCH_ERROR)
 		}
 
 		const marketData = MARKET_STATE_LAYOUT_V3.decode(
-			marketInfo.data
+			marketInfo.data!
 		)
-
+		
+		console.log(marketData)
 		return {
 			id: ammId,
 			baseMint: accountData.baseMint,
@@ -443,7 +358,7 @@ export class BotLiquidity {
 		let startInstructions: TransactionInstruction[] = []
 		let endInstructions: TransactionInstruction[] = []
 
-		logger.info(`hello`)
+		logger.info(`Blockhash`)
 		if (!blockhash) {
 			const block = await connection.getLatestBlockhash({
 				commitment: 'confirmed',
@@ -451,7 +366,7 @@ export class BotLiquidity {
 			blockhash = block.blockhash
 		}
 
-		logger.info('hello2')
+		logger.info(`Token Account`)
 		if (direction === 'in') {
 			let accountOut
 			if (poolKeys.baseMint.toString() === WSOL_ADDRESS) {
@@ -489,7 +404,7 @@ export class BotLiquidity {
 			tokenAccountIn = ata
 			tokenAccountOut = wsolTokenAccount
 		}
-		logger.info('hello3')
+		logger.info(`Creating swap instruction`)
 		const { innerTransaction } = Liquidity.makeSwapInstruction({
 			poolKeys,
 			userKeys: {
@@ -501,7 +416,8 @@ export class BotLiquidity {
 			amountOut: amountOut,
 			fixedSide: fixedSide ? fixedSide : 'in',
 		})
-		logger.info('hello4')
+
+		logger.info(`Send TX`)
 		if(config?.txMethod === 'jito_send_tx') {
 			endInstructions.push(SystemProgram.transfer({
 				fromPubkey: payer.publicKey,

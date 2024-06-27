@@ -20,7 +20,7 @@ setGlobalDispatcher(
     })
 );
 
-let connection = new RetryConnection(HTTP_RPC_URL, {
+let connection = new Connection(HTTP_RPC_URL, {
     commitment: 'confirmed',
     disableRetryOnRateLimit: true,
     wsEndpoint: WEBSOCKET_RPC_URL

@@ -8,6 +8,7 @@ import { TokenAccountStorage } from '../storage';
 import { redisClient } from '../adapter/redis';
 import { tokenAccountStore } from '../adapter/storage';
 import { logger } from '../utils/logger';
+import { SolanaHttpRpc } from './http-rpcs';
 
 export type BotTA = {
   ata: PublicKey,
@@ -35,9 +36,9 @@ export class BotTokenAccount {
         TOKEN_PROGRAM_ID,
         ASSOCIATED_TOKEN_PROGRAM_ID
       );
-
-      const ataInfo = await connection.fetchAccountInfo(ata);
       
+      const ataInfo = await SolanaHttpRpc.getAccountInfo(connection, ata)
+    
       if (create && !ataInfo) {
         instructions.push(
           createAssociatedTokenAccountInstruction(
@@ -90,7 +91,7 @@ export class BotTokenAccount {
     let buffer = await tokenAccountStore.get(ata)
     if(!buffer) {
     
-      const info = await connection.fetchAccountInfo(ata)
+      const info = await SolanaHttpRpc.getAccountInfo(connection, ata)
 
       if (!info) {
         tokenAccountStore.set(ata, Buffer.alloc(0));
@@ -98,7 +99,7 @@ export class BotTokenAccount {
       }
 
       buffer = info.data
-      tokenAccountStore.set(ata, info.data);
+      tokenAccountStore.set(ata, info.data!);
     }
 
     if(!buffer || buffer.length === 0) { return undefined }
@@ -124,7 +125,7 @@ const getOrCreateTokenAccount = async (
         ASSOCIATED_TOKEN_PROGRAM_ID
       );
   
-      const ataInfo = await connection.fetchAccountInfo(ata);
+      const ataInfo = await SolanaHttpRpc.getAccountInfo(connection, ata)
   
       if (create && !ataInfo) {
         instructions.push(
@@ -156,7 +157,7 @@ const getOrCreateTokenAccount = async (
     );
   
     if (check) {
-      const ataInfo = await connection.fetchAccountInfo(ata);
+      const ataInfo = await SolanaHttpRpc.getAccountInfo(connection, ata)
       
       if (ataInfo === null) {
         let ataTx = new Transaction();

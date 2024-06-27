@@ -1,53 +1,95 @@
-import { Connection, VersionedTransaction } from "@solana/web3.js";
+import { AccountInfo, Connection, PublicKey, VersionedTransaction } from "@solana/web3.js";
 import { toBuffer } from "../utils/instruction";
+import { request } from 'undici'
 
 export class SolanaHttpRpc {
-    static async simulateTransaction(connection: Connection, transaction: VersionedTransaction) {
-        const resp = await fetch(connection.rpcEndpoint, {
-            method: 'POST',
-            headers: {
-              'content-type': 'application/json;charset=UTF-8',
-            },
-            body: JSON.stringify({
-              jsonrpc: "2.0",
-              id: 1,
-              method: "simulateTransaction",
-              params: [
-                toBuffer(transaction.serialize()).toString('base64'),
-                {
-                  encoding: "base64",
-                  replaceRecentBlockhash: true,
-                  sigVerify: false,
-                  commitment: "processed"
-                }
-              ]
-            })
-          })
-        return await resp.json();
+
+  static async fetchRequest(url: string, requestBody: string) {
+    const { body } = await request(url, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json;charset=UTF-8',
+      },
+      body: requestBody
+    })
+
+    let responseBody = '';
+    for await (const chunk of body) {
+      responseBody += chunk;
     }
 
-    static async sendTransaction(connection: Connection, transaction: VersionedTransaction) : Promise<string> {
+    return JSON.parse(responseBody)
+  }
+
+  static async getAccountInfo(connection: Connection, publicKey: PublicKey, dataSlice?: { offset: number, length: number }): Promise<Partial<AccountInfo<Buffer>> | null> {
+    const body = await this.fetchRequest(connection.rpcEndpoint, JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "getAccountInfo",
+      params: [
+        publicKey.toBase58(),
+        {
+          encoding: "base64",
+          dataSlice,
+          commitment: connection.commitment
+        }
+      ]
+    }))
+
+    if(!body || !body.result.value) { return null }
+
+    return {
+      data: Buffer.from(body.result.value.data[0], 'base64'),
+      owner: new PublicKey(body.result.value.owner)
+    };
+  }
+  
+  static async simulateTransaction(connection: Connection, transaction: VersionedTransaction) {
       const resp = await fetch(connection.rpcEndpoint, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json;charset=UTF-8',
-        },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: 1,
-          method: "sendTransaction",
-          params: [
-            toBuffer(transaction.serialize()).toString('base64'),
-            {
-              encoding: "base64",
-              skipPreflight: true,
-              maxRetries: 1,
-              preflightCommitment: connection.commitment
-            }
-          ]
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json;charset=UTF-8',
+          },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
+            method: "simulateTransaction",
+            params: [
+              toBuffer(transaction.serialize()).toString('base64'),
+              {
+                encoding: "base64",
+                replaceRecentBlockhash: true,
+                sigVerify: false,
+                commitment: "processed"
+              }
+            ]
+          })
         })
+      return await resp.json();
+  }
+
+  static async sendTransaction(connection: Connection, transaction: VersionedTransaction) : Promise<string> {
+    const resp = await fetch(connection.rpcEndpoint, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json;charset=UTF-8',
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "sendTransaction",
+        params: [
+          toBuffer(transaction.serialize()).toString('base64'),
+          {
+            encoding: "base64",
+            skipPreflight: true,
+            maxRetries: 1,
+            preflightCommitment: connection.commitment
+          }
+        ]
       })
-      const json = await resp.json();
-      return json.result
-    }
+    })
+    const json = await resp.json();
+    return json.result
+  }
 }
