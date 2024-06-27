@@ -17,8 +17,8 @@ export class BotLookupTable {
     const res = await connection.getAddressLookupTable(lutAddress, {
       commitment: 'confirmed'
     });
-    
-    if (!res.value) {
+
+    if (!res || !res.value) {
       return undefined;
     }
 

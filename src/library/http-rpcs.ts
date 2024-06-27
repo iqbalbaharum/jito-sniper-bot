@@ -43,6 +43,30 @@ export class SolanaHttpRpc {
       owner: new PublicKey(body.result.value.owner)
     };
   }
+
+  static async getLookupTable(connection: Connection, lutAddress: PublicKey, dataSlice?: { offset: number, length: number }): Promise<Uint8Array | undefined> {
+    
+    const body = await this.fetchRequest(connection.rpcEndpoint, JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "getAccountInfo",
+      params: [
+        lutAddress.toBase58(),
+        {
+          encoding: "base64",
+          dataSlice: {
+            offset: 56
+          },
+          commitment: connection.commitment
+        }
+      ]
+    }))
+
+    if(!body || !body.result.value) { return undefined }
+
+    let buffer = Buffer.from(body.result.value.data[0], 'base64')
+    return new Uint8Array(buffer)
+  }
   
   static async simulateTransaction(connection: Connection, transaction: VersionedTransaction) {
       const resp = await fetch(connection.rpcEndpoint, {

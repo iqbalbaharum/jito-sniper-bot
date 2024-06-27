@@ -203,7 +203,6 @@ export class BotLiquidity {
 			marketInfo.data!
 		)
 		
-		console.log(marketData)
 		return {
 			id: ammId,
 			baseMint: accountData.baseMint,
