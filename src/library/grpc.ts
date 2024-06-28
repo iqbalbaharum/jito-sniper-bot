@@ -106,6 +106,23 @@ export class BotgRPC {
 		this.write()
 	}
 
+	async getLatestBlockhash (commitment: string) {
+		let c
+
+		switch(commitment) {
+			case 'processed':
+				c = CommitmentLevel.PROCESSED
+				break
+			case 'confirmed':
+				c = CommitmentLevel.CONFIRMED
+				break
+			default:
+				c =CommitmentLevel.FINALIZED
+		}
+
+		return await this.client.getLatestBlockhash(c)
+	}
+
 	public async listen(
 		callbackAcc: (arg0: any) => void, 
 		cbTransaction: (arg0: TxPool) => void, 

@@ -59,6 +59,7 @@ import { ammState, openbookMarket } from '../adapter/storage'
 import { config as SystemConfig } from "../utils";
 import { getJitoTipAccount } from './jito'
 import { SolanaHttpRpc } from './http-rpcs'
+import { defaultGrpc, grpcs } from '../adapter/grpcs'
 
 
 export class BotLiquidity {
@@ -359,9 +360,7 @@ export class BotLiquidity {
 
 		logger.info(`Blockhash`)
 		if (!blockhash) {
-			const block = await connection.getLatestBlockhash({
-				commitment: 'confirmed',
-			})
+			const block = await defaultGrpc.getLatestBlockhash('confirmed')
 			blockhash = block.blockhash
 		}
 

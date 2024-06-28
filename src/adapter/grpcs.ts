@@ -1,3 +1,4 @@
+import { BotgRPC } from "../library/grpc";
 import { config } from "../utils";
 
 export type GrpcEnv = {
@@ -23,4 +24,6 @@ for(let x = 0; x < grpc_urls.length; x++) {
     }
 }
 
-export { grpcs }
+const defaultGrpc = new BotgRPC(grpcs[0].url, grpcs[0].token)
+
+export { grpcs, defaultGrpc }
