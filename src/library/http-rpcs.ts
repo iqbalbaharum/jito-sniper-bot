@@ -1,21 +1,46 @@
 import { AccountInfo, Connection, PublicKey, VersionedTransaction } from "@solana/web3.js";
 import { toBuffer } from "../utils/instruction";
-import { request } from 'undici'
+import { Agent, request } from 'undici'
+import { promisify } from 'util';
+import { pipeline } from 'stream';
+import { createGunzip, createInflate } from "zlib";
+
+const agent = new Agent({
+  keepAliveTimeout: 20 * 1000,
+  keepAliveMaxTimeout: 20 * 1000,
+  connections: 500,
+  pipelining: 1,
+});
+
+const pipelineAsync = promisify(pipeline);
 
 export class SolanaHttpRpc {
 
   static async fetchRequest(url: string, requestBody: string) {
-    const { body } = await request(url, {
+    const { headers, body } = await request(url, {
       method: 'POST',
       headers: {
         'content-type': 'application/json;charset=UTF-8',
+        'accept-encoding': 'gzip, deflate'
       },
-      body: requestBody
+      body: requestBody,
+      dispatcher: agent
     })
 
     let responseBody = '';
-    for await (const chunk of body) {
-      responseBody += chunk;
+    const encoding = headers['content-encoding'];
+
+    if (encoding === 'gzip' || encoding === 'deflate') {
+      const decompressStream = encoding === 'gzip' ? createGunzip() : createInflate();
+      await pipelineAsync(body, decompressStream, async function* (source) {
+        for await (const chunk of source) {
+          responseBody += chunk;
+        }
+      });
+    } else {
+      for await (const chunk of body) {
+        responseBody += chunk;
+      }
     }
 
     return JSON.parse(responseBody)
