@@ -33,6 +33,7 @@ export class BloxRouteRpc {
                 transaction: {
                     content: Buffer.from(transaction.serialize()).toString('base64')
                 },
+                skipPreFlight: true,
                 frontRunningProtection: false,
                 useStakedRPCs: true
             }),
