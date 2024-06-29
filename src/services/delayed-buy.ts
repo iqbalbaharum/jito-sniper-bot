@@ -87,7 +87,7 @@ const buyToken = async (keys: LiquidityPoolKeysV4, ata: PublicKey, amount: BN) =
       selectedConnection = send_tx_rpcs[0]
     }
 
-    return BotTransaction.sendAutoRetryTransaction(selectedConnection, transaction, 'rpc')
+    return BotTransaction.sendAutoRetryTransaction(transaction, 'rpc', new BN(0), selectedConnection)
   } catch(e: any) {
     logger.error(e.toString())
     return ''
