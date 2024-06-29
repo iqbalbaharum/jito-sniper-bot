@@ -97,8 +97,7 @@ const swap = async (tradeId: string, trade: Trade, keys: LiquidityPoolKeysV4, at
     }
 
     let block = await blockhasher.get()
-    
-    let tip = trade.opts?.jitoTipAmount ? trade.opts.jitoTipAmount : new BN(0)
+    let tip = trade.opts?.tipAmount ? trade.opts.tipAmount : new BN(0)
     
     const transaction = await BotLiquidity.makeSimpleSwapInstruction(
       keys,
@@ -114,7 +113,7 @@ const swap = async (tradeId: string, trade: Trade, keys: LiquidityPoolKeysV4, at
         },
         blockhash: block.recentBlockhash,
         alts,
-        jitoTipAmount: tip,
+        tipAmount: tip,
         runSimulation: trade.opts?.runSimulation ? trade.opts.runSimulation : false,
         txMethod: trade.opts?.sendTxMethod as TxMethod
       }
@@ -124,11 +123,11 @@ const swap = async (tradeId: string, trade: Trade, keys: LiquidityPoolKeysV4, at
     let signature: string = ''
 
     if(SystemConfig.get('use_send_tx_rpc')) {
-      if(config.get('send_tx_method') === 'multiple') {
+      if(SystemConfig.get('send_tx_burst_type') === 'multiple') {
         signature = await BotTransaction.sendAutoRetryBulkTransaction(send_tx_rpcs, transaction, trade.opts?.sendTxMethod as TxMethod, tip)
       } else {
         selectedConnection = send_tx_rpcs[0]
-        signature = await BotTransaction.sendAutoRetryTransaction(selectedConnection, transaction, trade.opts?.sendTxMethod as TxMethod, tip)
+        signature = await BotTransaction.sendAutoRetryTransaction(transaction, trade.opts?.sendTxMethod as TxMethod, tip, selectedConnection)
       }
     }
 

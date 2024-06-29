@@ -11,7 +11,7 @@ import { BotTokenAccount, setupWSOLTokenAccount } from "../library/token-account
 import { BotLiquidity, BotLookupTable, BotMarket, SolanaHttpRpc, getTokenInWallet } from "../library";
 import sleep from "atomic-sleep";
 import { mainSearcherClient } from "../adapter/jito";
-import { LookupIndex, MempoolTransaction, TxInstruction, TxPool, PoolInfo } from "../types";
+import { LookupIndex, MempoolTransaction, TxInstruction, TxPool, PoolInfo, TxMethod } from "../types";
 import { BotTransaction, getAmmIdFromSignature } from "../library/transaction";
 import { logger } from "../utils/logger";
 import { RaydiumAmmCoder } from "../utils/coder";
@@ -86,8 +86,9 @@ const processBuy = async (tradeId: string, ammId: PublicKey, microLamports: numb
     new BN(0),
     {
       microLamports,
-      sendTxMethod: 'rpc',
-      units: 69000
+      units: 65000,
+      runSimulation: SystemConfig.get('run_simulation_flag'),
+      sendTxMethod: 'rpc'
     }
   )
 
@@ -120,17 +121,26 @@ async function processSell(tradeId: string, ammId: PublicKey, execCount: number 
         amountIn = balance.remaining
       }
 
+      const config = {
+        microLamports,
+        units: 45000,
+        runSimulation: SystemConfig.get('run_simulation_flag'),
+        sendTxMethod: SystemConfig.get('send_tx_method') as TxMethod,
+        tipAmount: new BN(0)
+      }
+
+      // For now, the bot does not supported dynamic tip yet
+      // Use fixed, and read tip_amount from env
+      if(SystemConfig.get('tip_type') === 'fixed') {
+        config.tipAmount = new BN(SystemConfig.get('tip_amount'))
+      }
+
       await BotTrade.processed(
         tradeId, 
         'sell', 
         amountIn,
         new BN(SystemConfig.get('minimum_amount_out')), 
-        {
-          microLamports,
-          units: 35000,
-          runSimulation: SystemConfig.get('run_simulation_flag'),
-          sendTxMethod: 'rpc'
-        }
+        config
       )
       
       if(execCount - 1 > 0) {

@@ -30,7 +30,7 @@ export type TradeOptions = {
     units?: number,
     refetchBalance?: boolean,
     expectedProfit?: BN,
-    jitoTipAmount?: BN,
+    tipAmount?: BN,
     runSimulation?: boolean,
     sendTxMethod?: TxMethod,
 }

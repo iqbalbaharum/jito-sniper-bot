@@ -24,6 +24,11 @@ const config = convict({
         default: '',
         env: 'SEND_TX_RPC_URL'
     },
+    send_tx_burst_type: {
+        format: String,
+        default: 'single',
+        env: 'SEND_TX_BURST_TYPE'
+    },
     send_tx_method: {
         format: String,
         default: 'multiple', // multiple | single
@@ -34,6 +39,28 @@ const config = convict({
         default: false,
         env: 'USE_SEND_TX_RPC'
     },
+    bloxroute_url: {
+        format: String,
+        default: '',
+        env: 'BLOXROUTE_URL'
+    },
+    bloxroute_token: {
+        format: String,
+        default: '',
+        env: 'BLOXROUTE_TOKEN'
+    },
+    // JITO/BLOXROUTE TIPS MANAGEMENT
+    tip_type: {
+        format: String,
+        default: 'fixed',
+        env: 'TIP_TYPE'
+    },
+    tip_amount: {
+        format: Number,
+        default: 0,
+        env: 'TIP_AMOUNT'
+    },
+    //
     http_rpc_url_2: {
         format: String,
         default: 'https://api.mainnet-beta.solana.com',

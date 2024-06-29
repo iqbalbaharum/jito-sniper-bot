@@ -18,6 +18,7 @@ import { sendTxUsingJito } from "../adapter/jito";
 import { toBuffer } from "../utils/instruction";
 import { BotBundle } from "./bundle";
 import { SolanaHttpRpc } from "./http-rpcs";
+import { BloxRouteRpc } from "./bloxroute";
 
 export const getAmmIdFromSignature = async (signature: string) : Promise<PublicKey | undefined> => {
   const response = await connection.getTransaction(signature, {
@@ -96,7 +97,11 @@ export class BotTransaction {
         account.mint === mint.toBase58() &&
         account.owner === RAYDIUM_AUTHORITY_V4_ADDRESS
     )[0];
-
+    
+    if(!tokenPreAccount || !tokenPostAccount) {
+      console.log(preTokenBalances)
+      console.log(postTokenBalances)
+    }
     const tokenAmount = tokenPreAccount.amount.sub(tokenPostAccount.amount)
 
     return tokenAmount
@@ -187,7 +192,7 @@ export class BotTransaction {
    * @param transaction 
    * @param blockhashResult 
    */
-  static sendAutoRetryTransaction =  async(conn: Connection, transaction: VersionedTransaction, method: TxMethod, jitoTipAmount: BN = new BN(0)) : Promise<string> => {
+  static sendAutoRetryTransaction =  async(transaction: VersionedTransaction, method: TxMethod, tipAmount: BN = new BN(0), conn?: Connection) : Promise<string> => {
     const rawTransaction = transaction.serialize()
   
     let signature
@@ -205,28 +210,36 @@ export class BotTransaction {
         let bundleId = await BotBundle.submitBundle({
           vtransaction: transaction,
           expectedProfit: new BN(0),
-          tipAmount: jitoTipAmount
+          tipAmount: tipAmount
         })
 
         signature = bundleId
         break
+      case 'bloxroute':
+        signature = await BloxRouteRpc.submitTransaction(transaction)
+        break
       case 'rpc':
       default:
+        if(!conn) {
+          throw new Error(`Selected RPC method, but no connection given`)
+        }
+
         signature = await SolanaHttpRpc.sendTransaction(conn, transaction)
-        // signature = await conn.sendRawTransaction(rawTransaction, {
-        //   skipPreflight: true,
-        //   preflightCommitment: 'confirmed'
-        // })
         break
     }
     
     return signature
   }
 
-  static sendAutoRetryBulkTransaction = async(connections: Connection[], transaction: VersionedTransaction, method: TxMethod, jitoTipAmount: BN = new BN(0)) : Promise<string> => {
+  static sendAutoRetryBulkTransaction = async(connections: Connection[], transaction: VersionedTransaction, method: TxMethod, tipAmount: BN = new BN(0)) : Promise<string> => {
     let signature: string = ''
-    for (const conn of connections) {
-      signature = await this.sendAutoRetryTransaction(conn, transaction, method, jitoTipAmount)
+
+    if(method === 'rpc') {
+      for (const conn of connections) {
+        signature = await this.sendAutoRetryTransaction(transaction, method, tipAmount, conn)
+      }
+    } else {
+      signature = await this.sendAutoRetryTransaction(transaction, method, tipAmount)
     }
 
     return signature
@@ -382,7 +395,7 @@ export class BotTransaction {
       const transaction = new VersionedTransaction(messageV0)
       transaction.sign([payer])
 
-      return this.sendAutoRetryTransaction(conn, transaction, method)
+      return this.sendAutoRetryTransaction(transaction, method, new BN(0), conn)
 
     } catch(e: any) {
       logger.warn(`${e.toString()}`)

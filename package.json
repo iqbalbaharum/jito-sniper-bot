@@ -36,6 +36,7 @@
     "typescript": "^5.3.3"
   },
   "dependencies": {
+    "@bloxroute/solana-trader-client-ts": "^2.1.2",
     "@coral-xyz/anchor": "^0.29.0",
     "@grpc/grpc-js": "^1.10.1",
     "@native-to-anchor/buffer-layout": "^0.1.0",

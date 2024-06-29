@@ -1,1 +1,1 @@
-export type TxMethod = 'jito_send_tx' | 'jito_send_bundle' | 'base64' | 'rpc'
+export type TxMethod = 'jito_send_tx' | 'jito_send_bundle' | 'base64' | 'rpc' | 'bloxroute'

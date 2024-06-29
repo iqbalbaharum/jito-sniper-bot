@@ -41,7 +41,8 @@ export class TradeStorage extends BaseStorage {
 
     private deserialize(tradeStr: string) : Trade {
         let d = JSON.parse(tradeStr)
-        return {
+
+        let json = {
             ammId: d.ammId ? new PublicKey(d.ammId) : undefined,
             amountIn: new BN(d.amountIn, 16),
             amountOut: new BN(d.amountOut, 16),
@@ -52,7 +53,37 @@ export class TradeStorage extends BaseStorage {
             timing: d.timing as TradeTiming,
             abandonedReason: d.abandonedReason as AbandonedReason,
             err: d.err,
-            opts: d.opts as TradeOptions
+            opts: {} as TradeOptions
         }
+
+        if(d.opts.microLamports) {
+            json.opts.microLamports = d.opts.microLamports
+        }
+
+        if(d.opts.units) {
+            json.opts.units = d.opts.units
+        }
+
+        if(d.opts.refetchBalance) {
+            json.opts.refetchBalance = d.opts.refetchBalance
+        }
+
+        if(d.opts.expectedProfit) {
+            json.opts.expectedProfit = new BN(d.opts.expectedProfit, 16)
+        }
+
+        if(d.opts.tipAmount) {
+            json.opts.tipAmount = new BN(d.opts.tipAmount, 16)
+        }
+
+        if(d.opts.runSimulation) {
+            json.opts.runSimulation = d.opts.runSimulation
+        }
+
+        if(d.opts.sendTxMethod) {
+            json.opts.sendTxMethod = d.opts.sendTxMethod
+        }
+
+        return json
     }
 }

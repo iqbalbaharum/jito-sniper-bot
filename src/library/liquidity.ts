@@ -60,6 +60,7 @@ import { config as SystemConfig } from "../utils";
 import { getJitoTipAccount } from './jito'
 import { SolanaHttpRpc } from './http-rpcs'
 import { defaultGrpc, grpcs } from '../adapter/grpcs'
+import { BloxRouteRpc } from './bloxroute'
 
 
 export class BotLiquidity {
@@ -344,7 +345,7 @@ export class BotLiquidity {
 			blockhash?: string,
 			setGasPrice?: boolean,
 			compute?: TransactionCompute,
-			jitoTipAmount?: BN,
+			tipAmount?: BN,
 			alts: AddressLookupTableAccount[],
 			runSimulation?: boolean,
 			txMethod: TxMethod
@@ -420,8 +421,22 @@ export class BotLiquidity {
 			endInstructions.push(SystemProgram.transfer({
 				fromPubkey: payer.publicKey,
 				toPubkey: new PublicKey(await getJitoTipAccount()),
-				lamports: config?.jitoTipAmount ? parseInt(config.jitoTipAmount.toString()) : 0
+				lamports: config?.tipAmount ? parseInt(config.tipAmount.toString()) : 0
 			}))
+		}
+
+		if(config?.txMethod === 'bloxroute') {
+			endInstructions.push(SystemProgram.transfer({
+				fromPubkey: payer.publicKey,
+				toPubkey: BloxRouteRpc.getTipAddress(),
+				lamports: config?.tipAmount ? parseInt(config.tipAmount.toString()) : 0
+			}))
+
+			endInstructions.push(new TransactionInstruction({
+				keys: [],
+				programId: new PublicKey('HQ2UUt18uJqKaQFJhgV9zaTdQxUZjNrsKFgoEDquBkcx'),
+				data: Buffer.from('Powered by bloXroute Trader Api', 'utf-8'),
+			  }))
 		}
 
 		if(config?.runSimulation && config.runSimulation) {
@@ -429,7 +444,8 @@ export class BotLiquidity {
 				connection, 
 				[
 					...startInstructions,
-					...innerTransaction.instructions
+					...innerTransaction.instructions,
+					...endInstructions
 				],
 				blockhash
 			)
