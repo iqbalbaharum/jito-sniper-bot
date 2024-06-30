@@ -46,6 +46,23 @@ export class GrpcGenerator extends BaseGenerator {
 	private async connect() {
 		try {
 			this.stream = await this._client.subscribe()
+			this.stream.on('status', async status => {
+				switch(status.code) {
+					case Status.CANCELLED:
+					case Status.UNAVAILABLE:
+						logger.warn(`Stream status: ${status.details}`)
+						this.stream?.resume()
+				}
+			});
+	
+			this.stream.on('error', async error => {
+				console.log('test')
+				console.log(error)
+			});
+
+			setInterval(async() => {
+				await this.client.ping(10)
+			}, 6000)
 		} catch(e:any) {
 			console.log(e.toString())
 			this.connect()
@@ -113,18 +130,6 @@ export class GrpcGenerator extends BaseGenerator {
 		await this.write()
 
 		if(!this.stream) { return }
-
-		this.stream.on('status', async status => {
-			switch(status.code) {
-				case Status.CANCELLED:
-				case Status.UNAVAILABLE:
-					this.stream?.resume()
-			}
-		});
-
-		this.stream.on('error', async error => {
-			console.log(error)
-		});
 
 		for await(const data of this.stream) {
 			if(data && data.transaction) {

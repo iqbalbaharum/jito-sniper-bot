@@ -55,7 +55,7 @@ import { BotMarket } from './market'
 import { logger } from '../utils/logger'
 import { BotTransaction } from './transaction'
 import { BlockHashStorage } from '../storage'
-import { ammState, openbookMarket } from '../adapter/storage'
+import { ammState, openbookMarket, poolKeys } from '../adapter/storage'
 import { config as SystemConfig } from "../utils";
 import { getJitoTipAccount } from './jito'
 import { SolanaHttpRpc } from './http-rpcs'
@@ -66,35 +66,45 @@ import { BloxRouteRpc } from './bloxroute'
 export class BotLiquidity {
 
 	static async getAccountPoolKeys (ammId: PublicKey): Promise<LiquidityPoolKeysV4 & PoolInfo | undefined> {
-		let stateData = await ammState.get(ammId)
-		if(stateData) {
-			let state = LIQUIDITY_STATE_LAYOUT_V4.decode(Buffer.from(stateData, 'hex'))
-			
-			let mint: PublicKey
-			if(state.baseMint.toBase58() === WSOL_ADDRESS) {
-				mint = state.quoteMint
+		let pKeys = await poolKeys.get(ammId)
+		if(!pKeys) {
+			let stateData = await ammState.get(ammId)
+
+			if(stateData) {
+				let state = LIQUIDITY_STATE_LAYOUT_V4.decode(Buffer.from(stateData, 'hex'))
+				
+				let mint: PublicKey
+				if(state.baseMint.toBase58() === WSOL_ADDRESS) {
+					mint = state.quoteMint
+				} else {
+					mint = state.baseMint
+				}
+				
+				let marketData = await openbookMarket.get(mint)
+				
+				let market: MarketStateV3 | undefined
+				if(marketData) {
+					market = MARKET_STATE_LAYOUT_V3.decode(Buffer.from(marketData, 'hex'));
+				} else {
+					market = await BotMarket.getMarketV3(state.marketId)
+				}
+
+				if(market) {
+					pKeys = {
+						...this.createPoolKeys(ammId, state, market!),
+					}
+				}
 			} else {
-				mint = state.baseMint
-			}
-			
-			let marketData = await openbookMarket.get(mint)
-			
-			let market: MarketStateV3 | undefined
-			if(marketData) {
-				market = MARKET_STATE_LAYOUT_V3.decode(Buffer.from(marketData, 'hex'));
-			} else {
-				market = await BotMarket.getMarketV3(state.marketId)
+				logger.warn(`${ammId} | No state data`)
+				pKeys = await BotLiquidity.getAccountPoolKeysFromAccountDataV4(ammId)
 			}
 
-			if(market) {
-				return {
-					...this.createPoolKeys(ammId, state, market!),
-				}
-			}
-		} else {
-			logger.warn(`${ammId} | No state data`)
-			return await BotLiquidity.getAccountPoolKeysFromAccountDataV4(ammId)
+			if(pKeys) {
+				poolKeys.set(ammId, pKeys)
+			}	
 		}
+
+		return pKeys
 	}
 
 	/**

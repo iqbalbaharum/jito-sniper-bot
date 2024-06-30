@@ -77,10 +77,6 @@ export class BotLookupTable {
 			  ],
 		});
 
-    console.log([
-      lookupTableInst,
-      addAddressesInstruction
-    ])
 		const messageV0 = new TransactionMessage({
 			payerKey: payer.publicKey,
 			recentBlockhash: blockhash,

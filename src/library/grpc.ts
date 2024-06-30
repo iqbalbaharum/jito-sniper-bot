@@ -5,6 +5,8 @@ import { LIQUIDITY_STATE_LAYOUT_V4, MAINNET_PROGRAM_ID } from "@raydium-io/raydi
 import { TxPool } from "../types";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import { BN } from "bn.js";
+import { Status } from "@grpc/grpc-js/build/src/constants";
+import { logger } from "../utils/logger";
 
 export type RequestAccounts = {
 	name: string,
@@ -51,6 +53,14 @@ export class BotgRPC {
 	private async connect() {
 		try {
 			this.stream = await this.client.subscribe();
+			this.stream.on('status', async status => {
+				switch(status.code) {
+					case Status.CANCELLED:
+					case Status.UNAVAILABLE:
+						logger.warn(`Stream status: ${status.details}`)
+						this.stream?.resume()
+				}
+			})
 		} catch(e) {
 			this.connect()
 		}

@@ -238,6 +238,11 @@ const config = convict({
         default: false,
         env: 'BUY_AFTER_WITHDRAW_FLAG'
     },
+    buy_after_initialize_flag: {
+        format: Boolean,
+        default: true,
+        env: 'BUY_AFTER_INITIALIZE_FLAG'
+    },
     delayed_buy_token_in_ms: {
         format: Number,
         default: 0,

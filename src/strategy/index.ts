@@ -8,7 +8,7 @@ import BN from "bn.js";
 import { JUPITER_ADDRESS, OPENBOOK_V1_ADDRESS, RAYDIUM_AUTHORITY_V4_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, WSOL_ADDRESS } from "../utils/const";
 import { config as SystemConfig, config } from "../utils/config";
 import { BotTokenAccount, setupWSOLTokenAccount } from "../library/token-account";
-import { BotLiquidity, BotLookupTable, BotMarket, SolanaHttpRpc, getTokenInWallet } from "../library";
+import { BotLiquidity, BotLookupTable, BotMarket, BotToken, SolanaHttpRpc, getTokenInWallet } from "../library";
 import sleep from "atomic-sleep";
 import { mainSearcherClient } from "../adapter/jito";
 import { LookupIndex, MempoolTransaction, TxInstruction, TxPool, PoolInfo, TxMethod } from "../types";
@@ -27,6 +27,7 @@ import { AbandonedReason, TradeEntry } from "../types/trade";
 import { BotgRPC } from "../library/grpc";
 import { BotTradeTracker } from "../library/trade-tracker";
 import { BotTrackedAmm } from "../library/tracked-amm";
+import { DexScreenerApi } from "../library/dexscreener";
 
 const coder = new RaydiumAmmCoder(raydiumIDL as Idl)
 
@@ -61,21 +62,12 @@ const processBuy = async (tradeId: string, ammId: PublicKey, microLamports: numb
     }
   }
 
-  const info = BotLiquidity.getMintInfoFromWSOLPair(pKeys)
+  const info = await BotToken.getMintFromPoolKeys(pKeys)
   
-  // Cancel process if pair is not WSOL
   if(info.mint === undefined) { 
     await BotTrade.abandoned(tradeId, AbandonedReason.NO_MINT)
     return
   }
-
-  await poolKeys.set(ammId, pKeys)
-  await mints.set(ammId, {
-    ammId,
-    mint: info.mint,
-    mintDecimal: info.decimal,
-    isMintBase: info.isMintBase
-  })
 
   existingMarkets.add(ammId)
 
@@ -86,7 +78,7 @@ const processBuy = async (tradeId: string, ammId: PublicKey, microLamports: numb
     new BN(0),
     {
       microLamports,
-      units: 65000,
+      units: 100000,
       runSimulation: SystemConfig.get('run_simulation_flag'),
       sendTxMethod: 'rpc'
     }
@@ -182,7 +174,7 @@ const getAmmIdFromMempoolTx = async (tx: MempoolTransaction, instruction: TxInst
  */
 const burstSellAfterLP = async(tradeId: string, ammId: PublicKey) => {
   logger.info(`Burst TXs | ${ammId.toBase58()}`)
-  const state = await mints.get(ammId!)
+  const state = await BotToken.getMintByAmmId(ammId)
   if(!state) { 
     await BotTrade.abandoned(tradeId, AbandonedReason.NO_STATE) 
     return
@@ -200,40 +192,70 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
   }
   
   let tradeId = await BotTrade.listen(TradeEntry.WITHDRAW, txPool.mempoolTxns.source)
+  
+  await BotTrade.preprocessed(tradeId, ammId)
 
   let count: number | undefined = await countLiquidityPool.get(ammId)
   if(count === undefined || count === null) {
     
-    if(SystemConfig.get('buy_after_withdraw_flag')) {
-      await processBuy(tradeId, ammId, 80000)
-      await countLiquidityPool.set(ammId, 0)
-      count = 0
+    if(!SystemConfig.get('buy_after_withdraw_flag')) { 
+      await BotTrade.abandoned(tradeId, AbandonedReason.NO_BUY_AFTER_WITHDRAW)
+      return
     }
 
+    const pKeys = await BotLiquidity.getAccountPoolKeys(ammId)
+  
+    if(!pKeys) {
+      await BotTrade.abandoned(tradeId, AbandonedReason.NO_POOLKEY)
+      return 
+    }
+
+    const info = await BotToken.getMintFromPoolKeys(pKeys)
+
+    if(info.mint === undefined) { 
+      await BotTrade.abandoned(tradeId, AbandonedReason.NO_MINT)
+      return
+    }
+
+    // check dexscreener
+    let res = await DexScreenerApi.getLpTokenCount(info.mint!)
+    if(!res) {
+      await BotTrade.abandoned(tradeId, AbandonedReason.API_FAILED)
+      return
+    }
+
+    await countLiquidityPool.set(ammId, res.totalLpCount)
+    count = res.totalLpCount - 1
+
+    if(count != 0) {
+      await BotTrade.abandoned(tradeId, AbandonedReason.LP_AVAILABLE)
+      return
+    }
+
+    await processBuy(tradeId, ammId, 80000)
+    
   } else {
     await countLiquidityPool.set(ammId, count - 1)
     count = count - 1
-  }
 
-  if(count === undefined) { 
-    await BotTrade.abandoned(tradeId, AbandonedReason.NO_LP)
-    return
-  }
+    if(count != 0) {
+      await BotTrade.abandoned(tradeId, AbandonedReason.LP_AVAILABLE)
+      return
+    }
 
-  await BotTrade.preprocessed(tradeId, ammId)
+    // Check if tracked
+    let isTracked = await trackedAmm.get(ammId)
+    if(!isTracked) {
+      await BotTrade.abandoned(tradeId, AbandonedReason.NOT_TRACKED)
+      return
+    }
 
-  // Check if tracked
-  let isTracked = await trackedAmm.get(ammId)
-  if(!isTracked) {
-    await BotTrade.abandoned(tradeId, AbandonedReason.NOT_TRACKED)
-    return
-  }
-
-  // Burst sell transaction, if rugpull detected
-  if(SystemConfig.get('auto_sell_after_lp_remove_flag') && count === 0) {
-    await burstSellAfterLP(tradeId, ammId)
-  } else {
-    logger.warn(`${ammId} | Auto sell after LP removed disabled`)
+    // Burst sell transaction, if rugpull detected
+    if(SystemConfig.get('auto_sell_after_lp_remove_flag') && count === 0) {
+      await burstSellAfterLP(tradeId, ammId)
+    } else {
+      BotTrade.abandoned(tradeId, AbandonedReason.NO_SELL_AFTER_WITHDRAW)
+    }
   }
 }
 
@@ -368,8 +390,10 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   
   if(!sourceTA || !destTA || !ammId || !signer) { return }
 
-  const state = await mints.get(ammId!)
-  if(!state) { return }
+  const state = await BotToken.getMintByAmmId(ammId!)
+  if(!state) {
+    return
+  }
   
   let txAmount = BotTransaction.getBalanceFromTransaction(tx.preTokenBalances, tx.postTokenBalances, state.mint)
   let txSolAmount = BotTransaction.getBalanceFromTransaction(tx.preTokenBalances, tx.postTokenBalances, new PublicKey(WSOL_ADDRESS))
@@ -436,8 +460,10 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
         } else if(decodedIx.hasOwnProperty('swapBaseIn')) {
           await processSwapBaseIn((decodedIx as any).swapBaseIn, ins, tx, ata)
         } else if(decodedIx.hasOwnProperty('initialize2')) {
-          logger.info(`Initialize2 ${tx.mempoolTxns.signature}`)
-          await processInitialize2(ins, tx, ata)
+          if(SystemConfig.get('buy_after_initialize_flag')) {
+            logger.info(`Initialize2 ${tx.mempoolTxns.signature}`)
+            await processInitialize2(ins, tx, ata)
+          }
         }
       } catch(e:any) {
         console.log(tx.mempoolTxns.signature, e)
