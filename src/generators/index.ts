@@ -19,7 +19,7 @@ const pools: ConcurrentSet<string> = new ConcurrentSet<string>(50 * 60000)
 
 async function mempool() {
 	const geyserPool: GrpcGenerator = new GrpcGenerator(`geyser_rpc_1`, grpcs[0].url, grpcs[0].token)
-	geyserPool.addTransaction(`raydium_tx_init`, {
+	geyserPool.addTransaction(`geyser_rpc_1`, {
 		vote: false,
 		failed: false,
 		accountInclude: [RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, '7YttLkHDoNj9wyDur5pM1ejNaAvT9X4eqaYcHQqtj2G5'],
@@ -47,24 +47,25 @@ async function* getTxs(): AsyncGenerator<TxPool>{
 }
 
 async function subscribeAmmIdToMempool(account: string[]) {
-	let i = Math.floor(Math.random() * grpcs.length)
-	const env = grpcs[i]
-	const geyserPool: GrpcGenerator = new GrpcGenerator(`geyser_${i}_${account[0]}`, env.url, env.token)
-	geyserPool.addTransaction(`geyser_${account[0]}`, {
-		vote: false,
-		failed: false,
-		accountInclude: account,
-		accountExclude: [],
-		accountRequired: [],
-	})
+	for(let i=0; i < grpcs.length; i++) {
+		const env = grpcs[i]
+		const geyserPool: GrpcGenerator = new GrpcGenerator(`geyser_${i}_${account[0]}`, env.url, env.token)
+		geyserPool.addTransaction(`geyser_${account[0]}`, {
+			vote: false,
+			failed: false,
+			accountInclude: account,
+			accountExclude: [],
+			accountRequired: [],
+		})
 
-	generators.push(geyserPool.listen())
-	generatorMap.set(account[0], geyserPool)
+		generators.push(geyserPool.listen())
+		generatorMap.set(account[0], geyserPool)
 
-	logger.info(`geyser_${i}_${account[0]} | SUBSCRIBE to ${account}`)
-	
-	updates = null
-	updates = await fuseGenerators(generators)
+		logger.info(`geyser_${i}_${account[0]} | SUBSCRIBE to ${account}`)
+		
+		updates = null
+		updates = await fuseGenerators(generators)
+	}
 }
 
 async function unsubscribeAmmIdToMempool(ammId: PublicKey) {
@@ -80,17 +81,18 @@ async function unsubscribeAmmIdToMempool(ammId: PublicKey) {
 }
 
 async function subscribeSignatureToMempool(signature: string) {
-	let i = Math.floor(Math.random() * grpcs.length)
-	const env = grpcs[i]
-	const geyserPool: GrpcGenerator = new GrpcGenerator(`geyser_${i}_${signature}`, env.url, env.token)
-	geyserPool.addSignature(signature)
+	for(let i=0; i < grpcs.length; i++) {
+		const env = grpcs[i]
+		const geyserPool: GrpcGenerator = new GrpcGenerator(`geyser_${i}_${signature}`, env.url, env.token)
+		geyserPool.addSignature(signature)
 
-	generators.push(geyserPool.listen())
+		generators.push(geyserPool.listen())
 
-	logger.info(`Subscribe to ${signature}`)
+		logger.info(`Subscribe to ${signature}`)
 
-	updates = null
-	updates = await fuseGenerators(generators)
+		updates = null
+		updates = await fuseGenerators(generators)
+	}
 }
 
 async function* fuseGenerators<T>(

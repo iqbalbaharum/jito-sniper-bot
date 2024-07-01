@@ -24,6 +24,10 @@ export class BotToken {
 					}
 				}
 				
+				if(!mint) {
+					return undefined
+				}
+				
 				token = {
 					ammId: poolKeys.id,
 					mint: mint!,

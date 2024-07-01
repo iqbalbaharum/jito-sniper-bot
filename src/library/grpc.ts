@@ -39,6 +39,7 @@ export class BotgRPC {
 
 	constructor(endpoint: string, token: string) {
 		this.client = new Client(endpoint, token, {
+			"grpc.max_receive_message_length": 64 * 1024 * 1024,
 			'grpc.keepalive_time_ms': 10_000,
 			'grpc.keepalive_timeout_ms': 1000,
 			'grpc.keepalive_permit_without_calls': 1

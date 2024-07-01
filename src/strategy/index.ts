@@ -64,7 +64,7 @@ const processBuy = async (tradeId: string, ammId: PublicKey, microLamports: numb
 
   const info = await BotToken.getMintFromPoolKeys(pKeys)
   
-  if(info.mint === undefined) { 
+  if(info === undefined || info.mint === undefined) { 
     await BotTrade.abandoned(tradeId, AbandonedReason.NO_MINT)
     return
   }
@@ -212,7 +212,7 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
 
     const info = await BotToken.getMintFromPoolKeys(pKeys)
 
-    if(info.mint === undefined) { 
+    if(info === undefined || info.mint === undefined) { 
       await BotTrade.abandoned(tradeId, AbandonedReason.NO_MINT)
       return
     }
@@ -224,7 +224,7 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
       return
     }
 
-    await countLiquidityPool.set(ammId, res.totalLpCount)
+    await countLiquidityPool.set(ammId, res.totalLpCount - 1)
     count = res.totalLpCount - 1
 
     if(count != 0) {

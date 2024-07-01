@@ -40,6 +40,7 @@ export class GrpcGenerator extends BaseGenerator {
 	constructor(streamName: string, geyserUrl: string, geyserApiKey: string) {
 		super(streamName)
 		this._client = new Client(geyserUrl, geyserApiKey, {
+			"grpc.max_receive_message_length": 64 * 1024 * 1024
 		} as ChannelOptions)
 	}
 

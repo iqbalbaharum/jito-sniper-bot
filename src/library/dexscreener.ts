@@ -49,6 +49,7 @@ export class DexScreenerApi {
 
     static async getLpTokenCount(mint: PublicKey) : Promise<TokenLpDetail | undefined> {
 			let pairResponse = await this.fetchGetRequest(mint) as DexscreenerResponse
+			
 			if(!pairResponse.pairs) {
 				return undefined
 			}
