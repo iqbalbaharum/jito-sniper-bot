@@ -36,7 +36,7 @@ export type TradeOptions = {
     expectedProfit?: BN,
     tipAmount?: BN,
     runSimulation?: boolean,
-    sendTxMethod?: TxMethod,
+    sendTxMethods: TxMethod[],
 }
 
 export type TradeSignature = {

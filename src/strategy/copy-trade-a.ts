@@ -171,7 +171,7 @@ const buyToken = async (
       {
         ...config,
         alts,
-        txMethod: 'rpc'
+        txMethods: ['rpc']
       }
     );
     
@@ -218,7 +218,7 @@ const sellToken = async (
       {
         ...config,
         alts,
-        txMethod: 'rpc'
+        txMethods: ['rpc']
       }
     );
     

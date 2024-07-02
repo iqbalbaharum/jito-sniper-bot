@@ -10,7 +10,6 @@
     "service:market": "ts-node src/services/market.ts",
     "service:blockhasher": "ts-node src/services/blockhasher.ts",
     "service:payer": "ts-node src/services/payer.ts",
-    "service:delayedbuy": "ts-node src/services/delayed-buy.ts",
     "service:trade": "ts-node src/services/trade.ts",
     "service:price-tick": "ts-node src/services/price-tick.ts",
     "listener:ammnetflow": "ts-node src/tools/amm-netflow-listener.ts",

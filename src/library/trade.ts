@@ -39,7 +39,9 @@ export class BotTrade {
 					completed: 0,
 					abandoned: 0
 			},
-			opts: {}
+			opts: {
+				sendTxMethods: ['rpc']
+			}
 		})
 
 		return tradeId

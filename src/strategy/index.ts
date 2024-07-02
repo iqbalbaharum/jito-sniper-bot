@@ -11,7 +11,7 @@ import { BotTokenAccount, setupWSOLTokenAccount } from "../library/token-account
 import { BotLiquidity, BotLookupTable, BotMarket, BotToken, SolanaHttpRpc, getTokenInWallet } from "../library";
 import sleep from "atomic-sleep";
 import { mainSearcherClient } from "../adapter/jito";
-import { LookupIndex, MempoolTransaction, TxInstruction, TxPool, PoolInfo, TxMethod } from "../types";
+import { LookupIndex, MempoolTransaction, TxInstruction, TxPool, PoolInfo, TxMethod, convertToTxMethodArray } from "../types";
 import { BotTransaction, getAmmIdFromSignature } from "../library/transaction";
 import { logger } from "../utils/logger";
 import { RaydiumAmmCoder } from "../utils/coder";
@@ -80,7 +80,7 @@ const processBuy = async (tradeId: string, ammId: PublicKey, microLamports: numb
       microLamports,
       units: 100000,
       runSimulation: SystemConfig.get('run_simulation_flag'),
-      sendTxMethod: 'rpc'
+      sendTxMethods: ['rpc']
     }
   )
 
@@ -117,7 +117,7 @@ async function processSell(tradeId: string, ammId: PublicKey, execCount: number 
         microLamports,
         units: 45000,
         runSimulation: SystemConfig.get('run_simulation_flag'),
-        sendTxMethod: SystemConfig.get('send_tx_method') as TxMethod,
+        sendTxMethods: convertToTxMethodArray(SystemConfig.get('send_tx_methods')),
         tipAmount: new BN(0)
       }
 

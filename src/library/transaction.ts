@@ -1,7 +1,7 @@
 import { LiquidityPoolKeysV4, LiquidityStateV4, TxVersion } from "@raydium-io/raydium-sdk"
 import { connection, connectionAlt1 } from "../adapter/rpc"
 import { RAYDIUM_AUTHORITY_V4_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, USDC_ADDRESS, WSOL_ADDRESS, config as SystemConfig, config } from "../utils";
-import { BlockhashWithExpiryBlockHeight, Commitment, ComputeBudgetProgram, Connection, PublicKey, RpcResponseAndContext, TransactionError, TransactionInstruction, TransactionMessage, Version, VersionedMessage, VersionedTransaction, VersionedTransactionResponse, sendAndConfirmRawTransaction } from "@solana/web3.js";
+import { AddressLookupTableAccount, BlockhashWithExpiryBlockHeight, Commitment, ComputeBudgetProgram, Connection, PublicKey, RpcResponseAndContext, SystemProgram, TransactionError, TransactionInstruction, TransactionMessage, Version, VersionedMessage, VersionedTransaction, VersionedTransactionResponse, sendAndConfirmRawTransaction } from "@solana/web3.js";
 import { BotLiquidity } from "./liquidity";
 import BN from "bn.js";
 import { TransactionCompute, TxBalance, TxPool, TxMethod } from "../types";
@@ -192,7 +192,7 @@ export class BotTransaction {
    * @param transaction 
    * @param blockhashResult 
    */
-  static sendAutoRetryTransaction =  async(transaction: VersionedTransaction, method: TxMethod, tipAmount: BN = new BN(0), conn?: Connection) : Promise<string> => {
+  static sendAutoRetryTransaction =  async(transaction: VersionedTransaction, method: TxMethod, alts: AddressLookupTableAccount[], tipAmount: BN = new BN(0), conn?: Connection) : Promise<string> => {
     const rawTransaction = transaction.serialize()
   
     let signature
@@ -216,6 +216,22 @@ export class BotTransaction {
         signature = bundleId
         break
       case 'bloxroute':
+        const message = TransactionMessage.decompile(transaction.message, {addressLookupTableAccounts: alts})
+        message.instructions.push(SystemProgram.transfer({
+          fromPubkey: payer.publicKey,
+          toPubkey: BloxRouteRpc.getTipAddress(),
+          lamports: !tipAmount.isZero() ? parseInt(tipAmount.toString()) : 0
+        }))
+
+        message.instructions.push(new TransactionInstruction({
+          keys: [],
+          programId: new PublicKey('HQ2UUt18uJqKaQFJhgV9zaTdQxUZjNrsKFgoEDquBkcx'),
+          data: Buffer.from('Powered by bloXroute Trader Api', 'utf-8'),
+        }))
+
+        transaction.message = message.compileToV0Message()
+        transaction.sign([payer])
+        
         signature = await BloxRouteRpc.submitTransaction(transaction)
         break
       case 'rpc':
@@ -231,15 +247,17 @@ export class BotTransaction {
     return signature
   }
 
-  static sendAutoRetryBulkTransaction = async(connections: Connection[], transaction: VersionedTransaction, method: TxMethod, tipAmount: BN = new BN(0)) : Promise<string> => {
+  static sendAutoRetryBulkTransaction = async(connections: Connection[], transaction: VersionedTransaction, alts: AddressLookupTableAccount[], methods: TxMethod[], tipAmount: BN = new BN(0)) : Promise<string> => {
     let signature: string = ''
 
-    if(method === 'rpc') {
-      for (const conn of connections) {
-        signature = await this.sendAutoRetryTransaction(transaction, method, tipAmount, conn)
+    for(const method of methods) {
+      if(method === 'rpc') {
+        for (const conn of connections) {
+          signature = await this.sendAutoRetryTransaction(transaction, method, alts, tipAmount, conn)
+        }
+      } else {
+        signature = await this.sendAutoRetryTransaction(transaction, method, alts, tipAmount)
       }
-    } else {
-      signature = await this.sendAutoRetryTransaction(transaction, method, tipAmount)
     }
 
     return signature
@@ -320,7 +338,8 @@ export class BotTransaction {
     startInstructions: TransactionInstruction[],
     config: {
       compute: TransactionCompute,
-      blockhash?: string
+      blockhash?: string,
+      alts: AddressLookupTableAccount[]
     }
   ) => {
 
@@ -395,7 +414,7 @@ export class BotTransaction {
       const transaction = new VersionedTransaction(messageV0)
       transaction.sign([payer])
 
-      return this.sendAutoRetryTransaction(transaction, method, new BN(0), conn)
+      return this.sendAutoRetryTransaction(transaction, method, config.alts, new BN(0), conn)
 
     } catch(e: any) {
       logger.warn(`${e.toString()}`)

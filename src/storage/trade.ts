@@ -80,8 +80,8 @@ export class TradeStorage extends BaseStorage {
             json.opts.runSimulation = d.opts.runSimulation
         }
 
-        if(d.opts.sendTxMethod) {
-            json.opts.sendTxMethod = d.opts.sendTxMethod
+        if(d.opts.sendTxMethods) {
+            json.opts.sendTxMethods = d.opts.sendTxMethods
         }
 
         return json

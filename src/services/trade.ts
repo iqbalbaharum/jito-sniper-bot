@@ -115,7 +115,7 @@ const swap = async (tradeId: string, trade: Trade, keys: LiquidityPoolKeysV4, at
         alts,
         tipAmount: tip,
         runSimulation: trade.opts?.runSimulation ? trade.opts.runSimulation : false,
-        txMethod: trade.opts?.sendTxMethod as TxMethod
+        txMethods: trade.opts?.sendTxMethods as TxMethod[]
       }
     );
 
@@ -124,10 +124,19 @@ const swap = async (tradeId: string, trade: Trade, keys: LiquidityPoolKeysV4, at
 
     if(SystemConfig.get('use_send_tx_rpc')) {
       if(SystemConfig.get('send_tx_burst_type') === 'multiple') {
-        signature = await BotTransaction.sendAutoRetryBulkTransaction(send_tx_rpcs, transaction, trade.opts?.sendTxMethod as TxMethod, tip)
+        signature = await BotTransaction.sendAutoRetryBulkTransaction(send_tx_rpcs, transaction, alts, trade.opts?.sendTxMethods!, tip)
       } else {
         selectedConnection = send_tx_rpcs[0]
-        signature = await BotTransaction.sendAutoRetryTransaction(transaction, trade.opts?.sendTxMethod as TxMethod, tip, selectedConnection)
+
+        let method: TxMethod
+
+        if(!trade.opts?.sendTxMethods || trade.opts?.sendTxMethods.length < 0) { 
+          method = 'rpc'
+        } else {
+          method = trade.opts.sendTxMethods[0]
+        }
+
+        signature = await BotTransaction.sendAutoRetryTransaction(transaction, method, alts, tip, selectedConnection)
       }
     }
 

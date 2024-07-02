@@ -26,13 +26,13 @@ const config = convict({
     },
     send_tx_burst_type: {
         format: String,
-        default: 'single',
+        default: 'single', // multiple | single
         env: 'SEND_TX_BURST_TYPE'
     },
-    send_tx_method: {
+    send_tx_methods: {
         format: String,
-        default: 'multiple', // multiple | single
-        env: 'SEND_TX_METHOD'
+        default: '',
+        env: 'SEND_TX_METHODS'
     },
     use_send_tx_rpc: {
         format: Boolean,

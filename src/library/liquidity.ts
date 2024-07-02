@@ -358,7 +358,7 @@ export class BotLiquidity {
 			tipAmount?: BN,
 			alts: AddressLookupTableAccount[],
 			runSimulation?: boolean,
-			txMethod: TxMethod
+			txMethods: TxMethod[]
 		},
 	): Promise<VersionedTransaction> => {
 		let tokenAccountIn
@@ -427,26 +427,12 @@ export class BotLiquidity {
 		})
 
 		logger.info(`Send TX`)
-		if(config?.txMethod === 'jito_send_tx') {
+		if(config?.txMethods.includes('jito_send_tx')) {
 			endInstructions.push(SystemProgram.transfer({
 				fromPubkey: payer.publicKey,
 				toPubkey: new PublicKey(await getJitoTipAccount()),
 				lamports: config?.tipAmount ? parseInt(config.tipAmount.toString()) : 0
 			}))
-		}
-
-		if(config?.txMethod === 'bloxroute') {
-			endInstructions.push(SystemProgram.transfer({
-				fromPubkey: payer.publicKey,
-				toPubkey: BloxRouteRpc.getTipAddress(),
-				lamports: config?.tipAmount ? parseInt(config.tipAmount.toString()) : 0
-			}))
-
-			endInstructions.push(new TransactionInstruction({
-				keys: [],
-				programId: new PublicKey('HQ2UUt18uJqKaQFJhgV9zaTdQxUZjNrsKFgoEDquBkcx'),
-				data: Buffer.from('Powered by bloXroute Trader Api', 'utf-8'),
-			  }))
 		}
 
 		if(config?.runSimulation && config.runSimulation) {

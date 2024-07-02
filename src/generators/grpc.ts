@@ -7,6 +7,7 @@ import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import { logger } from "../utils/logger";
 import { BN } from "bn.js";
 import { Status } from "@grpc/grpc-js/build/src/constants";
+import { CompressionAlgorithms } from "@grpc/grpc-js/build/src/compression-algorithms";
 
 export type RequestAccounts = {
 	name: string,
@@ -40,7 +41,25 @@ export class GrpcGenerator extends BaseGenerator {
 	constructor(streamName: string, geyserUrl: string, geyserApiKey: string) {
 		super(streamName)
 		this._client = new Client(geyserUrl, geyserApiKey, {
-			"grpc.max_receive_message_length": 64 * 1024 * 1024
+			'grpc.keepalive_time_ms': 3300000,
+			'grpc.keepalive_timeout_ms': 20000,
+			'grpc.keepalive_permit_without_calls': 1,
+			'grpc.max_concurrent_streams': 100,
+			'grpc.max_connection_idle_ms': 3660000,
+			'grpc.max_connection_age_ms': 3600000,
+			'grpc.max_connection_age_grace_ms': 60000, 
+			'grpc.initial_reconnect_backoff_ms': 1000,
+			'grpc.max_reconnect_backoff_ms': 120000,
+			'grpc.enable_retries': 1,
+			'grpc.per_rpc_retry_buffer_size': 1048576,
+			'grpc.retry_buffer_size': 4194304,
+			'grpc.max_send_message_length': 10485760,
+			'grpc.max_receive_message_length': 10485760,
+			'grpc.enable_http_proxy': 0,
+			'grpc.dns_min_time_between_resolutions_ms': 30000,
+			'grpc.default_compression_algorithm': CompressionAlgorithms.gzip,
+			'grpc.enable_channelz': 0,
+			'grpc.client_idle_timeout_ms': 300000
 		} as ChannelOptions)
 	}
 
@@ -57,7 +76,6 @@ export class GrpcGenerator extends BaseGenerator {
 			});
 	
 			this.stream.on('error', async error => {
-				console.log('test')
 				console.log(error)
 			});
 
