@@ -156,7 +156,6 @@ export class GrpcGenerator extends BaseGenerator {
 				yield {
 					mempoolTxns: {
 						source: this.streamName,
-						filter: data.filters,
 						signature: bs58.encode(data.transaction.transaction.signature),
 						accountKeys: message.accountKeys.map((e: any) => bs58.encode(e)),
 						recentBlockhash: bs58.encode(message.recentBlockhash),

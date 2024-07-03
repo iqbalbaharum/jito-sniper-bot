@@ -28,6 +28,8 @@ import { BotgRPC } from "../library/grpc";
 import { BotTradeTracker } from "../library/trade-tracker";
 import { BotTrackedAmm } from "../library/tracked-amm";
 import { DexScreenerApi } from "../library/dexscreener";
+import { BotMempool } from "../library/mempool";
+import { grpcs } from "../adapter/grpcs";
 
 const coder = new RaydiumAmmCoder(raydiumIDL as Idl)
 
@@ -481,8 +483,22 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
       return 
     }
 
-    await mempool()
-    BotTrackedAmm.init()
+    const mempool = new BotMempool(grpcs)
+    await mempool.start()
+    mempool.addTransaction(`geyser_rpc_1`, {
+      vote: false,
+      failed: false,
+      accountInclude: [RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, '7YttLkHDoNj9wyDur5pM1ejNaAvT9X4eqaYcHQqtj2G5'],
+      accountExclude: [],
+      accountRequired: [],
+    })
+
+    mempool.addCallback((update) => {
+      processTx(update, ata)
+    })
+
+    // await mempool()
+    // BotTrackedAmm.init()
     
     logger.info(`Starting bot V2`)
 

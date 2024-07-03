@@ -34,7 +34,7 @@ export type TxBalance = {
 
 export type MempoolTransaction = {
 	source: string
-	filter?: string
+	filter?: string[]
 	signature: string
 	accountKeys: string[]
 	recentBlockhash: string
