@@ -494,7 +494,6 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
     MempoolManager.addLogStream(RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS)
     
     MempoolManager.listen((update) => {
-      console.log(update)
       processTx(update, ata)
     })
 
