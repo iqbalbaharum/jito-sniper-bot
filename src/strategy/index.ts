@@ -30,6 +30,9 @@ import { BotTrackedAmm } from "../library/tracked-amm";
 import { DexScreenerApi } from "../library/dexscreener";
 import { BotMempool } from "../library/mempool";
 import { grpcs } from "../adapter/grpcs";
+import { BotTritonGrpcStream } from "../library/stream-grpc";
+import { BotMempoolManager } from "../library/mempool-manager";
+import { MempoolManager } from "../adapter/mempool";
 
 const coder = new RaydiumAmmCoder(raydiumIDL as Idl)
 
@@ -483,30 +486,21 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
       return 
     }
 
-    const mempool = new BotMempool(grpcs)
-    await mempool.start()
-    mempool.addTransaction(`geyser_rpc_1`, {
-      vote: false,
-      failed: false,
-      accountInclude: [RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, '7YttLkHDoNj9wyDur5pM1ejNaAvT9X4eqaYcHQqtj2G5'],
-      accountExclude: [],
-      accountRequired: [],
-    })
+    MempoolManager.addGrpcStream(RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, [
+      RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, 
+      '7YttLkHDoNj9wyDur5pM1ejNaAvT9X4eqaYcHQqtj2G5'
+    ])
 
-    mempool.addCallback((update) => {
+    MempoolManager.addLogStream(RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS)
+    
+    MempoolManager.listen((update) => {
+      console.log(update)
       processTx(update, ata)
     })
 
-    // await mempool()
-    // BotTrackedAmm.init()
+    BotTrackedAmm.init()
     
     logger.info(`Starting bot V2`)
-
-    setInterval(async() => {
-      for await (const update of getTxs()) {
-        processTx(update, ata)
-      }
-    }, 30000)
 
   } catch(e) {
     console.log(e)

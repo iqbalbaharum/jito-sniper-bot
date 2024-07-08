@@ -2,6 +2,7 @@ import { PublicKey } from "@solana/web3.js";
 import { trackedAmm } from "../adapter/storage";
 import { subscribeAmmIdToMempool, unsubscribeAmmIdToMempool } from "../generators";
 import { logger } from "../utils/logger";
+import { MempoolManager } from "../adapter/mempool";
 
 export class BotTrackedAmm {
     static async init() {
@@ -12,19 +13,22 @@ export class BotTrackedAmm {
 			const isTracked = await trackedAmm.get(new PublicKey(ammId))
 			if(isTracked === undefined || !isTracked) { continue }
 
-			await subscribeAmmIdToMempool([ammId])
+			MempoolManager.addGrpcStream(ammId, [ammId])
+			logger.info(`Tracked: ${ammId}`)
 		}
     }
 
     static async register(ammId: PublicKey) {
         trackedAmm.set(ammId, true)
+		MempoolManager.addGrpcStream(ammId.toBase58(), [ammId.toBase58()])
+
 		logger.info(`Tracked: ${ammId}`)
-		await subscribeAmmIdToMempool([ammId.toBase58()])
 	}
 
     static async unregister(ammId: PublicKey) {
         trackedAmm.set(ammId, true)
+		MempoolManager.removeGrpcStream(ammId.toBase58())
+
 		logger.info(`Untracked: ${ammId}`)
-		await unsubscribeAmmIdToMempool(ammId)
 	}
 }
