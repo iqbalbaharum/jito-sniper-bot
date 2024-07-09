@@ -441,7 +441,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
 
   const totalChunck = SystemConfig.get('tx_balance_chuck_division')
 
-  logger.warn(`Potential entry ${ammId} | ${amount} SOL`)
+  logger.warn(`Potential entry ${ammId} | ${amount} SOL | ${tx.signature}`)
   let tracker = await BotTradeTracker.getTracker(ammId)
   if(!tracker || tracker.sellAttemptCount < config.get('max_sell_attempt')) {
     processSell(tradeId, ammId, Math.floor(totalChunck/ 5), 2000, SystemConfig.get('sell_microlamport'))
