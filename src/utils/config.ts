@@ -268,6 +268,11 @@ const config = convict({
         default: false,
         env: 'AUTO_SELL_AFTER_LP_REMOVE_FLAG'
     },
+    lp_detection_onlog_enabled: {
+        format: Boolean,
+        default: false,
+        env: 'LP_DETECTION_ONLOG_ENABLED'
+    },
     // V2/V3
     minimum_amount_out: {
         format: Number,

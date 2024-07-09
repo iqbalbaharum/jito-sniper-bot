@@ -492,7 +492,9 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
       '7YttLkHDoNj9wyDur5pM1ejNaAvT9X4eqaYcHQqtj2G5'
     ])
 
-    MempoolManager.addLogStream(RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS)
+    if(SystemConfig.get('lp_detection_onlog_enabled')) {
+      MempoolManager.addLogStream(RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS)
+    }
     
     MempoolManager.listen((update) => {
       processTx(update, ata)
