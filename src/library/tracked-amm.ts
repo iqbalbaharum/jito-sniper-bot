@@ -26,7 +26,7 @@ export class BotTrackedAmm {
 	}
 
     static async unregister(ammId: PublicKey) {
-        trackedAmm.set(ammId, true)
+        trackedAmm.set(ammId, false)
 		MempoolManager.removeGrpcStream(ammId.toBase58())
 
 		logger.info(`Untracked: ${ammId}`)

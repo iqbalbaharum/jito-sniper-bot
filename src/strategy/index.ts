@@ -440,14 +440,15 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   await BotTrade.preprocessed(tradeId, ammId)
 
   const totalChunck = SystemConfig.get('tx_balance_chuck_division')
-  // The strategy similar as bot v3 (old). On every trade triggered,
-  // burst out a number of txs (chunk)
-  // let blockhash = txPool.mempoolTxns.recentBlockhash
-  // let units = 35000
-  // let microLamports = 500000
 
   logger.warn(`Potential entry ${ammId} | ${amount} SOL`)
-  processSell(tradeId, ammId, Math.floor(totalChunck/ 5), 2000, SystemConfig.get('sell_microlamport'))
+  let tracker = await BotTradeTracker.getTracker(ammId)
+  if(!tracker || tracker.sellAttemptCount < config.get('max_sell_attempt')) {
+    processSell(tradeId, ammId, Math.floor(totalChunck/ 5), 2000, SystemConfig.get('sell_microlamport'))
+  } else {
+    BotTrade.abandoned(tradeId, AbandonedReason.EXCEED_SELL_ATTEMPT)
+    await BotTrackedAmm.unregister(ammId)
+  }
 }
 
 const processTx = async (tx: TxPool, ata: PublicKey) => {
