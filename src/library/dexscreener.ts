@@ -5,6 +5,7 @@ import { promisify } from "util";
 import { createGunzip, createInflate } from "zlib";
 import { DexscreenerResponse } from "../types/dexscreener";
 import { TokenLpDetail } from "../types";
+import sleep from "atomic-sleep";
 
 const agent = new Agent({
     keepAliveTimeout: 20 * 1000,
@@ -51,8 +52,13 @@ export class DexScreenerApi {
 			let pairResponse = await this.fetchGetRequest(mint) as DexscreenerResponse
 			
 			if(!pairResponse.pairs) {
-				return undefined
+        sleep(3000)
+				pairResponse = await this.fetchGetRequest(mint)
 			}
+
+      if(!pairResponse || !pairResponse.pairs) {
+        return undefined
+      }
 
 			let raydiumPair = pairResponse.pairs.filter(e => e.dexId === 'raydium')
 			let jupiterPair = pairResponse.pairs.filter(e => e.dexId === 'jupiter')
@@ -63,7 +69,11 @@ export class DexScreenerApi {
 				raydiumLpCount: raydiumPair.length,
 				jupiterLpCount: jupiterPair.length,
 				meteoraLpCount: meteoraPair.length,
-				orcaLpCount: orcaPair.length
+				orcaLpCount: orcaPair.length,
+        liquidity: {
+          base: raydiumPair.length > 0 ? raydiumPair[0].liquidity.base : -1,
+          quote: raydiumPair.length > 0 ? raydiumPair[0].liquidity.quote : -1,
+        }
 			}
     }
 }

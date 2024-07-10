@@ -54,6 +54,14 @@ export class BotTradeTracker {
         }
     }
 
+    static async sellAttemptReset(ammId: PublicKey) {
+        let tracker = await tradeTracker.get(ammId.toBase58())
+        if(tracker) {
+            tracker.sellAttemptCount = 0
+            await tradeTracker.set(ammId.toBase58(), tracker)
+        }
+    }
+
     // static async buyFinalized(ammId: PublicKey) {
     //     let tracker = await tradeTracker.get(ammId.toBase58())
     //     if(tracker) {

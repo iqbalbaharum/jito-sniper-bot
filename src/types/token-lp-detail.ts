@@ -5,5 +5,9 @@ export type TokenLpDetail = {
     raydiumLpCount: number,
     jupiterLpCount: number,
     meteoraLpCount: number,
-    orcaLpCount: number
+    orcaLpCount: number,
+    liquidity: {
+        base: number,
+        quote: number
+    }
 }

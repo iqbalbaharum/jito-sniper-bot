@@ -223,12 +223,8 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
     // check dexscreener
     let res = await DexScreenerApi.getLpTokenCount(info.mint!)
     if(!res) {
-      sleep(30000)
-      res = await DexScreenerApi.getLpTokenCount(info.mint!)
-      if(!res) {
-        await BotTrade.abandoned(tradeId, AbandonedReason.API_FAILED)
-        return
-      }
+      await BotTrade.abandoned(tradeId, AbandonedReason.API_FAILED)
+      return
     }
 
     await countLiquidityPool.set(ammId, res.totalLpCount - 1)
@@ -470,8 +466,28 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
     )
 
   } else {
-    BotTrade.abandoned(tradeId, AbandonedReason.EXCEED_SELL_ATTEMPT)
-    await BotTrackedAmm.unregister(ammId)
+
+    // If finalised, do another check using dexscreener
+    let info = await mints.get(ammId)
+
+    if(info === undefined || info.mint === undefined) { 
+      await BotTrade.abandoned(tradeId, AbandonedReason.NO_MINT)
+      return
+    }
+
+    let res = await DexScreenerApi.getLpTokenCount(info.mint!)
+    if(!res) {
+      await BotTrade.abandoned(tradeId, AbandonedReason.API_FAILED)
+      return
+    }
+
+    console.log(res)
+    if((!info.isMintBase && res.liquidity.base < 0.1) || (info.isMintBase && res.liquidity.quote < 0.1)) {
+      await BotTradeTracker.sellAttemptReset(ammId)
+    } else {
+      BotTrade.abandoned(tradeId, AbandonedReason.EXCEED_SELL_ATTEMPT)
+      await BotTrackedAmm.unregister(ammId)
+    }
   }
 }
 
