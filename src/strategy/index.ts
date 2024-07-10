@@ -96,7 +96,7 @@ const processBuy = async (tradeId: string, ammId: PublicKey, microLamports: numb
   }
 }
 
-async function processSell(tradeId: string, ammId: PublicKey, execCount: number = 1, execInterval: number = 1000, microLamports: number = 500000) {
+async function processSell(tradeId: string, ammId: PublicKey, execCount: number = 1, execInterval: number = 1000, methods: TxMethod[], microLamports: number = 500000, minAmountOut: BN, tipAmount: BN) {
   
   // Check if the we have confirmed balance before
   // executing sell
@@ -122,21 +122,19 @@ async function processSell(tradeId: string, ammId: PublicKey, execCount: number 
         microLamports,
         units: 45000,
         runSimulation: SystemConfig.get('run_simulation_flag'),
-        sendTxMethods: convertToTxMethodArray(SystemConfig.get('send_tx_methods')),
+        sendTxMethods: methods,
         tipAmount: new BN(0)
       }
 
-      // For now, the bot does not supported dynamic tip yet
-      // Use fixed, and read tip_amount from env
-      if(SystemConfig.get('tip_type') === 'fixed') {
-        config.tipAmount = new BN(SystemConfig.get('tip_amount'))
+      if(!tipAmount.isZero()) {
+        config.tipAmount = tipAmount
       }
 
       await BotTrade.processed(
         tradeId, 
         'sell', 
         amountIn,
-        new BN(SystemConfig.get('minimum_amount_out')), 
+        new BN(minAmountOut), 
         config
       )
       
@@ -185,7 +183,7 @@ const burstSellAfterLP = async(tradeId: string, ammId: PublicKey) => {
     return
   }
   const totalChunck = SystemConfig.get('tx_balance_chuck_division')
-  processSell(tradeId, ammId, Math.floor(totalChunck/ 4), 1800, SystemConfig.get('burst_microlamport'))
+  processSell(tradeId, ammId, Math.floor(totalChunck/ 4), 1800, ['rpc'], SystemConfig.get('burst_microlamport'), new BN(0), new BN(0))
 }
 
 const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: PublicKey) => {
@@ -225,8 +223,12 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
     // check dexscreener
     let res = await DexScreenerApi.getLpTokenCount(info.mint!)
     if(!res) {
-      await BotTrade.abandoned(tradeId, AbandonedReason.API_FAILED)
-      return
+      sleep(30000)
+      res = await DexScreenerApi.getLpTokenCount(info.mint!)
+      if(!res) {
+        await BotTrade.abandoned(tradeId, AbandonedReason.API_FAILED)
+        return
+      }
     }
 
     await countLiquidityPool.set(ammId, res.totalLpCount - 1)
@@ -444,7 +446,29 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   logger.warn(`Potential entry ${ammId} | ${amount} SOL | ${tx.signature}`)
   let tracker = await BotTradeTracker.getTracker(ammId)
   if(!tracker || tracker.sellAttemptCount < config.get('max_sell_attempt')) {
-    processSell(tradeId, ammId, Math.floor(totalChunck/ 5), 2000, SystemConfig.get('sell_microlamport'))
+    
+    let minAmountOut = new BN(0)
+    let tip = new BN(0)
+
+    if(amount > 0.2) {
+      tip = new BN(200000000)
+      minAmountOut = new BN(200000000)
+    } else {
+      tip = new BN(10000000)
+      minAmountOut = new BN(10000000)
+    }
+
+    processSell(
+      tradeId,
+      ammId,
+      Math.floor(totalChunck/ 5),
+      2000,
+      ['bloxroute'],
+      SystemConfig.get('sell_microlamport'), 
+      minAmountOut,
+      tip
+    )
+
   } else {
     BotTrade.abandoned(tradeId, AbandonedReason.EXCEED_SELL_ATTEMPT)
     await BotTrackedAmm.unregister(ammId)

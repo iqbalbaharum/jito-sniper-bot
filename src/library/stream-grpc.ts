@@ -96,6 +96,15 @@ export class BotTritonGrpcStream extends BaseStream {
 					this.callback(tx)
 				}
 			})
+
+			this.stream.on('error', (err) => {
+				logger.error(`Stream error: ${err.message}`);
+			});
+
+			this.stream.on('end', () => {
+				logger.error('Stream ended');
+			});
+
 		} catch(e) {
 			console.log(e)
 		}

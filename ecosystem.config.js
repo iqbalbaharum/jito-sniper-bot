@@ -8,7 +8,6 @@ module.exports = {
       max_memory_restart: '2G',
       autorestart: true,
       watch: false,
-      cron_restart: '0 * * * *',
       exec_mode: 'fork'
     },
     {
@@ -24,14 +23,6 @@ module.exports = {
       script: './build/src/services/market.js',
       instances: 2,
       exec_mode: 'cluster',
-      autorestart: true,
-      watch: false,
-      cron_restart: '0 * * * *',
-    },
-    {
-      name: 'blockhasher',
-      script: './build/src/services/blockhasher.js',
-      instances: 1,
       autorestart: true,
       watch: false,
       cron_restart: '0 * * * *',
