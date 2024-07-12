@@ -529,10 +529,6 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
       return 
     }
 
-    let tradeId = await BotTrade.listen(TradeEntry.WITHDRAW, 'test')
-    await BotTrade.preprocessed(tradeId, new PublicKey('64CBfefa1zeHjDxTiQMjGfQ1MKQyw6ywMw7veCYppRDQ'))
-    await processBuy(tradeId, new PublicKey('64CBfefa1zeHjDxTiQMjGfQ1MKQyw6ywMw7veCYppRDQ'), 80000)
-
     MempoolManager.addGrpcStream(RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, [
       RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, 
       '7YttLkHDoNj9wyDur5pM1ejNaAvT9X4eqaYcHQqtj2G5'
