@@ -29,8 +29,8 @@ module.exports = {
     },
     {
       name: 'blockhash',
-      script: './build/src/services/blockhash.js',
-      instances: 2,
+      script: './build/src/services/blockhasher.js',
+      instances: 1,
       autorestart: true,
       watch: false,
     },
