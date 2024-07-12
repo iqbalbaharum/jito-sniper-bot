@@ -484,7 +484,6 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
       return
     }
 
-    console.log(res)
     if((!info.isMintBase && res.liquidity.base < 0.1) || (info.isMintBase && res.liquidity.quote < 0.1)) {
       await BotTradeTracker.sellAttemptReset(ammId)
     } else {
