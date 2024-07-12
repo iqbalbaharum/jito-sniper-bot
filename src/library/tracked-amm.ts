@@ -13,8 +13,19 @@ export class BotTrackedAmm {
 			const isTracked = await trackedAmm.get(new PublicKey(ammId))
 			if(isTracked === undefined || !isTracked) { continue }
 
-			MempoolManager.addGrpcStream(ammId, [ammId])
-			logger.info(`Tracked: ${ammId}`)
+			groupsInclude.push(ammId)
+
+			if(groupsInclude.length > 9) {
+				MempoolManager.addGrpcStream(ammId, groupsInclude)
+				logger.info(`Tracked: ${groupsInclude.join(',')}`)
+				groupsInclude = []
+			}
+		}
+
+		if(groupsInclude.length > 0) {
+			MempoolManager.addGrpcStream(groupsInclude[0], groupsInclude)
+			logger.info(`Tracked: ${groupsInclude.join(',')}`)
+			groupsInclude = []
 		}
     }
 
