@@ -215,6 +215,8 @@ export class BotLiquidity {
 			marketInfo.data!
 		)
 		
+		const { publicKey: authority } = Liquidity.getAssociatedAuthority({ programId: MAINNET_PROGRAM_ID.AmmV4 })
+
 		return {
 			id: ammId,
 			baseMint: accountData.baseMint,
@@ -225,9 +227,7 @@ export class BotLiquidity {
 			lpDecimals: 5,
 			version: 4,
 			programId: MAINNET_PROGRAM_ID.AmmV4,
-			authority: Liquidity.getAssociatedAuthority({
-				programId: MAINNET_PROGRAM_ID.AmmV4,
-			}).publicKey,
+			authority,
 			openOrders: accountData.openOrders,
 			targetOrders: accountData.targetOrders,
 			baseVault: accountData.baseVault,
@@ -235,10 +235,7 @@ export class BotLiquidity {
 			marketVersion: 3,
 			marketProgramId: accountData.marketProgramId,
 			marketId: accountData.marketId,
-			marketAuthority: Market.getAssociatedAuthority({
-				programId: accountData.marketProgramId,
-				marketId: accountData.marketId,
-			}).publicKey,
+			marketAuthority: authority,
 			marketBaseVault: marketData.baseVault,
 			marketQuoteVault: marketData.quoteVault,
 			marketBids: marketData.bids,
