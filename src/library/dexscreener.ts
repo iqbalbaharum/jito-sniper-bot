@@ -6,6 +6,7 @@ import { createGunzip, createInflate } from "zlib";
 import { DexscreenerResponse } from "../types/dexscreener";
 import { TokenLpDetail } from "../types";
 import sleep from "atomic-sleep";
+import { logger } from "../utils/logger";
 
 const agent = new Agent({
     keepAliveTimeout: 20 * 1000,
@@ -53,6 +54,7 @@ export class DexScreenerApi {
 			
 			if(!pairResponse || !pairResponse.pairs) {
         sleep(3000)
+        logger.info(`RETRY Dexscreener API`)
 				pairResponse = await this.fetchGetRequest(mint)
 			}
 
