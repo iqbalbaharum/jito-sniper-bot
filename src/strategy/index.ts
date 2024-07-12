@@ -445,13 +445,16 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
     
     let minAmountOut = new BN(0)
     let tip = new BN(0)
+    let methods: TxMethod[] = []
 
     if(amount > 0.2) {
       tip = new BN(200000000)
       minAmountOut = new BN(200000000)
+      methods = ['bloxroute']
     } else {
-      tip = new BN(10000000)
-      minAmountOut = new BN(10000000)
+      tip = new BN(0)
+      minAmountOut = new BN(1000000)
+      methods = ['bloxroute', 'rpc']
     }
 
     processSell(
@@ -459,7 +462,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
       ammId,
       Math.floor(totalChunck/ 5),
       2000,
-      ['bloxroute'],
+      methods,
       SystemConfig.get('sell_microlamport'), 
       minAmountOut,
       tip
@@ -469,7 +472,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
 
     // If finalised, do another check using dexscreener
     let info = await mints.get(ammId)
-
+    
     if(info === undefined || info.mint === undefined) { 
       await BotTrade.abandoned(tradeId, AbandonedReason.NO_MINT)
       return
@@ -526,6 +529,10 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
       logger.error('No WSOL Account initialize')
       return 
     }
+
+    let tradeId = await BotTrade.listen(TradeEntry.WITHDRAW, 'test')
+    await BotTrade.preprocessed(tradeId, new PublicKey('64CBfefa1zeHjDxTiQMjGfQ1MKQyw6ywMw7veCYppRDQ'))
+    await processBuy(tradeId, new PublicKey('64CBfefa1zeHjDxTiQMjGfQ1MKQyw6ywMw7veCYppRDQ'), 80000)
 
     MempoolManager.addGrpcStream(RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, [
       RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, 

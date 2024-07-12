@@ -24,21 +24,6 @@ const config = convict({
         default: '',
         env: 'SEND_TX_RPC_URL'
     },
-    send_tx_burst_type: {
-        format: String,
-        default: 'single', // multiple | single
-        env: 'SEND_TX_BURST_TYPE'
-    },
-    send_tx_methods: {
-        format: String,
-        default: '',
-        env: 'SEND_TX_METHODS'
-    },
-    use_send_tx_rpc: {
-        format: Boolean,
-        default: false,
-        env: 'USE_SEND_TX_RPC'
-    },
     bloxroute_url: {
         format: String,
         default: '',

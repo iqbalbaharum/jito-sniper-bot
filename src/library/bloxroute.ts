@@ -20,7 +20,7 @@ export class BloxRouteRpc {
         return new PublicKey('HWEoBxYs7ssKuudEjzjmpfJVX7Dvi7wescFsVx2L5yoY')
     }
 
-    static async submitTransaction(transaction: VersionedTransaction) {
+    static async submitTransaction(transaction: VersionedTransaction, useStakedRPCs: boolean) {
 
         const { headers, body } = await request(config.get('bloxroute_url'), {
             method: 'POST',
@@ -35,7 +35,7 @@ export class BloxRouteRpc {
                 },
                 skipPreFlight: true,
                 frontRunningProtection: false,
-                useStakedRPCs: true
+                useStakedRPCs
             }),
             dispatcher: agent
           })

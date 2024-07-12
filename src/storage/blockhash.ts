@@ -1,3 +1,4 @@
+import { defaultGrpc } from "../adapter/grpcs";
 import { connection } from "../adapter/rpc";
 import { StorageKeys } from "../types/storage-keys";
 import { config } from "../utils";
@@ -49,7 +50,6 @@ export class BlockHashStorage extends BaseStorage {
                 d = this.deserialize(data)
                 break;
             case 'rpc':
-            default:
                 let currSlot = await connection.getSlot('confirmed')
                 if(currSlot - this.latestSlot > 20) {
                     let block = await connection.getLatestBlockhashAndContext('confirmed')
@@ -59,6 +59,20 @@ export class BlockHashStorage extends BaseStorage {
                     this.latestSlot = block.context.slot
                 }
 
+                d = {
+                    recentBlockhash: this.recentBlockhash,
+                    latestBlockHeight: this.latestBlockHeight,
+                    latestSlot: this.latestSlot
+                }
+                break
+            case 'grpc':
+            default:
+                const block = await defaultGrpc.getLatestBlockhash('confirmed')
+
+                this.recentBlockhash = block.blockhash
+                this.latestBlockHeight = parseInt(block.lastValidBlockHeight)
+                this.latestSlot = parseInt(block.slot)
+                
                 d = {
                     recentBlockhash: this.recentBlockhash,
                     latestBlockHeight: this.latestBlockHeight,

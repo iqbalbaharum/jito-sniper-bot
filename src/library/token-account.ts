@@ -37,9 +37,7 @@ export class BotTokenAccount {
         ASSOCIATED_TOKEN_PROGRAM_ID
       );
       
-      const ataInfo = await SolanaHttpRpc.getAccountInfo(connection, ata)
-    
-      if (create && !ataInfo) {
+      if (create) {
         instructions.push(
           createAssociatedTokenAccountInstruction(
             payer.publicKey,
@@ -50,6 +48,7 @@ export class BotTokenAccount {
             ASSOCIATED_TOKEN_PROGRAM_ID
           )
         );
+
       }
   
       return {
@@ -59,14 +58,6 @@ export class BotTokenAccount {
   };
 
   static getAssociatedTokenAccount = async (mint: PublicKey, address: PublicKey) : Promise<PublicKey> => {
-    // return await getAssociatedTokenAddressSync(
-    //   mint,
-    //   address,
-    //   false,
-    //   TOKEN_PROGRAM_ID,
-    //   ASSOCIATED_TOKEN_PROGRAM_ID
-    // );
-
     const [a] = PublicKey.findProgramAddressSync([address.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mint.toBuffer()], ASSOCIATED_TOKEN_PROGRAM_ID)
     return a
   }

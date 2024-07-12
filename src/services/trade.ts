@@ -58,6 +58,7 @@ const swap = async (tradeId: string, trade: Trade, keys: LiquidityPoolKeysV4, at
   
   let alts: AddressLookupTableAccount[] = []
 
+  
   try {
     let raydiumAlt = SystemConfig.get('raydium_alt')
     if(raydiumAlt) {
@@ -95,7 +96,7 @@ const swap = async (tradeId: string, trade: Trade, keys: LiquidityPoolKeysV4, at
     } else {
       await BotTradeTracker.sellAttempt(trade.ammId)
     }
-
+    
     let block = await blockhasher.get()
     let tip = trade.opts?.tipAmount ? trade.opts.tipAmount : new BN(0)
     
@@ -122,22 +123,23 @@ const swap = async (tradeId: string, trade: Trade, keys: LiquidityPoolKeysV4, at
     let selectedConnection : Connection = connection
     let signature: string = ''
 
-    if(SystemConfig.get('use_send_tx_rpc')) {
-      if(SystemConfig.get('send_tx_burst_type') === 'multiple') {
-        signature = await BotTransaction.sendAutoRetryBulkTransaction(send_tx_rpcs, transaction, alts, trade.opts?.sendTxMethods!, tip)
+    // Should not happen, only happen because of internal error
+    if(!trade.opts?.sendTxMethods) { return }
+
+    if(trade.opts?.sendTxMethods.length > 1) {
+      signature = await BotTransaction.sendAutoRetryBulkTransaction(send_tx_rpcs, transaction, alts, trade.opts?.sendTxMethods!, tip)
+    } else {
+      selectedConnection = send_tx_rpcs[0]
+
+      let method: TxMethod
+
+      if(!trade.opts?.sendTxMethods || trade.opts?.sendTxMethods.length < 0) { 
+        method = 'rpc'
       } else {
-        selectedConnection = send_tx_rpcs[0]
-
-        let method: TxMethod
-
-        if(!trade.opts?.sendTxMethods || trade.opts?.sendTxMethods.length < 0) { 
-          method = 'rpc'
-        } else {
-          method = trade.opts.sendTxMethods[0]
-        }
-
-        signature = await BotTransaction.sendAutoRetryTransaction(transaction, method, alts, tip, selectedConnection)
+        method = trade.opts.sendTxMethods[0]
       }
+
+      signature = await BotTransaction.sendAutoRetryTransaction(transaction, method, alts, tip, selectedConnection)
     }
 
     await BotTrade.transactionSent(tradeId, signature)

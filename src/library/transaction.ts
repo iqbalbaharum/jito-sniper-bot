@@ -217,11 +217,18 @@ export class BotTransaction {
         break
       case 'bloxroute':
         const message = TransactionMessage.decompile(transaction.message, {addressLookupTableAccounts: alts})
-        message.instructions.push(SystemProgram.transfer({
-          fromPubkey: payer.publicKey,
-          toPubkey: BloxRouteRpc.getTipAddress(),
-          lamports: !tipAmount.isZero() ? parseInt(tipAmount.toString()) : 0
-        }))
+        
+        let useStaked = false
+
+        if(!tipAmount.isZero()) {
+          useStaked = true
+
+          message.instructions.push(SystemProgram.transfer({
+            fromPubkey: payer.publicKey,
+            toPubkey: BloxRouteRpc.getTipAddress(),
+            lamports: !tipAmount.isZero() ? parseInt(tipAmount.toString()) : 0
+          }))
+        }
 
         message.instructions.push(new TransactionInstruction({
           keys: [],
@@ -231,8 +238,8 @@ export class BotTransaction {
 
         transaction.message = message.compileToV0Message()
         transaction.sign([payer])
-        
-        signature = await BloxRouteRpc.submitTransaction(transaction)
+
+        signature = await BloxRouteRpc.submitTransaction(transaction, useStaked)
         break
       case 'rpc':
       default:

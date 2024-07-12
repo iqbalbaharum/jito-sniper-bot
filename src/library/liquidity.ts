@@ -388,7 +388,8 @@ export class BotLiquidity {
 				await BotTokenAccount.getOrCreateTokenAccountInstruction(
 					accountOut,
 					true
-				)
+			)
+			// const { ata, instructions } = await BotTokenAccount.getAssociatedTokenAccountInstructions(accountOut, payer.publicKey)
 
 			tokenAccountIn = wsolTokenAccount
 			tokenAccountOut = ata
@@ -404,15 +405,12 @@ export class BotLiquidity {
 				accountInDecimal = poolKeys.baseDecimals
 			}
 
-			// const { ata } = await BotTokenAccount.getOrCreateTokenAccountInstruction(
-			// 	accountIn,
-			// 	false
-			// )
 			const ata = await BotTokenAccount.getAssociatedTokenAccount(accountIn, payer.publicKey)
 			
 			tokenAccountIn = ata
 			tokenAccountOut = wsolTokenAccount
 		}
+		
 		logger.info(`Creating swap instruction`)
 		const { innerTransaction } = Liquidity.makeSwapInstruction({
 			poolKeys,
@@ -436,6 +434,7 @@ export class BotLiquidity {
 		}
 
 		if(config?.runSimulation && config.runSimulation) {
+			logger.info(`Simulation`)
 			await BotTransaction.runSimulation(
 				connection, 
 				[
