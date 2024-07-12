@@ -53,7 +53,7 @@ export class DexScreenerApi {
 			let pairResponse = await this.fetchGetRequest(mint) as DexscreenerResponse
 			
 			if(!pairResponse || !pairResponse.pairs) {
-        sleep(3000)
+        sleep(30000)
         logger.info(`RETRY Dexscreener API`)
 				pairResponse = await this.fetchGetRequest(mint)
 			}
