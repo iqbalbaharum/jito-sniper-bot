@@ -3,11 +3,13 @@ import { trackedAmm } from "../adapter/storage";
 import { subscribeAmmIdToMempool, unsubscribeAmmIdToMempool } from "../generators";
 import { logger } from "../utils/logger";
 import { MempoolManager } from "../adapter/mempool";
+import { config } from "../utils";
 
 export class BotTrackedAmm {
     static async init() {
         let ammIds = await trackedAmm.getAll()
-        let groupsInclude: string[] = []
+
+		let groupsInclude: string[] = []
 
 		for(const ammId of ammIds) {
 			const isTracked = await trackedAmm.get(new PublicKey(ammId))
@@ -16,30 +18,38 @@ export class BotTrackedAmm {
 			groupsInclude.push(ammId)
 
 			if(groupsInclude.length > 9) {
-				MempoolManager.addGrpcStream(ammId, groupsInclude)
-				logger.info(`Tracked: ${groupsInclude.join(',')}`)
+				this.addStreams(groupsInclude)
 				groupsInclude = []
 			}
 		}
 
 		if(groupsInclude.length > 0) {
-			MempoolManager.addGrpcStream(groupsInclude[0], groupsInclude)
-			logger.info(`Tracked: ${groupsInclude.join(',')}`)
+			this.addStreams(groupsInclude)
 			groupsInclude = []
 		}
     }
 
     static async register(ammId: PublicKey) {
         trackedAmm.set(ammId, true)
-		MempoolManager.addGrpcStream(ammId.toBase58(), [ammId.toBase58()])
-
-		logger.info(`Tracked: ${ammId}`)
+		this.addStreams([ammId.toBase58()])
 	}
 
     static async unregister(ammId: PublicKey) {
         trackedAmm.set(ammId, false)
-		MempoolManager.removeGrpcStream(ammId.toBase58())
+		this.removeStreams(ammId.toBase58())
+	}
 
+	private static async addStreams(ammIds: string[]) {
+		if(config.get('mempool_type') === 'callback') {
+			MempoolManager.addGrpcStream(ammIds[0], ammIds)
+			logger.info(`Tracked: ${ammIds.join(',')}`)
+		} else if(config.get('mempool_type') === 'generator') {
+			await subscribeAmmIdToMempool(ammIds)
+		}
+	}
+
+	private static removeStreams(ammId: string) {
+		MempoolManager.removeGrpcStream(ammId)
 		logger.info(`Untracked: ${ammId}`)
 	}
 }

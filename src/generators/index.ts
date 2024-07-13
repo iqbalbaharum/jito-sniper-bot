@@ -28,8 +28,10 @@ async function mempool() {
 	})
 	generators.push(geyserPool.listen())
 
-	const onLogPool = new Web3JSOnLog('onLog_1', connection, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS)
-	generators.push(onLogPool.listen())
+	if(config.get('lp_detection_onlog_enabled')) {
+		const onLogPool = new Web3JSOnLog('onLog_1', connection, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS)
+		generators.push(onLogPool.listen())
+	}
 	
 	updates = null
 	updates = await fuseGenerators(generators)

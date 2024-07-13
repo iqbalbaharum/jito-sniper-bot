@@ -529,18 +529,28 @@ const processTx = async (tx: TxPool, ata: PublicKey) => {
       return 
     }
 
-    MempoolManager.addGrpcStream(RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, [
-      RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, 
-      '7YttLkHDoNj9wyDur5pM1ejNaAvT9X4eqaYcHQqtj2G5'
-    ])
+    if(SystemConfig.get('mempool_type') === 'callback') {
+      MempoolManager.addGrpcStream(RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, [
+        RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, 
+        '7YttLkHDoNj9wyDur5pM1ejNaAvT9X4eqaYcHQqtj2G5'
+      ])
+  
+      if(SystemConfig.get('lp_detection_onlog_enabled')) {
+        MempoolManager.addLogStream(RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS)
+      }
+      
+      MempoolManager.listen((update) => {
+        processTx(update, ata)
+      })
 
-    if(SystemConfig.get('lp_detection_onlog_enabled')) {
-      MempoolManager.addLogStream(RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS)
+    } else if(SystemConfig.get('mempool_type') === 'generator') {
+      await mempool()
+      setInterval(async() => {
+        for await (const update of getTxs()) {
+          processTx(update, ata)
+        }
+      }, 30000)
     }
-    
-    MempoolManager.listen((update) => {
-      processTx(update, ata)
-    })
 
     BotTrackedAmm.init()
     

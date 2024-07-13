@@ -167,6 +167,11 @@ const config = convict({
         env: 'POOL_OPENTIME_WAIT_MAX'
     },
     // GRPC
+    mempool_type: {
+        format: String,
+        default: 'callback',
+        env: 'MEMPOOL_TYPE'
+    },
     grpc_urls: {
         format: Array,
         default: '',
