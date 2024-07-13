@@ -263,6 +263,11 @@ const config = convict({
         default: false,
         env: 'LP_DETECTION_ONLOG_ENABLED'
     },
+    pool_tracked_flag: {
+        format: Boolean,
+        default: false,
+        env: 'POOL_TRACKED_FLAG'
+    },
     // V2/V3
     minimum_amount_out: {
         format: Number,

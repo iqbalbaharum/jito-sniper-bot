@@ -7,6 +7,9 @@ import { config } from "../utils";
 
 export class BotTrackedAmm {
     static async init() {
+
+		if(!config.get('pool_tracked_flag')) { return }
+		
         let ammIds = await trackedAmm.getAll()
 
 		let groupsInclude: string[] = []
@@ -30,13 +33,17 @@ export class BotTrackedAmm {
     }
 
     static async register(ammId: PublicKey) {
-        trackedAmm.set(ammId, true)
-		this.addStreams([ammId.toBase58()])
+		if(config.get('pool_tracked_flag')) {
+			trackedAmm.set(ammId, true)
+			this.addStreams([ammId.toBase58()])
+		}
 	}
 
     static async unregister(ammId: PublicKey) {
-        trackedAmm.set(ammId, false)
-		this.removeStreams(ammId.toBase58())
+		if(config.get('pool_tracked_flag')) {
+			trackedAmm.set(ammId, false)
+			this.removeStreams(ammId.toBase58())
+		}
 	}
 
 	private static async addStreams(ammIds: string[]) {

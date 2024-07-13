@@ -85,7 +85,8 @@ const processBuy = async (tradeId: string, ammId: PublicKey, microLamports: numb
       microLamports,
       units: 100000,
       runSimulation: SystemConfig.get('run_simulation_flag'),
-      sendTxMethods: ['rpc']
+      sendTxMethods: ['rpc'],
+      tipAmount: new BN(0)
     }
   )
 
@@ -235,7 +236,7 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
       return
     }
 
-    await processBuy(tradeId, ammId, 80000)
+    await processBuy(tradeId, ammId, 500000)
     
   } else {
     await countLiquidityPool.set(ammId, count - 1)
