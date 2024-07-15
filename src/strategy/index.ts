@@ -225,7 +225,7 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
 
     let reserve = await BotLiquidity.getSolBalanceInPool(pKeys, info.isMintBase)
     
-    if(reserve > 0.1) {
+    if(reserve > 1) {
       await BotTrade.abandoned(tradeId, AbandonedReason.LP_AVAILABLE)
       return
     }
@@ -236,7 +236,7 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
     
     let reserve = await BotLiquidity.getSolBalanceInPool(pKeys, info.isMintBase)
     
-    if(reserve > 0.1) {
+    if(reserve > 1) {
       await BotTrade.abandoned(tradeId, AbandonedReason.LP_AVAILABLE)
       return
     }
@@ -459,7 +459,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
 
     let reserve = await BotLiquidity.getSolBalanceInPool(pKeys, info.isMintBase)
 
-    if(reserve <= 0.1) {
+    if(reserve <= 1) {
       await BotTradeTracker.sellAttemptReset(ammId)
     } else {
       BotTrade.abandoned(tradeId, AbandonedReason.EXCEED_SELL_ATTEMPT)
