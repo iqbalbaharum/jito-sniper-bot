@@ -268,6 +268,11 @@ const config = convict({
         default: false,
         env: 'POOL_TRACKED_FLAG'
     },
+    minimum_sol_balance_in_lp: {
+        format: Number,
+        default: 1,
+        env: 'MINIMUM_SOL_BALANCE_IN_LP'
+    },
     // V2/V3
     minimum_amount_out: {
         format: Number,

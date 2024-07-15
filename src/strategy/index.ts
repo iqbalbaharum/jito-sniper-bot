@@ -188,6 +188,9 @@ const burstSellAfterLP = async(tradeId: string, ammId: PublicKey) => {
 }
 
 const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: PublicKey) => {
+
+  sleep(SystemConfig.get('delayed_buy_token_in_ms'))
+  
   const tx = txPool.mempoolTxns
   
   let ammId: PublicKey | undefined = await getAmmIdFromMempoolTx(tx, instruction)
@@ -225,7 +228,8 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
 
     let reserve = await BotLiquidity.getSolBalanceInPool(pKeys, info.isMintBase)
     
-    if(reserve > 1) {
+    if(reserve > config.get('minimum_sol_balance_in_lp')) {
+      logger.info(`${ammId} | SOL RESERVED IN LP: ${reserve}`)
       await BotTrade.abandoned(tradeId, AbandonedReason.LP_AVAILABLE)
       return
     }
@@ -236,7 +240,7 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
     
     let reserve = await BotLiquidity.getSolBalanceInPool(pKeys, info.isMintBase)
     
-    if(reserve > 1) {
+    if(reserve > config.get('minimum_sol_balance_in_lp')) {
       await BotTrade.abandoned(tradeId, AbandonedReason.LP_AVAILABLE)
       return
     }
@@ -459,7 +463,7 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
 
     let reserve = await BotLiquidity.getSolBalanceInPool(pKeys, info.isMintBase)
 
-    if(reserve <= 1) {
+    if(reserve <= config.get('minimum_sol_balance_in_lp')) {
       await BotTradeTracker.sellAttemptReset(ammId)
     } else {
       BotTrade.abandoned(tradeId, AbandonedReason.EXCEED_SELL_ATTEMPT)
