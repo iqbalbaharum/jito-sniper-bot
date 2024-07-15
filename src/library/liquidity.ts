@@ -479,6 +479,21 @@ export class BotLiquidity {
 		return transaction
 	}
 
+	static async getSolBalanceInPool (poolKeys: LiquidityPoolKeysV4, isBaseMint: boolean) {
+		let poolData = await Liquidity.fetchInfo({ connection, poolKeys })
+
+		let reserve
+		if(isBaseMint) {
+			reserve = poolData.quoteReserve
+		} else {
+			reserve = poolData.baseReserve
+		}
+
+    	let reserveDecimal = parseInt(reserve.toString()) / LAMPORTS_PER_SOL
+
+		return reserveDecimal
+	}
+
 	/**
 	 * Get token price
 	 * @param mint 

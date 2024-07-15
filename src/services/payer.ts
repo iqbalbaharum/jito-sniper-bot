@@ -6,7 +6,7 @@ import { redisClient } from "../adapter/redis";
 import { confirmedConnection, connection, connectionAlt1 } from "../adapter/rpc";
 import { OPENBOOK_V1_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, WSOL_ADDRESS, config as SystemConfig } from "../utils";
 import { BotgRPC } from "../library/grpc";
-import { BlockHashStorage, CountLiquidityPoolStorage, MintStorage, PoolKeysStorage, TokenChunkStorage } from "../storage";
+import { BlockHashStorage, MintStorage, PoolKeysStorage, TokenChunkStorage } from "../storage";
 import { payer } from "../adapter/payer";
 import { BotLiquidityState, LookupIndex, TxInstruction, TxPool } from "../types";
 import { AccountChangeCallback, PublicKey, Transaction, VersionedTransactionResponse } from "@solana/web3.js";
@@ -20,7 +20,7 @@ import { BotTransaction } from "../library/transaction";
 import { BotLookupTable } from "../library";
 import { logger } from "../utils/logger";
 import { ConcurrentSet } from "../utils/concurrent-set";
-import { countLiquidityPool, mints, tokenBalances, poolKeys, txBalanceUpdater, trackedAmm } from "../adapter/storage";
+import { mints, tokenBalances, poolKeys, txBalanceUpdater, trackedAmm } from "../adapter/storage";
 import { grpcs } from "../adapter/grpcs";
 import { BotTradeTracker } from "../library/trade-tracker";
 import { BotTrackedAmm } from "../library/tracked-amm";
@@ -32,7 +32,7 @@ const TXS_COUNT = SystemConfig.get('payer_retrieve_txs_count')
 
 const coder = new RaydiumAmmCoder(raydiumIDL as Idl)
 
-const updateTokenBalance = async (signature: string, ammId: PublicKey, blockTime: number, amount: BN, lpCount: number | undefined) => {
+const updateTokenBalance = async (signature: string, ammId: PublicKey, blockTime: number, amount: BN) => {
   if(amount.isNeg()) { // SELL
     const prevBalance = await tokenBalances.get(ammId);
     if (prevBalance !== undefined && !prevBalance.remaining.isNeg()) {
@@ -108,12 +108,10 @@ const process = async (tx: TxPool, instruction: TxInstruction) => {
 
   const state = await mints.get(ammId!)
   if(!state) { return }
-
-  let count = await countLiquidityPool.get(ammId)
   
   let txAmount = BotTransaction.getBalanceFromTransaction(preTokenBalances, postTokenBalances, state.mint)
   
-  updateTokenBalance(tx.mempoolTxns.signature, ammId, tx.blockTime!, txAmount, count, )
+  updateTokenBalance(tx.mempoolTxns.signature, ammId, tx.blockTime!, txAmount)
 }
 
 const getTransaction = async (signature: string) : Promise<TxPool> => {

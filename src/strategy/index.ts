@@ -3,7 +3,7 @@
  */
 import { AddressLookupTableAccount, Commitment, Connection, LAMPORTS_PER_SOL, Logs, MessageAccountKeys, PublicKey, VersionedTransaction } from "@solana/web3.js";
 import { confirmedConnection, connection } from "../adapter/rpc";
-import { BigNumberish, LIQUIDITY_STATE_LAYOUT_V4, LiquidityPoolKeys, LiquidityPoolKeysV4, LiquidityState, LiquidityStateV4, Logger, MARKET_STATE_LAYOUT_V3, getMultipleAccountsInfo, parseBigNumberish } from "@raydium-io/raydium-sdk";
+import { BigNumberish, LIQUIDITY_STATE_LAYOUT_V4, Liquidity, LiquidityPoolKeys, LiquidityPoolKeysV4, LiquidityState, LiquidityStateV4, Logger, MARKET_STATE_LAYOUT_V3, getMultipleAccountsInfo, parseBigNumberish } from "@raydium-io/raydium-sdk";
 import BN from "bn.js";
 import { JUPITER_ADDRESS, OPENBOOK_V1_ADDRESS, RAYDIUM_AUTHORITY_V4_ADDRESS, RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS, WSOL_ADDRESS } from "../utils/const";
 import { config as SystemConfig, config } from "../utils/config";
@@ -20,7 +20,7 @@ import { Idl } from "@coral-xyz/anchor";
 import { IxSwapBaseIn } from "../utils/coder/layout";
 import { payer } from "../adapter/payer";
 import { getTxs, mempool, subscribeAmmIdToMempool, unsubscribeAmmIdToMempool } from "../generators";
-import { blockhasher, blockhasherv2, countLiquidityPool, existingMarkets, mints, tokenBalances, poolKeys, trackedAmm } from "../adapter/storage";
+import { blockhasher, blockhasherv2, existingMarkets, mints, tokenBalances, poolKeys, trackedAmm } from "../adapter/storage";
 import { BotQueue } from "../library/queue";
 import { BotTrade, BotTradeType } from "../library/trade";
 import { AbandonedReason, TradeEntry } from "../types/trade";
@@ -199,39 +199,33 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
   
   await BotTrade.preprocessed(tradeId, ammId)
 
-  let count: number | undefined = await countLiquidityPool.get(ammId)
-  if(count === undefined || count === null) {
+  const pKeys = await BotLiquidity.getAccountPoolKeys(ammId)
+  
+  if(!pKeys) {
+    await BotTrade.abandoned(tradeId, AbandonedReason.NO_POOLKEY)
+    return 
+  }
+
+  const info = await BotToken.getMintFromPoolKeys(pKeys)
+
+  if(info === undefined || info.mint === undefined) { 
+    await BotTrade.abandoned(tradeId, AbandonedReason.NO_MINT)
+    return
+  }
+
+  // Check if tracked
+  let isTracked = await trackedAmm.get(ammId)
+  
+  if(!isTracked) {
     
     if(!SystemConfig.get('buy_after_withdraw_flag')) { 
       await BotTrade.abandoned(tradeId, AbandonedReason.NO_BUY_AFTER_WITHDRAW)
       return
     }
 
-    const pKeys = await BotLiquidity.getAccountPoolKeys(ammId)
-  
-    if(!pKeys) {
-      await BotTrade.abandoned(tradeId, AbandonedReason.NO_POOLKEY)
-      return 
-    }
-
-    const info = await BotToken.getMintFromPoolKeys(pKeys)
-
-    if(info === undefined || info.mint === undefined) { 
-      await BotTrade.abandoned(tradeId, AbandonedReason.NO_MINT)
-      return
-    }
-
-    // check dexscreener
-    let res = await DexScreenerApi.getLpTokenCount(info.mint!)
-    if(!res) {
-      await BotTrade.abandoned(tradeId, AbandonedReason.API_FAILED)
-      return
-    }
-
-    await countLiquidityPool.set(ammId, res.totalLpCount - 1)
-    count = res.totalLpCount - 1
-
-    if(count != 0) {
+    let reserve = await BotLiquidity.getSolBalanceInPool(pKeys, info.isMintBase)
+    
+    if(reserve > 0.1) {
       await BotTrade.abandoned(tradeId, AbandonedReason.LP_AVAILABLE)
       return
     }
@@ -239,23 +233,16 @@ const processWithdraw = async (instruction: TxInstruction, txPool: TxPool, ata: 
     await processBuy(tradeId, ammId, 500000)
     
   } else {
-    await countLiquidityPool.set(ammId, count - 1)
-    count = count - 1
-
-    if(count != 0) {
+    
+    let reserve = await BotLiquidity.getSolBalanceInPool(pKeys, info.isMintBase)
+    
+    if(reserve > 0.1) {
       await BotTrade.abandoned(tradeId, AbandonedReason.LP_AVAILABLE)
       return
     }
 
-    // Check if tracked
-    let isTracked = await trackedAmm.get(ammId)
-    if(!isTracked) {
-      await BotTrade.abandoned(tradeId, AbandonedReason.NOT_TRACKED)
-      return
-    }
-
     // Burst sell transaction, if rugpull detected
-    if(SystemConfig.get('auto_sell_after_lp_remove_flag') && count === 0) {
+    if(SystemConfig.get('auto_sell_after_lp_remove_flag')) {
       await burstSellAfterLP(tradeId, ammId)
     } else {
       BotTrade.abandoned(tradeId, AbandonedReason.NO_SELL_AFTER_WITHDRAW)
@@ -296,10 +283,6 @@ const processInitialize2 = async (instruction: TxInstruction, txPool: TxPool, at
     return
   }
 
-  // Preset count LP
-  // ignoring success or failed transaction
-  await countLiquidityPool.set(ammId, 1)
-
   // To add delay buy, add DELAYED_BUY_TOKEN_IN_MS in environment
   await processBuy(tradeId, ammId, 500000, SystemConfig.get('delayed_buy_token_in_ms'))
 }
@@ -336,6 +319,10 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   }
 
   if(!ammId) { return }
+  
+  if(ammId.toBase58() === 'BQctuq9AFSc9udkKhLuEDNTkzSMe1rhG8a9eu78rH6yT') {
+    logger.info(`BQctuq9AFSc9udkKhLuEDNTkzSMe1rhG8a9eu78rH6yT | Con`)
+  }
   
   // BUG: There's another method for Raydium swap which move the array positions
   // to differentiate which position, check the position of OPENBOOK program Id in accountKeys
@@ -402,20 +389,11 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
   let txAmount = BotTransaction.getBalanceFromTransaction(tx.preTokenBalances, tx.postTokenBalances, state.mint)
   let txSolAmount = BotTransaction.getBalanceFromTransaction(tx.preTokenBalances, tx.postTokenBalances, new PublicKey(WSOL_ADDRESS))
   
-  let count = await countLiquidityPool.get(ammId)
-  
   // This function to calculate the latest balance token in payer wallet.
   // The getBalanceFromTransaction, can identify if the tx is BUY @ SELL call
   if(sourceTA.equals(ata) || signer.equals(payer.publicKey)) {
     return
   }
-
-  // Validate if the swap fullfill certain condition
-  // 1. LP have been removed (Check LP count)
-  // 2. Buy swap
-  // 3. Tracked poolKeys
-  if(count === undefined || count === null) { return }
-  if(count > 0) { return }
 
   // Check if the amm is tracked, only proceed tracked amm
   let isTracked = await trackedAmm.get(ammId)
@@ -479,13 +457,9 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
       return
     }
 
-    let res = await DexScreenerApi.getLpTokenCount(info.mint!)
-    if(!res) {
-      await BotTrade.abandoned(tradeId, AbandonedReason.API_FAILED)
-      return
-    }
+    let reserve = await BotLiquidity.getSolBalanceInPool(pKeys, info.isMintBase)
 
-    if((!info.isMintBase && res.liquidity.base < 0.1) || (info.isMintBase && res.liquidity.quote < 0.1)) {
+    if(reserve <= 0.1) {
       await BotTradeTracker.sellAttemptReset(ammId)
     } else {
       BotTrade.abandoned(tradeId, AbandonedReason.EXCEED_SELL_ATTEMPT)
