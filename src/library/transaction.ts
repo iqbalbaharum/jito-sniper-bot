@@ -98,10 +98,7 @@ export class BotTransaction {
         account.owner === RAYDIUM_AUTHORITY_V4_ADDRESS
     )[0];
     
-    if(!tokenPreAccount || !tokenPostAccount) {
-      console.log(preTokenBalances)
-      console.log(postTokenBalances)
-    }
+
     const tokenAmount = tokenPreAccount.amount.sub(tokenPostAccount.amount)
 
     return tokenAmount

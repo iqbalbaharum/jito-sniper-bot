@@ -19,9 +19,7 @@ export type RequestAccounts = {
 export class GrpcGenerator extends BaseGenerator {
 
 	private gRequest: SubscribeRequest = {
-		slots: {
-			slots: {}
-		},
+		slots: {},
 		accounts: {},
 		transactions: {},
 		blocks: {},

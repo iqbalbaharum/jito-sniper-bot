@@ -324,10 +324,6 @@ const processSwapBaseIn = async (swapBaseIn: IxSwapBaseIn, instruction: TxInstru
 
   if(!ammId) { return }
   
-  if(ammId.toBase58() === 'BQctuq9AFSc9udkKhLuEDNTkzSMe1rhG8a9eu78rH6yT') {
-    logger.info(`BQctuq9AFSc9udkKhLuEDNTkzSMe1rhG8a9eu78rH6yT | Con`)
-  }
-  
   // BUG: There's another method for Raydium swap which move the array positions
   // to differentiate which position, check the position of OPENBOOK program Id in accountKeys
   const serumAccountIndex = accountIndexes[7]

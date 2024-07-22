@@ -8,6 +8,7 @@ module.exports = {
       max_memory_restart: '2G',
       autorestart: true,
       watch: false,
+      cron_restart: '0 * * * *',
       exec_mode: 'fork'
     },
     {
